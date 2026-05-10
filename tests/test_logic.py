@@ -138,7 +138,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertEqual(candidate.phase, "positioned_approach")
         self.assertGreaterEqual(candidate.confidence, 0.55)
-        self.assertIn("Заходит на посадку", candidate.announcement)
+        self.assertIn("Заходит на посадку рейс", candidate.announcement)
         self.assertIn("Исра Эйр", candidate.announcement)
         self.assertIn("Из Тель-Авива", candidate.announcement)
 

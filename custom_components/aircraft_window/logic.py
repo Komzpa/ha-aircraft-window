@@ -557,7 +557,10 @@ def build_announcement(
         subject = " ".join(part for part in [operator, flight_number] if part)
     else:
         subject = " ".join(part for part in [airline, flight_number] if part)
-    sentence = f"{base}: {subject or label}."
+    if phase in {"positioned_approach", "positioned_landing", "positioned_takeoff"}:
+        sentence = f"{base} рейс {subject or label}."
+    else:
+        sentence = f"{base}: {subject or label}."
     reason = novelty_reason(enrichment, phase)
     if reason:
         sentence = f"Особое объявление. {sentence}"
