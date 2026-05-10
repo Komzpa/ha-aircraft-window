@@ -31,6 +31,10 @@ aircraft model, and built year when public enrichment data is available.
 5. Restart Home Assistant.
 6. Add the integration from **Settings -> Devices & services**.
 
+Aircraft Window uses Home Assistant's configured home coordinates automatically.
+Manual latitude/longitude overrides are available later in the integration
+options if your viewing point is not the HA home location.
+
 ### Manual
 
 Copy `custom_components/aircraft_window` into your Home Assistant

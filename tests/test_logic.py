@@ -63,7 +63,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("Боинг семьсот тридцать семь MAX восемь", candidate.announcement)
         self.assertIn("две тысячи девятнадцатого года", candidate.announcement)
 
-    def test_no_position_candidate_is_explicit_about_missing_coordinates(self) -> None:
+    def test_no_position_candidate_uses_enrichment_and_mentions_missing_coordinates(self) -> None:
         candidate = logic.pick_candidate(
             [
                 {
@@ -80,10 +80,25 @@ class AircraftWindowLogicTest(unittest.TestCase):
             max_positioned_distance_km=8,
             max_no_position_seen_seconds=4,
             source="test",
+            enrich=lambda _aircraft: {
+                "airline_name": "Red Wings",
+                "origin_speech": "Сочи",
+                "destination_speech": "Батуми",
+                "aircraft_model": "Tupolev Tu-214",
+                "aircraft_type": "T214",
+                "aircraft_model_speech": "Ту-двести четырнадцать",
+                "built_year": 2008,
+                "built_year_speech": "две тысячи восьмого года",
+                "spoken_flight": "пять пять три",
+            },
         )
 
         self.assertEqual(candidate.phase, "no_position_nearby")
-        self.assertIn("Координат нет", candidate.announcement)
+        self.assertIn("без координат", candidate.announcement)
+        self.assertIn("Ред Вингс", candidate.announcement)
+        self.assertIn("Сочи - Батуми", candidate.announcement)
+        self.assertIn("Ту-двести четырнадцать", candidate.announcement)
+        self.assertIn("две тысячи восьмого года", candidate.announcement)
 
     def test_unmapped_airline_and_model_are_marked_unusual(self) -> None:
         text = logic.build_announcement(

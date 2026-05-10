@@ -154,6 +154,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         if base_candidate.active and base_candidate.event_key != self._last_event_key:
             self.hass.bus.async_fire(EVENT_CANDIDATE, base_candidate.as_dict())
             self._last_event_key = base_candidate.event_key
+        elif not base_candidate.active:
+            self._last_event_key = ""
         return base_candidate
 
     async def _async_cache(self) -> dict[str, Any]:

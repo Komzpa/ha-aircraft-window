@@ -373,9 +373,6 @@ def build_announcement(
 ) -> str:
     """Build the short spoken announcement."""
     label = flight_label(aircraft)
-    if phase == "no_position_nearby":
-        return f"Похоже, рядом самолёт: {label}. Координат нет, но локальный приём сильный."
-
     airline_name = str(enrichment.get("airline_name") or "").strip()
     airline = AIRLINE_SPEECH_RU.get(airline_name, airline_name)
     model = str(
@@ -391,7 +388,9 @@ def build_announcement(
     ).strip()
     flight_number = str(enrichment.get("spoken_flight") or label).strip()
 
-    if phase == "positioned_landing":
+    if phase == "no_position_nearby":
+        base = "Похоже, рядом самолёт без координат"
+    elif phase == "positioned_landing":
         base = "Самолёт. Посадка"
     elif phase == "positioned_takeoff":
         base = "Самолёт. Взлёт"
@@ -406,7 +405,11 @@ def build_announcement(
         sentence = f"Необычное. {sentence}"
 
     extra: list[str] = []
-    if phase == "positioned_landing" and origin:
+    if phase == "no_position_nearby":
+        extra.append("локальный приём сильный")
+        if origin and destination:
+            extra.append(f"{origin} - {destination}")
+    elif phase == "positioned_landing" and origin:
         extra.append(f"Из {origin}")
     elif phase == "positioned_takeoff" and destination:
         extra.append(f"В {destination}")
