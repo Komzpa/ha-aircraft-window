@@ -403,6 +403,8 @@ class AircraftCandidate:
     route_summary: str = ""
     route_source: str = ""
     scheduled_departure_local: str = ""
+    airport_board_remark: str = ""
+    airport_board_estimated_local: str = ""
     aircraft_model: str = ""
     aircraft_type: str = ""
     aircraft_model_speech: str = ""
