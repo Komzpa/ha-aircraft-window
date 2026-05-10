@@ -194,7 +194,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "Ту-тум-туу. Дополнение к объявлению: "
             "это Исра Эйр восемь девять ноль, в Тель-Авив.",
         )
-        self.assertNotIn("Внимание: взлёт борта", text)
+        self.assertNotIn("Внимание: самолёт вылетает", text)
         self.assertNotIn("Аэробус", text)
         self.assertNotIn("шестнадцатого", text)
 
@@ -224,7 +224,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         assert candidate is not None
         self.assertEqual(candidate.phase, "military_visible")
         self.assertTrue(candidate.announcement.startswith("Ту-тум-туу."))
-        self.assertIn("военный борт", candidate.announcement)
+        self.assertIn("военный самолёт", candidate.announcement)
         self.assertIn("Польские ВВС", candidate.announcement)
         self.assertIn("C-295 M", candidate.announcement)
 
