@@ -533,7 +533,7 @@ def build_announcement(
     flight_number = str(enrichment.get("spoken_flight") or label).strip()
 
     if phase == "military_visible":
-        base = "Внимание: военный самолёт в зоне видимости"
+        base = "Военный самолёт в зоне видимости"
     elif phase == "kutaisi_route":
         if str(enrichment.get("destination_iata") or "").upper() == "KUT":
             base = "Информация для наблюдения: рейс на Кутаиси"
@@ -542,17 +542,17 @@ def build_announcement(
         else:
             base = "Информация для наблюдения: рейс через Кутаиси"
     elif phase == "no_position_nearby":
-        base = "Внимание: рядом самолёт без координат"
+        base = "Рядом самолёт без координат"
     elif phase == "positioned_approach":
-        base = "Внимание: самолёт заходит на посадку"
+        base = "Заходит на посадку"
     elif phase == "positioned_landing":
-        base = "Внимание: самолёт на посадке"
+        base = "Посадка"
     elif phase == "positioned_takeoff":
-        base = "Внимание: самолёт вылетает"
+        base = "Вылетает"
     elif phase == "positioned_low_nearby":
-        base = "Внимание: самолёт рядом"
+        base = "Самолёт рядом"
     else:
-        base = "Внимание: самолёт"
+        base = "Самолёт"
 
     if phase == "military_visible":
         operator = military_operator_speech(enrichment)
