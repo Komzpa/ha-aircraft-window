@@ -19,6 +19,8 @@ CITY_FROM_RU = {
     "Istanbul": "Стамбула",
     "Jeddah": "Джидды",
     "Kazan": "Казани",
+    "Kopitnari": "Кутаиси",
+    "Larnaca": "Ларнаки",
     "Minsk": "Минска",
     "Moscow": "Москвы",
     "Natakhtari": "Натахтари",
@@ -44,6 +46,8 @@ CITY_TO_RU = {
     "Istanbul": "Стамбул",
     "Jeddah": "Джидду",
     "Kazan": "Казань",
+    "Kopitnari": "Кутаиси",
+    "Larnaca": "Ларнаку",
     "Minsk": "Минск",
     "Moscow": "Москву",
     "Natakhtari": "Натахтари",
@@ -94,6 +98,7 @@ AIRLINE_SPEECH_RU = {
     "Turkish Airlines": "Туркиш",
     "Uzbekistan Airways": "Узбекистон",
     "Varesh Airlines": "Вареш",
+    "Wizz Air": "Визз Эйр",
 }
 
 MILITARY_OPERATOR_SPEECH_RU = {

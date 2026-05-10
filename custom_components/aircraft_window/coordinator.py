@@ -228,11 +228,11 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 special_candidate is not None
                 and (
                     not base_candidate.active
-                    or special_candidate.confidence > base_candidate.confidence
                     or (
                         special_candidate.phase == "military_visible"
                         and base_candidate.phase
                         not in {"positioned_landing", "positioned_takeoff", "positioned_approach"}
+                        and special_candidate.confidence > base_candidate.confidence
                     )
                 )
             ):

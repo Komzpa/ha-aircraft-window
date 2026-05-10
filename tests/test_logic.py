@@ -283,6 +283,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(candidate.phase, "kutaisi_route")
         self.assertIn("Рейс из Кутаиси", candidate.announcement)
         self.assertIn("Кутаиси - Ригу", candidate.announcement)
+        self.assertFalse(candidate.unusual_aircraft)
 
     def test_speech_helpers(self) -> None:
         self.assertEqual(logic.spoken_flight("RWZ553", airline_icao="RWZ"), "пять пять три")
