@@ -141,8 +141,6 @@ MILITARY_TYPE_CODES = {
     "T154",
 }
 
-ANNOUNCEMENT_CHIME_RU = "Ту-тум-туу."
-
 DIGIT_RU = {
     "0": "ноль",
     "1": "один",
@@ -588,7 +586,7 @@ def build_announcement(
         extra.append(built_year)
     if extra:
         sentence = f"{sentence} {', '.join(extra)}."
-    return f"{ANNOUNCEMENT_CHIME_RU} {sentence}"
+    return sentence
 
 
 def build_followup_announcement(
@@ -642,7 +640,7 @@ def build_followup_announcement(
 
     if not details:
         return ""
-    return f"{ANNOUNCEMENT_CHIME_RU} Дополнение к объявлению: {', '.join(details)}."
+    return f"Дополнение: {', '.join(details)}."
 
 
 def idle_candidate(reason: str, *, source: str = "", aircraft_count: int = 0) -> AircraftCandidate:

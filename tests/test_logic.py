@@ -138,7 +138,6 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertEqual(candidate.phase, "positioned_approach")
         self.assertGreaterEqual(candidate.confidence, 0.55)
-        self.assertTrue(candidate.announcement.startswith("Ту-тум-туу."))
         self.assertIn("Заходит на посадку", candidate.announcement)
         self.assertIn("Исра Эйр", candidate.announcement)
         self.assertIn("Из Тель-Авива", candidate.announcement)
@@ -157,7 +156,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
             },
         )
 
-        self.assertTrue(text.startswith("Ту-тум-туу. Особое объявление."))
+        self.assertTrue(text.startswith("Особое объявление."))
         self.assertIn("New Example Air", text)
 
     def test_followup_announcement_adds_new_callsign_without_repeating_model(self) -> None:
@@ -191,8 +190,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertEqual(
             text,
-            "Ту-тум-туу. Дополнение к объявлению: "
-            "это Исра Эйр восемь девять ноль, в Тель-Авив.",
+            "Дополнение: это Исра Эйр восемь девять ноль, в Тель-Авив.",
         )
         self.assertNotIn("Вылетает", text)
         self.assertNotIn("Аэробус", text)
@@ -223,7 +221,6 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         assert candidate is not None
         self.assertEqual(candidate.phase, "military_visible")
-        self.assertTrue(candidate.announcement.startswith("Ту-тум-туу."))
         self.assertIn("Военный самолёт", candidate.announcement)
         self.assertIn("Польские ВВС", candidate.announcement)
         self.assertIn("C-295 M", candidate.announcement)

@@ -8,6 +8,19 @@ blueprint:
       selector:
         entity:
           domain: assist_satellite
+    chime_media_player:
+      name: Chime media player
+      description: Optional media_player for a short pre-announcement tone.
+      default: ""
+      selector:
+        entity:
+          domain: media_player
+    chime_media_content_id:
+      name: Chime media URL
+      description: Optional URL/path to a short tone, for example /local/aircraft_window_chime.wav.
+      default: ""
+      selector:
+        text:
     mute_boolean:
       name: Mute helper
       description: Optional input_boolean. When it is on, announcements are skipped.
@@ -34,6 +47,8 @@ trigger:
 
 variables:
   mute_boolean: !input mute_boolean
+  chime_media_player: !input chime_media_player
+  chime_media_content_id: !input chime_media_content_id
   minimum_confidence: !input minimum_confidence
   announcement: "{{ trigger.event.data.announcement | default('') }}"
   confidence: "{{ trigger.event.data.confidence | default(0) | float(0) }}"
@@ -48,6 +63,18 @@ condition:
       {{ mute_boolean == '' or not is_state(mute_boolean, 'on') }}
 
 action:
+  - if:
+      - condition: template
+        value_template: "{{ chime_media_player != '' and chime_media_content_id != '' }}"
+    then:
+      - service: media_player.play_media
+        target:
+          entity_id: !input chime_media_player
+        data:
+          media_content_id: "{{ chime_media_content_id }}"
+          media_content_type: music
+      - delay:
+          milliseconds: 650
   - service: assist_satellite.announce
     target:
       entity_id: !input assist_satellite
