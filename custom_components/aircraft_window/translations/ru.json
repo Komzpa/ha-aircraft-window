@@ -1,0 +1,37 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Aircraft Window",
+        "description": "Следит за самолётами рядом с локальным ADS-B приёмником и отдаёт кандидата для голосовых объявлений и автоматизаций штор.",
+        "data": {
+          "dump1090_url": "URL aircraft.json из dump1090/readsb",
+          "home_latitude": "Широта дома",
+          "home_longitude": "Долгота дома",
+          "max_positioned_distance_km": "Максимальная дистанция с координатами, км",
+          "max_no_position_seen_seconds": "Максимальный возраст без координат, секунд",
+          "scan_interval_seconds": "Интервал опроса, секунд",
+          "enable_enrichment": "Дополнять маршрут, авиакомпанию, модель и год выпуска",
+          "enrichment_timeout_seconds": "Таймаут справочных запросов, секунд"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Настройки Aircraft Window",
+        "data": {
+          "dump1090_url": "URL aircraft.json из dump1090/readsb",
+          "home_latitude": "Широта дома",
+          "home_longitude": "Долгота дома",
+          "max_positioned_distance_km": "Максимальная дистанция с координатами, км",
+          "max_no_position_seen_seconds": "Максимальный возраст без координат, секунд",
+          "scan_interval_seconds": "Интервал опроса, секунд",
+          "enable_enrichment": "Дополнять маршрут, авиакомпанию, модель и год выпуска",
+          "enrichment_timeout_seconds": "Таймаут справочных запросов, секунд"
+        }
+      }
+    }
+  }
+}

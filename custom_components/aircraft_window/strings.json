@@ -1,0 +1,37 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Aircraft Window",
+        "description": "Track aircraft near a local ADS-B receiver and expose a Home Assistant candidate sensor for announcements and cover automations.",
+        "data": {
+          "dump1090_url": "dump1090/readsb aircraft.json URL",
+          "home_latitude": "Home latitude",
+          "home_longitude": "Home longitude",
+          "max_positioned_distance_km": "Maximum positioned distance, km",
+          "max_no_position_seen_seconds": "Maximum no-position age, seconds",
+          "scan_interval_seconds": "Polling interval, seconds",
+          "enable_enrichment": "Enrich route, airline, model, and built year",
+          "enrichment_timeout_seconds": "Enrichment request timeout, seconds"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Aircraft Window options",
+        "data": {
+          "dump1090_url": "dump1090/readsb aircraft.json URL",
+          "home_latitude": "Home latitude",
+          "home_longitude": "Home longitude",
+          "max_positioned_distance_km": "Maximum positioned distance, km",
+          "max_no_position_seen_seconds": "Maximum no-position age, seconds",
+          "scan_interval_seconds": "Polling interval, seconds",
+          "enable_enrichment": "Enrich route, airline, model, and built year",
+          "enrichment_timeout_seconds": "Enrichment request timeout, seconds"
+        }
+      }
+    }
+  }
+}

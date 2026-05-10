@@ -1,0 +1,55 @@
+blueprint:
+  name: Aircraft Window announcement
+  description: Announce aircraft_window_candidate events through an Assist satellite.
+  domain: automation
+  input:
+    assist_satellite:
+      name: Assist satellite
+      selector:
+        entity:
+          domain: assist_satellite
+    mute_boolean:
+      name: Mute helper
+      description: Optional input_boolean. When it is on, announcements are skipped.
+      default: ""
+      selector:
+        entity:
+          domain: input_boolean
+    minimum_confidence:
+      name: Minimum confidence
+      default: 0.4
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.05
+          mode: slider
+
+mode: single
+max_exceeded: silent
+
+trigger:
+  - platform: event
+    event_type: aircraft_window_candidate
+
+variables:
+  mute_boolean: !input mute_boolean
+  minimum_confidence: !input minimum_confidence
+  announcement: "{{ trigger.event.data.announcement | default('') }}"
+  confidence: "{{ trigger.event.data.confidence | default(0) | float(0) }}"
+
+condition:
+  - condition: template
+    value_template: "{{ announcement | length > 0 }}"
+  - condition: template
+    value_template: "{{ confidence >= (minimum_confidence | float(0)) }}"
+  - condition: template
+    value_template: >-
+      {{ mute_boolean == '' or not is_state(mute_boolean, 'on') }}
+
+action:
+  - service: assist_satellite.announce
+    target:
+      entity_id: !input assist_satellite
+    data:
+      message: "{{ announcement }}"
