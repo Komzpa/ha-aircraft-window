@@ -96,6 +96,46 @@ AIRLINE_SPEECH_RU = {
     "Varesh Airlines": "Вареш",
 }
 
+MILITARY_OPERATOR_SPEECH_RU = {
+    "PLF": "Польские ВВС",
+    "RCH": "военный транспорт США",
+    "RRR": "Королевские ВВС",
+    "ASY": "австралийские ВВС",
+    "IAM": "итальянские ВВС",
+    "GAF": "немецкие ВВС",
+    "FAF": "французские ВВС",
+    "AME": "испанские ВВС",
+    "THK": "турецкие ВВС",
+}
+
+MILITARY_OWNER_TOKENS = (
+    "air force",
+    "airforce",
+    "army",
+    "navy",
+    "military",
+    "defence",
+    "defense",
+    "ministerio de defensa",
+    "nato",
+)
+
+MILITARY_TYPE_CODES = {
+    "A124",
+    "A225",
+    "A400",
+    "C130",
+    "C160",
+    "C17",
+    "C295",
+    "E3CF",
+    "IL76",
+    "K35R",
+    "K35A",
+    "P8",
+    "T154",
+}
+
 DIGIT_RU = {
     "0": "ноль",
     "1": "один",
@@ -179,9 +219,13 @@ class AircraftCandidate:
     aircraft_type: str = ""
     aircraft_model_speech: str = ""
     registration: str = ""
+    registered_owner: str = ""
+    operator_flag_code: str = ""
+    owner_country: str = ""
     built_year: int | None = None
     built_year_speech: str = ""
     enrichment_source: str = ""
+    interest_reason: str = ""
     novelty_reason: str = ""
     unusual_aircraft: bool = False
     spoken_flight: str = ""
@@ -279,6 +323,32 @@ def candidate_has_real_flight(candidate: AircraftCandidate) -> bool:
     """Return true when the candidate has a real callsign, not a hex fallback."""
     flight = candidate.flight.strip()
     return bool(flight) and not _is_hex_token(flight)
+
+
+def is_military_aircraft(enrichment: dict[str, Any]) -> bool:
+    """Return true when public owner/type metadata suggests a military aircraft."""
+    owner = str(
+        enrichment.get("registered_owner") or enrichment.get("airline_name") or ""
+    ).lower()
+    operator = str(enrichment.get("operator_flag_code") or "").upper()
+    aircraft_type = str(enrichment.get("aircraft_type") or "").upper()
+    model = str(enrichment.get("aircraft_model") or "").upper()
+    if operator in MILITARY_OPERATOR_SPEECH_RU:
+        return True
+    if any(token in owner for token in MILITARY_OWNER_TOKENS):
+        return True
+    return aircraft_type in MILITARY_TYPE_CODES or any(
+        code in model for code in MILITARY_TYPE_CODES
+    )
+
+
+def military_operator_speech(enrichment: dict[str, Any]) -> str:
+    """Return a Russian label for a military operator when known."""
+    operator = str(enrichment.get("operator_flag_code") or "").upper()
+    if operator in MILITARY_OPERATOR_SPEECH_RU:
+        return MILITARY_OPERATOR_SPEECH_RU[operator]
+    owner = str(enrichment.get("registered_owner") or "").strip()
+    return owner
 
 
 def spoken_flight(flight: str, airline_icao: str = "", airline_iata: str = "") -> str:
@@ -407,7 +477,16 @@ def build_announcement(
     ).strip()
     flight_number = str(enrichment.get("spoken_flight") or label).strip()
 
-    if phase == "no_position_nearby":
+    if phase == "military_visible":
+        base = "Военный борт в зоне видимости"
+    elif phase == "kutaisi_route":
+        if str(enrichment.get("destination_iata") or "").upper() == "KUT":
+            base = "Рейс на Кутаиси"
+        elif str(enrichment.get("origin_iata") or "").upper() == "KUT":
+            base = "Рейс из Кутаиси"
+        else:
+            base = "Рейс через Кутаиси"
+    elif phase == "no_position_nearby":
         base = "Похоже, рядом самолёт без координат"
     elif phase == "positioned_approach":
         base = "Самолёт. Заход на посадку"
@@ -420,13 +499,25 @@ def build_announcement(
     else:
         base = "Самолёт"
 
-    sentence = f"{base}: {' '.join(part for part in [airline, flight_number] if part) or label}."
+    if phase == "military_visible":
+        operator = military_operator_speech(enrichment)
+        subject = " ".join(part for part in [operator, flight_number] if part)
+    else:
+        subject = " ".join(part for part in [airline, flight_number] if part)
+    sentence = f"{base}: {subject or label}."
     reason = novelty_reason(enrichment, phase)
     if reason:
         sentence = f"Необычное. {sentence}"
 
     extra: list[str] = []
-    if phase == "no_position_nearby":
+    if phase == "military_visible":
+        route = str(enrichment.get("route_summary") or "").strip()
+        if route:
+            extra.append(route)
+    elif phase == "kutaisi_route":
+        if origin and destination:
+            extra.append(f"{origin} - {destination}")
+    elif phase == "no_position_nearby":
         extra.append("локальный приём сильный")
         if origin and destination:
             extra.append(f"{origin} - {destination}")
@@ -644,6 +735,55 @@ def no_position_candidate(
     }
 
 
+def interest_candidate(
+    aircraft: dict[str, Any],
+    *,
+    enrichment: dict[str, Any],
+    source: str,
+    aircraft_count: int,
+) -> AircraftCandidate | None:
+    """Classify route and military aircraft visible in receiver range."""
+    seen = parse_float(aircraft.get("seen")) or 999.0
+    seen_pos = parse_float(aircraft.get("seen_pos"))
+    if seen > 20.0 and (seen_pos is None or seen_pos > 60.0):
+        return None
+
+    phase = ""
+    confidence = 0.0
+    reason = ""
+    origin_iata = str(enrichment.get("origin_iata") or "").upper()
+    destination_iata = str(enrichment.get("destination_iata") or "").upper()
+    if is_military_aircraft(enrichment):
+        phase = "military_visible"
+        confidence = 0.86
+        operator = military_operator_speech(enrichment) or "unknown operator"
+        reason = f"military metadata: {operator}"
+    elif "KUT" in {origin_iata, destination_iata}:
+        phase = "kutaisi_route"
+        confidence = 0.64
+        reason = f"route includes KUT: {origin_iata or '?'}-{destination_iata or '?'}"
+
+    if not phase:
+        return None
+    if seen <= 5.0:
+        confidence += 0.04
+    if seen_pos is not None and seen_pos <= 20.0:
+        confidence += 0.03
+    classifier = {
+        "phase": phase,
+        "confidence": round(min(confidence, 0.95), 3),
+        "distance_km": None,
+        "reason": reason,
+    }
+    return candidate_from_aircraft(
+        aircraft,
+        classifier,
+        source=source,
+        aircraft_count=aircraft_count,
+        enrichment=enrichment,
+    )
+
+
 def candidate_from_aircraft(
     aircraft: dict[str, Any],
     classifier: dict[str, Any],
@@ -659,6 +799,7 @@ def candidate_from_aircraft(
     if enrichment:
         enrichment["novelty_reason"] = reason
         enrichment["unusual_aircraft"] = bool(reason)
+        enrichment["interest_reason"] = str(classifier.get("reason") or "")
     announcement = build_announcement(aircraft, phase, confidence, enrichment)
 
     return AircraftCandidate(

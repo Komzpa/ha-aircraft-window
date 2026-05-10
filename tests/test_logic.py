@@ -193,6 +193,55 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertNotIn("Аэробус", text)
         self.assertNotIn("шестнадцатого", text)
 
+    def test_visible_military_aircraft_is_special_interest_candidate(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "48d841",
+                "flight": "PLF033",
+                "alt_baro": 15000,
+                "seen": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={
+                "aircraft_model": "C-295 M",
+                "aircraft_type": "C295",
+                "aircraft_model_speech": "C-295 M",
+                "registration": "012",
+                "registered_owner": "Polish Air Force",
+                "operator_flag_code": "PLF",
+                "built_year_speech": "две тысячи третьего года",
+                "spoken_flight": "ноль три три",
+            },
+        )
+
+        assert candidate is not None
+        self.assertEqual(candidate.phase, "military_visible")
+        self.assertIn("Военный борт", candidate.announcement)
+        self.assertIn("Польские ВВС", candidate.announcement)
+        self.assertIn("C-295 M", candidate.announcement)
+
+    def test_kutaisi_route_is_special_interest_candidate(self) -> None:
+        candidate = logic.interest_candidate(
+            {"hex": "abc123", "flight": "WZZ123", "seen": 1.0},
+            source="test",
+            aircraft_count=1,
+            enrichment={
+                "airline_name": "Wizz Air",
+                "origin_iata": "KUT",
+                "origin_speech": "Кутаиси",
+                "destination_iata": "RIX",
+                "destination_speech": "Ригу",
+                "spoken_flight": "один два три",
+            },
+        )
+
+        assert candidate is not None
+        self.assertEqual(candidate.phase, "kutaisi_route")
+        self.assertIn("Рейс из Кутаиси", candidate.announcement)
+        self.assertIn("Кутаиси - Ригу", candidate.announcement)
+
     def test_speech_helpers(self) -> None:
         self.assertEqual(logic.spoken_flight("RWZ553", airline_icao="RWZ"), "пять пять три")
         self.assertEqual(

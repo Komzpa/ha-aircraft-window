@@ -47,6 +47,7 @@ from .logic import (
     extract_airport_data_year,
     flight_label,
     idle_candidate,
+    interest_candidate,
     make_key,
     pick_candidate,
     spoken_flight,
@@ -177,6 +178,25 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     enrich=lambda _aircraft: enrichment,
                 )
 
+        if options.get(CONF_ENABLE_ENRICHMENT, True):
+            special_candidate = await self._async_pick_interest_candidate(
+                [row for row in aircraft_rows if isinstance(row, dict)],
+                source=dump1090_url,
+            )
+            if (
+                special_candidate is not None
+                and (
+                    not base_candidate.active
+                    or special_candidate.confidence > base_candidate.confidence
+                    or (
+                        special_candidate.phase == "military_visible"
+                        and base_candidate.phase
+                        not in {"positioned_landing", "positioned_takeoff", "positioned_approach"}
+                    )
+                )
+            ):
+                base_candidate = special_candidate
+
         if base_candidate.active:
             airframe_key = candidate_airframe_key(base_candidate)
             announced_keys = self._announced_event_keys_by_airframe.setdefault(
@@ -196,6 +216,39 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         elif not base_candidate.active:
             self._last_event_key = ""
         return base_candidate
+
+    async def _async_pick_interest_candidate(
+        self,
+        aircraft_rows: list[dict[str, Any]],
+        *,
+        source: str,
+    ) -> AircraftCandidate | None:
+        """Return the best route or military aircraft visible in the receiver feed."""
+        best: AircraftCandidate | None = None
+        for aircraft in aircraft_rows[:12]:
+            try:
+                seen = float(aircraft.get("seen") or 999.0)
+                seen_pos = (
+                    None
+                    if aircraft.get("seen_pos") is None
+                    else float(aircraft.get("seen_pos") or 999.0)
+                )
+            except (TypeError, ValueError):
+                continue
+            if seen > 20.0 and (seen_pos is None or seen_pos > 60.0):
+                continue
+            enrichment = await self._async_enrich_aircraft(aircraft)
+            candidate = interest_candidate(
+                aircraft,
+                enrichment=enrichment,
+                source=source,
+                aircraft_count=len(aircraft_rows),
+            )
+            if candidate is not None and (
+                best is None or candidate.confidence > best.confidence
+            ):
+                best = candidate
+        return best
 
     async def _async_cache(self) -> dict[str, Any]:
         """Load persistent enrichment cache."""
@@ -309,9 +362,13 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             "aircraft_type": "",
             "aircraft_model_speech": "",
             "registration": "",
+            "registered_owner": "",
+            "operator_flag_code": "",
+            "owner_country": "",
             "built_year": None,
             "built_year_speech": "",
             "enrichment_source": "",
+            "interest_reason": "",
             "novelty_reason": "",
             "unusual_aircraft": False,
             "spoken_flight": spoken_flight(flight),
@@ -363,6 +420,13 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 attrs["aircraft_model"] = str(aircraft_info.get("type") or "").strip()
                 attrs["aircraft_type"] = str(aircraft_info.get("icao_type") or "").strip()
                 attrs["registration"] = str(aircraft_info.get("registration") or "").strip()
+                attrs["registered_owner"] = str(aircraft_info.get("registered_owner") or "").strip()
+                attrs["operator_flag_code"] = str(
+                    aircraft_info.get("registered_owner_operator_flag_code") or ""
+                ).strip()
+                attrs["owner_country"] = str(
+                    aircraft_info.get("registered_owner_country_name") or ""
+                ).strip()
                 if attrs["aircraft_model"] or attrs["registration"]:
                     attrs["enrichment_source"] = "adsbdb"
 
@@ -382,6 +446,12 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             ).strip()
             attrs["registration"] = attrs["registration"] or str(
                 hexdb_payload.get("Registration") or ""
+            ).strip()
+            attrs["registered_owner"] = attrs.get("registered_owner") or str(
+                hexdb_payload.get("RegisteredOwners") or ""
+            ).strip()
+            attrs["operator_flag_code"] = attrs.get("operator_flag_code") or str(
+                hexdb_payload.get("OperatorFlagCode") or ""
             ).strip()
             if attrs["aircraft_model"] or attrs["registration"]:
                 attrs["enrichment_source"] = (

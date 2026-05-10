@@ -25,6 +25,10 @@ then sends a short "Уточнение..." follow-up with only the newly learned
 For arrivals, it also has an early `positioned_approach` phase: by default,
 descending aircraft below 10,000 ft are tracked out to 60 km, matching the common
 landing-light-on operating band before the close runway-window phases take over.
+It also watches special-interest traffic already visible to the local receiver:
+routes to or from Kutaisi (`KUT`) and likely military aircraft identified from
+public owner, operator, or airframe metadata can produce `kutaisi_route` and
+`military_visible` events even when they are not landing at the home airport.
 
 ## Installation
 
@@ -116,6 +120,11 @@ When enabled, Aircraft Window uses short cached requests to public data sources:
 
 If those sources are slow or unavailable, the local aircraft candidate still
 works; the announcement just contains less detail.
+
+The same enrichment is used for special-interest matching. Military detection is
+best-effort and conservative: it uses public operator prefixes, registered owner
+text, and known transport/surveillance type codes instead of trying to infer
+mission intent.
 
 ## Development
 
