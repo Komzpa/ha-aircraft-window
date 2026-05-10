@@ -22,11 +22,15 @@ from .const import (
     CONF_ENRICHMENT_TIMEOUT_SECONDS,
     CONF_HOME_LATITUDE,
     CONF_HOME_LONGITUDE,
+    CONF_MAX_APPROACH_ALTITUDE_FT,
+    CONF_MAX_APPROACH_DISTANCE_KM,
     CONF_MAX_NO_POSITION_SEEN_SECONDS,
     CONF_MAX_POSITIONED_DISTANCE_KM,
     CONF_SCAN_INTERVAL_SECONDS,
     DEFAULT_DUMP1090_URL,
     DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
+    DEFAULT_MAX_APPROACH_ALTITUDE_FT,
+    DEFAULT_MAX_APPROACH_DISTANCE_KM,
     DEFAULT_MAX_NO_POSITION_SEEN_SECONDS,
     DEFAULT_MAX_POSITIONED_DISTANCE_KM,
     DEFAULT_SCAN_INTERVAL_SECONDS,
@@ -115,6 +119,12 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             max_positioned_distance_km=float(
                 options.get(CONF_MAX_POSITIONED_DISTANCE_KM, DEFAULT_MAX_POSITIONED_DISTANCE_KM)
             ),
+            max_approach_distance_km=float(
+                options.get(CONF_MAX_APPROACH_DISTANCE_KM, DEFAULT_MAX_APPROACH_DISTANCE_KM)
+            ),
+            max_approach_altitude_ft=float(
+                options.get(CONF_MAX_APPROACH_ALTITUDE_FT, DEFAULT_MAX_APPROACH_ALTITUDE_FT)
+            ),
             max_no_position_seen_seconds=float(
                 options.get(CONF_MAX_NO_POSITION_SEEN_SECONDS, DEFAULT_MAX_NO_POSITION_SEEN_SECONDS)
             ),
@@ -143,6 +153,18 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         options.get(
                             CONF_MAX_POSITIONED_DISTANCE_KM,
                             DEFAULT_MAX_POSITIONED_DISTANCE_KM,
+                        )
+                    ),
+                    max_approach_distance_km=float(
+                        options.get(
+                            CONF_MAX_APPROACH_DISTANCE_KM,
+                            DEFAULT_MAX_APPROACH_DISTANCE_KM,
+                        )
+                    ),
+                    max_approach_altitude_ft=float(
+                        options.get(
+                            CONF_MAX_APPROACH_ALTITUDE_FT,
+                            DEFAULT_MAX_APPROACH_ALTITUDE_FT,
                         )
                     ),
                     max_no_position_seen_seconds=float(

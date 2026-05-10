@@ -7,6 +7,8 @@
         "data": {
           "dump1090_url": "URL aircraft.json из dump1090/readsb",
           "max_positioned_distance_km": "Максимальная дистанция с координатами, км",
+          "max_approach_distance_km": "Максимальная дистанция раннего захода, км",
+          "max_approach_altitude_ft": "Максимальная высота раннего захода, футов",
           "max_no_position_seen_seconds": "Максимальный возраст без координат, секунд",
           "scan_interval_seconds": "Интервал опроса, секунд",
           "enable_enrichment": "Дополнять маршрут, авиакомпанию, модель и год выпуска",
@@ -24,6 +26,8 @@
           "home_latitude": "Широта дома",
           "home_longitude": "Долгота дома",
           "max_positioned_distance_km": "Максимальная дистанция с координатами, км",
+          "max_approach_distance_km": "Максимальная дистанция раннего захода, км",
+          "max_approach_altitude_ft": "Максимальная высота раннего захода, футов",
           "max_no_position_seen_seconds": "Максимальный возраст без координат, секунд",
           "scan_interval_seconds": "Интервал опроса, секунд",
           "enable_enrichment": "Дополнять маршрут, авиакомпанию, модель и год выпуска",

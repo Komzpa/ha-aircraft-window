@@ -22,6 +22,9 @@ aircraft model, and built year when public enrichment data is available.
 If the receiver first sees only the transponder hex and the callsign appears a
 few seconds later, Aircraft Window announces the first sighting immediately and
 then sends a short "Уточнение..." follow-up with only the newly learned details.
+For arrivals, it also has an early `positioned_approach` phase: by default,
+descending aircraft below 10,000 ft are tracked out to 60 km, matching the common
+landing-light-on operating band before the close runway-window phases take over.
 
 ## Installation
 

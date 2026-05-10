@@ -409,6 +409,8 @@ def build_announcement(
 
     if phase == "no_position_nearby":
         base = "Похоже, рядом самолёт без координат"
+    elif phase == "positioned_approach":
+        base = "Самолёт. Заход на посадку"
     elif phase == "positioned_landing":
         base = "Самолёт. Посадка"
     elif phase == "positioned_takeoff":
@@ -428,7 +430,7 @@ def build_announcement(
         extra.append("локальный приём сильный")
         if origin and destination:
             extra.append(f"{origin} - {destination}")
-    elif phase == "positioned_landing" and origin:
+    elif phase in {"positioned_approach", "positioned_landing"} and origin:
         extra.append(f"Из {origin}")
     elif phase == "positioned_takeoff" and destination:
         extra.append(f"В {destination}")
@@ -512,6 +514,8 @@ def positioned_candidate(
     home_latitude: float,
     home_longitude: float,
     max_distance_km: float,
+    max_approach_distance_km: float,
+    max_approach_altitude_ft: float,
 ) -> dict[str, Any] | None:
     """Classify a positioned aircraft near home."""
     lat = parse_float(aircraft.get("lat"))
@@ -525,7 +529,7 @@ def positioned_candidate(
         return None
 
     distance_km = haversine_km(home_latitude, home_longitude, lat, lon)
-    if distance_km > max_distance_km:
+    if distance_km > max(max_distance_km, max_approach_distance_km):
         return None
 
     altitude = altitude_ft(aircraft)
@@ -551,6 +555,15 @@ def positioned_candidate(
         phase = "positioned_low_nearby"
         confidence = 0.52
         reason_parts.append(f"low nearby at {ground_speed:.0f} kt")
+    elif (
+        distance_km <= max_approach_distance_km
+        and altitude <= max_approach_altitude_ft
+        and vertical_rate is not None
+        and vertical_rate <= -160
+    ):
+        phase = "positioned_approach"
+        confidence = 0.55
+        reason_parts.append(f"approach descent {vertical_rate:.0f} fpm")
 
     if phase is None:
         return None
@@ -559,6 +572,10 @@ def positioned_candidate(
         confidence += 0.15
     elif distance_km <= 5.0:
         confidence += 0.08
+    elif phase == "positioned_approach" and distance_km <= 20.0:
+        confidence += 0.07
+    elif phase == "positioned_approach" and distance_km <= 40.0:
+        confidence += 0.03
     if altitude <= 1200:
         confidence += 0.1
     if rssi is not None and rssi >= -8.0:
@@ -676,6 +693,8 @@ def pick_candidate(
     home_latitude: float,
     home_longitude: float,
     max_positioned_distance_km: float,
+    max_approach_distance_km: float,
+    max_approach_altitude_ft: float,
     max_no_position_seen_seconds: float,
     source: str,
     enrich: Any | None = None,
@@ -688,6 +707,8 @@ def pick_candidate(
             home_latitude=home_latitude,
             home_longitude=home_longitude,
             max_distance_km=max_positioned_distance_km,
+            max_approach_distance_km=max_approach_distance_km,
+            max_approach_altitude_ft=max_approach_altitude_ft,
         )
         if classifier is None:
             classifier = no_position_candidate(

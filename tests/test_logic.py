@@ -42,6 +42,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
             home_latitude=41.62,
             home_longitude=41.62,
             max_positioned_distance_km=8,
+            max_approach_distance_km=60,
+            max_approach_altitude_ft=10000,
             max_no_position_seen_seconds=4,
             source="test",
             enrich=lambda _aircraft: {
@@ -78,6 +80,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
             home_latitude=41.62,
             home_longitude=41.62,
             max_positioned_distance_km=8,
+            max_approach_distance_km=60,
+            max_approach_altitude_ft=10000,
             max_no_position_seen_seconds=4,
             source="test",
             enrich=lambda _aircraft: {
@@ -99,6 +103,44 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("Сочи - Батуми", candidate.announcement)
         self.assertIn("Ту-двести четырнадцать", candidate.announcement)
         self.assertIn("две тысячи восьмого года", candidate.announcement)
+
+    def test_far_descending_aircraft_is_approach_watch_candidate(self) -> None:
+        candidate = logic.pick_candidate(
+            [
+                {
+                    "hex": "738286",
+                    "flight": "ISR890",
+                    "lat": 41.98,
+                    "lon": 41.92,
+                    "alt_baro": 9200,
+                    "baro_rate": -700,
+                    "gs": 260,
+                    "seen": 0.2,
+                    "seen_pos": 0.3,
+                    "rssi": -18,
+                }
+            ],
+            home_latitude=41.62,
+            home_longitude=41.62,
+            max_positioned_distance_km=8,
+            max_approach_distance_km=60,
+            max_approach_altitude_ft=10000,
+            max_no_position_seen_seconds=4,
+            source="test",
+            enrich=lambda _aircraft: {
+                "airline_name": "Israir",
+                "origin_speech": "Тель-Авива",
+                "destination_speech": "Батуми",
+                "aircraft_model_speech": "Аэробус триста двадцать",
+                "spoken_flight": "восемь девять ноль",
+            },
+        )
+
+        self.assertEqual(candidate.phase, "positioned_approach")
+        self.assertGreaterEqual(candidate.confidence, 0.55)
+        self.assertIn("Заход на посадку", candidate.announcement)
+        self.assertIn("Исра Эйр", candidate.announcement)
+        self.assertIn("Из Тель-Авива", candidate.announcement)
 
     def test_unmapped_airline_and_model_are_marked_unusual(self) -> None:
         text = logic.build_announcement(

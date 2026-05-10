@@ -7,6 +7,8 @@
         "data": {
           "dump1090_url": "dump1090/readsb aircraft.json URL",
           "max_positioned_distance_km": "Maximum positioned distance, km",
+          "max_approach_distance_km": "Maximum approach-watch distance, km",
+          "max_approach_altitude_ft": "Maximum approach-watch altitude, ft",
           "max_no_position_seen_seconds": "Maximum no-position age, seconds",
           "scan_interval_seconds": "Polling interval, seconds",
           "enable_enrichment": "Enrich route, airline, model, and built year",
@@ -24,6 +26,8 @@
           "home_latitude": "Home latitude",
           "home_longitude": "Home longitude",
           "max_positioned_distance_km": "Maximum positioned distance, km",
+          "max_approach_distance_km": "Maximum approach-watch distance, km",
+          "max_approach_altitude_ft": "Maximum approach-watch altitude, ft",
           "max_no_position_seen_seconds": "Maximum no-position age, seconds",
           "scan_interval_seconds": "Polling interval, seconds",
           "enable_enrichment": "Enrich route, airline, model, and built year",
