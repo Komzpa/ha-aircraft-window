@@ -70,9 +70,12 @@ AIRLINE_SPEECH_RU = {
     "Armenian Airlines": "Армениан Эйрлайнс",
     "Azerbaijan Airlines": "Азербайджанские авиалинии",
     "Azerbaijan Airlines (Buta Airways)": "Азербайджанские авиалинии",
+    "AZAL": "Азал",
     "Azimuth Airlines": "Азимут",
+    "Air Samarkand": "Эйр Самарканд",
     "Belavia": "Белавиа",
     "Centrum Air": "Центрум Эйр",
+    "EL AL": "Эль Аль",
     "El-Al Israel Airlines": "Эль Аль",
     "El Al": "Эль Аль",
     "FlyArystan": "Флай Арыстан",
@@ -105,6 +108,62 @@ AIRLINE_SPEECH_RU = {
 KNOWN_AIRLINE_BY_CALLSIGN_PREFIX = {
     "VAA": "Van Air Europe",
 }
+
+PASSENGER_AIRLINES = {
+    "Air Astana",
+    "Air Baltic",
+    "Air Samarkand",
+    "Arkia Israel Airlines",
+    "Arkia Israeli Airlines",
+    "Azerbaijan Airlines",
+    "Azerbaijan Airlines (Buta Airways)",
+    "AZAL",
+    "Belavia",
+    "Centrum Air",
+    "EL AL",
+    "El-Al Israel Airlines",
+    "El Al",
+    "FlyArystan",
+    "flydubai",
+    "Flydubai",
+    "Flynas",
+    "FlyOne Armenia",
+    "Israir",
+    "Israir Airlines",
+    "Jazeera Airways",
+    "Pegasus Airlines",
+    "Red Wings",
+    "SCAT Airlines",
+    "Scat",
+    "Turkish Airlines",
+    "Uzbekistan Airways",
+    "Varesh Airlines",
+    "Wizz Air",
+}
+
+CARGO_OPERATOR_TOKENS = (
+    "cargo",
+    "cargolux",
+    "dhl",
+    "express",
+    "fedex",
+    "freight",
+    "silk way west",
+    "sky cargo",
+    "skycargo",
+    "turkish cargo",
+    "ups",
+)
+
+CARGO_TYPE_TOKENS = (
+    " freighter",
+    "cargo",
+    "bdsf",
+    "bcf",
+    "pcf",
+    "-sf",
+    " sf ",
+)
 
 MILITARY_OPERATOR_SPEECH_RU = {
     "PLF": "Польские ВВС",
@@ -237,6 +296,7 @@ class AircraftCandidate:
     registered_owner: str = ""
     operator_flag_code: str = ""
     owner_country: str = ""
+    adsb_category: str = ""
     built_year: int | None = None
     built_year_speech: str = ""
     enrichment_source: str = ""
@@ -244,6 +304,9 @@ class AircraftCandidate:
     novelty_reason: str = ""
     unusual_aircraft: bool = False
     spoken_flight: str = ""
+    service_type: str = "unknown"
+    service_type_confidence: float = 0.0
+    service_type_reason: str = ""
     updated_at: int = field(default_factory=lambda: int(time.time()))
 
     @property
@@ -401,6 +464,60 @@ def is_military_aircraft(enrichment: dict[str, Any]) -> bool:
     return aircraft_type in MILITARY_TYPE_CODES or any(
         code in model for code in MILITARY_TYPE_CODES
     )
+
+
+def is_cargo_aircraft(enrichment: dict[str, Any]) -> bool:
+    """Return true when operator/model metadata explicitly points to cargo service."""
+    haystack = " ".join(
+        str(enrichment.get(key) or "")
+        for key in (
+            "airline_name",
+            "registered_owner",
+            "aircraft_model",
+            "aircraft_type",
+            "operator_flag_code",
+        )
+    ).lower()
+    padded = f" {haystack} "
+    return any(token in padded for token in CARGO_OPERATOR_TOKENS) or any(
+        token in padded for token in CARGO_TYPE_TOKENS
+    )
+
+
+def classify_service_type(enrichment: dict[str, Any]) -> tuple[str, float, str]:
+    """Classify flight service conservatively for spoken announcements."""
+    if is_military_aircraft(enrichment):
+        operator = military_operator_speech(enrichment) or "military metadata"
+        return "military", 0.9, f"military metadata: {operator}"
+    if is_cargo_aircraft(enrichment):
+        return "cargo", 0.78, "cargo operator or freighter metadata"
+
+    airline_name = str(enrichment.get("airline_name") or "").strip()
+    if has_route_details(enrichment) and airline_name in PASSENGER_AIRLINES:
+        route = str(enrichment.get("route_summary") or "").strip()
+        return (
+            "passenger",
+            0.74,
+            f"scheduled passenger airline with route {route or 'details'}",
+        )
+
+    category = str(enrichment.get("adsb_category") or "").upper()
+    if category.startswith(("B", "C")):
+        return "general_aviation", 0.42, f"ADS-B emitter category {category}"
+    return "unknown", 0.0, ""
+
+
+def service_object_word(enrichment: dict[str, Any]) -> str:
+    """Return a short object phrase that avoids overclaiming service type."""
+    service_type = str(enrichment.get("service_type") or "unknown")
+    confidence = parse_float(enrichment.get("service_type_confidence")) or 0.0
+    if service_type == "passenger" and confidence >= 0.7 and has_route_details(enrichment):
+        return "пассажирский рейс"
+    if service_type == "cargo" and confidence >= 0.7:
+        return "грузовой самолёт"
+    if service_type == "general_aviation" and confidence >= 0.5:
+        return "частный самолёт"
+    return "рейс" if has_route_details(enrichment) else "самолёт"
 
 
 def military_operator_speech(enrichment: dict[str, Any]) -> str:
@@ -589,8 +706,7 @@ def build_announcement(
     else:
         subject = " ".join(part for part in [airline, flight_number] if part)
     if phase in {"positioned_approach", "positioned_landing", "positioned_takeoff"}:
-        object_word = "рейс" if has_route_details(enrichment) else "самолёт"
-        sentence = f"{base} {object_word} {subject or label}."
+        sentence = f"{base} {service_object_word(enrichment)} {subject or label}."
     else:
         sentence = f"{base}: {subject or label}."
     reason = novelty_reason(enrichment, phase)

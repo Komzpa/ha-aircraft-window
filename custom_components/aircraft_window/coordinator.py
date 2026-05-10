@@ -45,6 +45,7 @@ from .logic import (
     backfill_position_from_history,
     build_followup_announcement,
     candidate_airframe_key,
+    classify_service_type,
     extract_airport_data_year,
     flight_label,
     idle_candidate,
@@ -471,6 +472,10 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             "novelty_reason": "",
             "unusual_aircraft": False,
             "spoken_flight": spoken_flight(flight),
+            "adsb_category": str(aircraft.get("category") or "").strip().upper(),
+            "service_type": "unknown",
+            "service_type_confidence": 0.0,
+            "service_type_reason": "",
         }
 
         session = async_get_clientsession(self.hass)
@@ -576,5 +581,9 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         built_year = await self._async_airport_data_year(session, attrs["registration"], timeout)
         attrs["built_year"] = built_year
         attrs["built_year_speech"] = spoken_year(built_year)
+        service_type, service_confidence, service_reason = classify_service_type(attrs)
+        attrs["service_type"] = service_type
+        attrs["service_type_confidence"] = service_confidence
+        attrs["service_type_reason"] = service_reason
 
         return attrs

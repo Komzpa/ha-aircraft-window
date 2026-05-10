@@ -133,12 +133,14 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "destination_speech": "Батуми",
                 "aircraft_model_speech": "Аэробус триста двадцать",
                 "spoken_flight": "восемь девять ноль",
+                "service_type": "passenger",
+                "service_type_confidence": 0.74,
             },
         )
 
         self.assertEqual(candidate.phase, "positioned_approach")
         self.assertGreaterEqual(candidate.confidence, 0.55)
-        self.assertIn("Заходит на посадку рейс", candidate.announcement)
+        self.assertIn("Заходит на посадку пассажирский рейс", candidate.announcement)
         self.assertIn("Исра Эйр", candidate.announcement)
         self.assertIn("Из Тель-Авива", candidate.announcement)
 
@@ -176,6 +178,39 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertIn("Заходит на посадку самолёт Ван Эйр Европа ноль два ноль.", text)
         self.assertNotIn("Заходит на посадку рейс", text)
+
+    def test_service_type_classification_is_conservative(self) -> None:
+        passenger = {
+            "airline_name": "Flydubai",
+            "origin_iata": "DXB",
+            "destination_iata": "BUS",
+            "route_summary": "DXB → BUS",
+        }
+        service_type, confidence, reason = logic.classify_service_type(passenger)
+        passenger["service_type"] = service_type
+        passenger["service_type_confidence"] = confidence
+        passenger["service_type_reason"] = reason
+        self.assertEqual(service_type, "passenger")
+        self.assertEqual(logic.service_object_word(passenger), "пассажирский рейс")
+
+        cargo = {
+            "airline_name": "DHL Aviation",
+            "aircraft_model": "Boeing 757 Freighter",
+            "aircraft_type": "B752",
+        }
+        self.assertEqual(logic.classify_service_type(cargo)[0], "cargo")
+        cargo["service_type"] = "cargo"
+        cargo["service_type_confidence"] = 0.78
+        self.assertEqual(logic.service_object_word(cargo), "грузовой самолёт")
+
+        mixed = {
+            "airline_name": "Van Air Europe",
+            "aircraft_model": "L-410 UVP-E4",
+            "aircraft_type": "L410",
+            "adsb_category": "A1",
+        }
+        self.assertEqual(logic.classify_service_type(mixed)[0], "unknown")
+        self.assertEqual(logic.service_object_word(mixed), "самолёт")
 
     def test_followup_announcement_adds_new_callsign_without_repeating_model(self) -> None:
         previous = logic.AircraftCandidate(
