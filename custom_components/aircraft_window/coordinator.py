@@ -332,9 +332,10 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         for aircraft in aircraft_rows:
             if squawk_code(aircraft) not in INTERESTING_SQUAWKS:
                 continue
+            enrichment = await self._async_enrich_aircraft(aircraft) if enable_enrichment else {}
             candidate = interest_candidate(
                 aircraft,
-                enrichment={},
+                enrichment=enrichment,
                 source=source,
                 aircraft_count=len(aircraft_rows),
             )
