@@ -159,6 +159,24 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertTrue(text.startswith("Особое объявление."))
         self.assertIn("New Example Air", text)
 
+    def test_positioned_unknown_route_says_aircraft_not_flight(self) -> None:
+        text = logic.build_announcement(
+            {"hex": "49d2d6", "flight": "VAA020"},
+            "positioned_landing",
+            0.8,
+            {
+                "airline_name": "Van Air Europe",
+                "aircraft_model_speech": (
+                    "Лет четыреста десять Турболет, небольшой двухмоторный турбовинтовой"
+                ),
+                "built_year_speech": "тысяча девятьсот девяностого года",
+                "spoken_flight": "ноль два ноль",
+            },
+        )
+
+        self.assertIn("Заходит на посадку самолёт Ван Эйр Европа ноль два ноль.", text)
+        self.assertNotIn("Заходит на посадку рейс", text)
+
     def test_followup_announcement_adds_new_callsign_without_repeating_model(self) -> None:
         previous = logic.AircraftCandidate(
             state="positioned_takeoff:738286:738286",

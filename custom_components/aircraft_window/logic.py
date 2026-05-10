@@ -524,6 +524,20 @@ def novelty_reason(enrichment: dict[str, Any], phase: str) -> str:
     return "; ".join(reasons)
 
 
+def has_route_details(enrichment: dict[str, Any]) -> bool:
+    """Return true when public data confirms route-like flight context."""
+    route_fields = (
+        "origin_iata",
+        "origin_name",
+        "origin_speech",
+        "destination_iata",
+        "destination_name",
+        "destination_speech",
+        "route_summary",
+    )
+    return any(str(enrichment.get(field) or "").strip() for field in route_fields)
+
+
 def build_announcement(
     aircraft: dict[str, Any],
     phase: str,
@@ -575,7 +589,8 @@ def build_announcement(
     else:
         subject = " ".join(part for part in [airline, flight_number] if part)
     if phase in {"positioned_approach", "positioned_landing", "positioned_takeoff"}:
-        sentence = f"{base} рейс {subject or label}."
+        object_word = "рейс" if has_route_details(enrichment) else "самолёт"
+        sentence = f"{base} {object_word} {subject or label}."
     else:
         sentence = f"{base}: {subject or label}."
     reason = novelty_reason(enrichment, phase)
