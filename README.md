@@ -34,6 +34,9 @@ It also watches special-interest traffic already visible to the local receiver:
 routes to or from Kutaisi (`KUT`) and likely military aircraft identified from
 public owner, operator, or airframe metadata can produce `kutaisi_route` and
 `military_visible` events even when they are not landing at the home airport.
+Aircraft transmitting emergency transponder codes `7500`, `7600`, or `7700`
+produce an `emergency_squawk` event with cautious wording for unlawful
+interference, radio failure, or a general emergency.
 
 ## Installation
 

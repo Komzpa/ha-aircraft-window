@@ -231,6 +231,10 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 and (
                     not base_candidate.active
                     or (
+                        special_candidate.phase == "emergency_squawk"
+                        and special_candidate.confidence > base_candidate.confidence
+                    )
+                    or (
                         special_candidate.phase == "military_visible"
                         and base_candidate.phase
                         not in {"positioned_landing", "positioned_takeoff", "positioned_approach"}

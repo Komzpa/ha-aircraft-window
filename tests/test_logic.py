@@ -278,6 +278,31 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("Польские ВВС", candidate.announcement)
         self.assertIn("C-295 M", candidate.announcement)
 
+    def test_emergency_squawk_is_special_interest_candidate(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "abc770",
+                "flight": "TST7700",
+                "squawk": "7700",
+                "alt_baro": 12000,
+                "seen": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={
+                "airline_name": "Flydubai",
+                "spoken_flight": "семь семь ноль ноль",
+                "service_type": "unknown",
+            },
+        )
+
+        assert candidate is not None
+        self.assertEqual(candidate.phase, "emergency_squawk")
+        self.assertEqual(candidate.squawk, "7700")
+        self.assertIn("Особый код транспондера", candidate.announcement)
+        self.assertIn("сквок 7700: аварийная ситуация", candidate.announcement)
+
     def test_history_position_backfill_can_promote_no_position_candidate(self) -> None:
         aircraft = {
             "hex": "48d841",

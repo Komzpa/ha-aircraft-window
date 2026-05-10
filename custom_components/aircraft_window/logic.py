@@ -205,6 +205,12 @@ MILITARY_TYPE_CODES = {
     "T154",
 }
 
+INTERESTING_SQUAWKS = {
+    "7500": ("возможное незаконное вмешательство", "special squawk 7500"),
+    "7600": ("потеря радиосвязи", "special squawk 7600"),
+    "7700": ("аварийная ситуация", "special squawk 7700"),
+}
+
 DIGIT_RU = {
     "0": "ноль",
     "1": "один",
@@ -265,6 +271,7 @@ class AircraftCandidate:
     event_key: str = ""
     hex: str = ""
     flight: str = ""
+    squawk: str = ""
     announcement: str = ""
     lat: float | None = None
     lon: float | None = None
@@ -407,6 +414,12 @@ def flight_label(aircraft: dict[str, Any]) -> str:
     """Return a human fallback flight label."""
     flight = str(aircraft.get("flight") or "").strip()
     return flight or str(aircraft.get("hex") or "").strip() or "unknown"
+
+
+def squawk_code(aircraft: dict[str, Any]) -> str:
+    """Return the four-digit transponder code when present."""
+    squawk = str(aircraft.get("squawk") or "").strip()
+    return squawk.zfill(4) if squawk.isdigit() and len(squawk) <= 4 else squawk
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -680,6 +693,8 @@ def build_announcement(
 
     if phase == "military_visible":
         base = "Военный самолёт в зоне видимости"
+    elif phase == "emergency_squawk":
+        base = "Особый код транспондера"
     elif phase == "kutaisi_route":
         if str(enrichment.get("destination_iata") or "").upper() == "KUT":
             base = "Информация для наблюдения: рейс на Кутаиси"
@@ -714,7 +729,15 @@ def build_announcement(
         sentence = f"Особое объявление. {sentence}"
 
     extra: list[str] = []
-    if phase == "military_visible":
+    if phase == "emergency_squawk":
+        meaning = INTERESTING_SQUAWKS.get(
+            squawk_code(aircraft),
+            ("нештатная ситуация", ""),
+        )[0]
+        extra.append(f"сквок {squawk_code(aircraft)}: {meaning}")
+        if origin and destination:
+            extra.append(f"{origin} - {destination}")
+    elif phase == "military_visible":
         route = str(enrichment.get("route_summary") or "").strip()
         if route:
             extra.append(route)
@@ -957,7 +980,12 @@ def interest_candidate(
     reason = ""
     origin_iata = str(enrichment.get("origin_iata") or "").upper()
     destination_iata = str(enrichment.get("destination_iata") or "").upper()
-    if is_military_aircraft(enrichment):
+    squawk = squawk_code(aircraft)
+    if squawk in INTERESTING_SQUAWKS:
+        phase = "emergency_squawk"
+        confidence = 0.93
+        reason = INTERESTING_SQUAWKS[squawk][1]
+    elif is_military_aircraft(enrichment):
         phase = "military_visible"
         confidence = 0.86
         operator = military_operator_speech(enrichment) or "unknown operator"
@@ -1014,6 +1042,7 @@ def candidate_from_aircraft(
         event_key=make_key(aircraft, phase),
         hex=str(aircraft.get("hex") or ""),
         flight=flight_label(aircraft),
+        squawk=squawk_code(aircraft),
         announcement=announcement,
         lat=parse_float(aircraft.get("lat")),
         lon=parse_float(aircraft.get("lon")),
