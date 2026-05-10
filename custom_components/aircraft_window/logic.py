@@ -145,7 +145,6 @@ CARGO_OPERATOR_TOKENS = (
     "cargo",
     "cargolux",
     "dhl",
-    "express",
     "fedex",
     "freight",
     "silk way west",

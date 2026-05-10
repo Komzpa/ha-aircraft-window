@@ -212,6 +212,14 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(logic.classify_service_type(mixed)[0], "unknown")
         self.assertEqual(logic.service_object_word(mixed), "самолёт")
 
+        express_passenger = {
+            "airline_name": "Air India Express",
+            "origin_iata": "DXB",
+            "destination_iata": "BOM",
+            "route_summary": "DXB → BOM",
+        }
+        self.assertEqual(logic.classify_service_type(express_passenger)[0], "unknown")
+
     def test_followup_announcement_adds_new_callsign_without_repeating_model(self) -> None:
         previous = logic.AircraftCandidate(
             state="positioned_takeoff:738286:738286",
