@@ -38,6 +38,7 @@ from .const import (
     EVENT_CANDIDATE,
 )
 from .logic import (
+    INTERESTING_SQUAWKS,
     KNOWN_BUILT_YEAR_BY_REGISTRATION,
     AircraftCandidate,
     airport_label,
@@ -56,6 +57,7 @@ from .logic import (
     spoken_flight,
     spoken_model,
     spoken_year,
+    squawk_code,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -221,28 +223,25 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     enrich=lambda _aircraft: enrichment,
                 )
 
-        if options.get(CONF_ENABLE_ENRICHMENT, True):
-            special_candidate = await self._async_pick_interest_candidate(
-                aircraft_rows,
-                source=dump1090_url,
-            )
-            if (
-                special_candidate is not None
-                and (
-                    not base_candidate.active
-                    or (
-                        special_candidate.phase == "emergency_squawk"
-                        and special_candidate.confidence > base_candidate.confidence
-                    )
-                    or (
-                        special_candidate.phase == "military_visible"
-                        and base_candidate.phase
-                        not in {"positioned_landing", "positioned_takeoff", "positioned_approach"}
-                        and special_candidate.confidence > base_candidate.confidence
-                    )
+        special_candidate = await self._async_pick_interest_candidate(
+            aircraft_rows,
+            source=dump1090_url,
+            enable_enrichment=bool(options.get(CONF_ENABLE_ENRICHMENT, True)),
+        )
+        if (
+            special_candidate is not None
+            and (
+                not base_candidate.active
+                or special_candidate.phase == "emergency_squawk"
+                or (
+                    special_candidate.phase == "military_visible"
+                    and base_candidate.phase
+                    not in {"positioned_landing", "positioned_takeoff", "positioned_approach"}
+                    and special_candidate.confidence > base_candidate.confidence
                 )
-            ):
-                base_candidate = special_candidate
+            )
+        ):
+            base_candidate = special_candidate
 
         if base_candidate.active:
             airframe_key = candidate_airframe_key(base_candidate)
@@ -326,10 +325,29 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         aircraft_rows: list[dict[str, Any]],
         *,
         source: str,
+        enable_enrichment: bool,
     ) -> AircraftCandidate | None:
-        """Return the best route or military aircraft visible in the receiver feed."""
+        """Return the best emergency, route, or military aircraft visible in the feed."""
         best: AircraftCandidate | None = None
+        for aircraft in aircraft_rows:
+            if squawk_code(aircraft) not in INTERESTING_SQUAWKS:
+                continue
+            candidate = interest_candidate(
+                aircraft,
+                enrichment={},
+                source=source,
+                aircraft_count=len(aircraft_rows),
+            )
+            if candidate is not None and (
+                best is None or candidate.confidence > best.confidence
+            ):
+                best = candidate
+        if not enable_enrichment:
+            return best
+
         for aircraft in aircraft_rows[:12]:
+            if squawk_code(aircraft) in INTERESTING_SQUAWKS:
+                continue
             try:
                 seen = float(aircraft.get("seen") or 999.0)
                 seen_pos = (

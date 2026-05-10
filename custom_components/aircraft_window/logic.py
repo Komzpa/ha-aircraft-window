@@ -440,6 +440,8 @@ def make_key(aircraft: dict[str, Any], phase: str) -> str:
     """Make a stable event key for deduplication in automations."""
     hex_id = str(aircraft.get("hex") or "unknown").strip().lower()
     flight = flight_label(aircraft).replace(" ", "")
+    if phase == "emergency_squawk":
+        return f"{phase}:{hex_id}:{flight}:{squawk_code(aircraft)}"[:240]
     return f"{phase}:{hex_id}:{flight}"[:240]
 
 

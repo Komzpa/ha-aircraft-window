@@ -300,6 +300,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         assert candidate is not None
         self.assertEqual(candidate.phase, "emergency_squawk")
         self.assertEqual(candidate.squawk, "7700")
+        self.assertEqual(candidate.event_key, "emergency_squawk:abc770:TST7700:7700")
         self.assertIn("Особый код транспондера", candidate.announcement)
         self.assertIn("сквок 7700: аварийная ситуация", candidate.announcement)
 
