@@ -98,7 +98,12 @@ AIRLINE_SPEECH_RU = {
     "Turkish Airlines": "Туркиш",
     "Uzbekistan Airways": "Узбекистон",
     "Varesh Airlines": "Вареш",
+    "Van Air Europe": "Ван Эйр Европа",
     "Wizz Air": "Визз Эйр",
+}
+
+KNOWN_AIRLINE_BY_CALLSIGN_PREFIX = {
+    "VAA": "Van Air Europe",
 }
 
 MILITARY_OPERATOR_SPEECH_RU = {
@@ -155,6 +160,7 @@ DIGIT_RU = {
 }
 
 YEAR_RU = {
+    1990: "тысяча девятьсот девяностого года",
     2000: "двухтысячного года",
     2001: "две тысячи первого года",
     2002: "две тысячи второго года",
@@ -184,7 +190,9 @@ YEAR_RU = {
     2026: "две тысячи двадцать шестого года",
 }
 
-KNOWN_BUILT_YEAR_BY_REGISTRATION: dict[str, int] = {}
+KNOWN_BUILT_YEAR_BY_REGISTRATION: dict[str, int] = {
+    "OK-VAA": 1990,
+}
 
 
 @dataclass(slots=True)
@@ -418,6 +426,15 @@ def spoken_flight(flight: str, airline_icao: str = "", airline_iata: str = "") -
     return flight.strip()
 
 
+def known_airline_for_callsign(flight: str) -> tuple[str, str]:
+    """Return known airline name and callsign prefix for route API gaps."""
+    token = flight.strip().replace(" ", "").upper()
+    for prefix, airline_name in KNOWN_AIRLINE_BY_CALLSIGN_PREFIX.items():
+        if token.startswith(prefix):
+            return airline_name, prefix
+    return "", ""
+
+
 def spoken_model(model: str, aircraft_type: str = "") -> str:
     """Turn common aircraft model strings into Russian TTS-friendly text."""
     text = f"{model} {aircraft_type}".upper()
@@ -458,7 +475,7 @@ def spoken_model(model: str, aircraft_type: str = "") -> str:
     if "C208" in text or "CARAVAN" in text:
         return "Цессна Караван"
     if "L410" in text or "LET" in text:
-        return "Лет четыреста десять"
+        return "Лет четыреста десять Турболет, небольшой двухмоторный турбовинтовой"
     return model.strip()
 
 

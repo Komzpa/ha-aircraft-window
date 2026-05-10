@@ -291,6 +291,18 @@ class AircraftWindowLogicTest(unittest.TestCase):
     def test_speech_helpers(self) -> None:
         self.assertEqual(logic.spoken_flight("RWZ553", airline_icao="RWZ"), "пять пять три")
         self.assertEqual(
+            logic.spoken_flight("VAA020", airline_icao="VAA"),
+            "ноль два ноль",
+        )
+        self.assertEqual(
+            logic.known_airline_for_callsign("VAA020"),
+            ("Van Air Europe", "VAA"),
+        )
+        self.assertEqual(
+            logic.spoken_model("L-410 UVP-E4", "L410"),
+            "Лет четыреста десять Турболет, небольшой двухмоторный турбовинтовой",
+        )
+        self.assertEqual(
             logic.spoken_model("Airbus A320-232", "A320"),
             "Аэробус триста двадцать",
         )
@@ -298,6 +310,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
             logic.extract_airport_data_year("<b>Year built:</b></td><td>2012</td>"),
             2012,
         )
+        self.assertEqual(logic.spoken_year(1990), "тысяча девятьсот девяностого года")
 
 
 if __name__ == "__main__":
