@@ -7,7 +7,7 @@ import logging
 import time
 from datetime import timedelta
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
@@ -42,6 +42,7 @@ from .logic import (
     AircraftCandidate,
     airport_label,
     airport_speech,
+    backfill_position_from_history,
     build_followup_announcement,
     candidate_airframe_key,
     extract_airport_data_year,
@@ -109,12 +110,13 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         aircraft_rows = payload.get("aircraft")
         if not isinstance(aircraft_rows, list):
             return idle_candidate("dump1090 payload has no aircraft list", source=dump1090_url)
+        aircraft_rows = [row for row in aircraft_rows if isinstance(row, dict)]
 
         # DataUpdateCoordinator expects the update method to do async work, so
         # enrichment is performed for the selected candidate after the pure
         # classifier picks it.
         base_candidate = pick_candidate(
-            [row for row in aircraft_rows if isinstance(row, dict)],
+            aircraft_rows,
             home_latitude=float(options.get(CONF_HOME_LATITUDE, self.hass.config.latitude)),
             home_longitude=float(options.get(CONF_HOME_LONGITUDE, self.hass.config.longitude)),
             max_positioned_distance_km=float(
@@ -131,14 +133,53 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             ),
             source=dump1090_url,
         )
+        if base_candidate.phase == "no_position_nearby":
+            backfilled_rows = await self._async_backfill_no_position_rows(
+                aircraft_rows,
+                source=dump1090_url,
+            )
+            if backfilled_rows is not aircraft_rows:
+                base_candidate = pick_candidate(
+                    backfilled_rows,
+                    home_latitude=float(
+                        options.get(CONF_HOME_LATITUDE, self.hass.config.latitude)
+                    ),
+                    home_longitude=float(
+                        options.get(CONF_HOME_LONGITUDE, self.hass.config.longitude)
+                    ),
+                    max_positioned_distance_km=float(
+                        options.get(
+                            CONF_MAX_POSITIONED_DISTANCE_KM,
+                            DEFAULT_MAX_POSITIONED_DISTANCE_KM,
+                        )
+                    ),
+                    max_approach_distance_km=float(
+                        options.get(
+                            CONF_MAX_APPROACH_DISTANCE_KM,
+                            DEFAULT_MAX_APPROACH_DISTANCE_KM,
+                        )
+                    ),
+                    max_approach_altitude_ft=float(
+                        options.get(
+                            CONF_MAX_APPROACH_ALTITUDE_FT,
+                            DEFAULT_MAX_APPROACH_ALTITUDE_FT,
+                        )
+                    ),
+                    max_no_position_seen_seconds=float(
+                        options.get(
+                            CONF_MAX_NO_POSITION_SEEN_SECONDS,
+                            DEFAULT_MAX_NO_POSITION_SEEN_SECONDS,
+                        )
+                    ),
+                    source=dump1090_url,
+                )
+                aircraft_rows = backfilled_rows
         if base_candidate.active and options.get(CONF_ENABLE_ENRICHMENT, True):
             row = next(
                 (
                     aircraft
                     for aircraft in aircraft_rows
-                    if isinstance(aircraft, dict)
-                    and base_candidate.event_key
-                    == make_key(aircraft, base_candidate.phase)
+                    if base_candidate.event_key == make_key(aircraft, base_candidate.phase)
                 ),
                 None,
             )
@@ -180,7 +221,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
 
         if options.get(CONF_ENABLE_ENRICHMENT, True):
             special_candidate = await self._async_pick_interest_candidate(
-                [row for row in aircraft_rows if isinstance(row, dict)],
+                aircraft_rows,
                 source=dump1090_url,
             )
             if (
@@ -216,6 +257,63 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         elif not base_candidate.active:
             self._last_event_key = ""
         return base_candidate
+
+    async def _async_backfill_no_position_rows(
+        self,
+        aircraft_rows: list[dict[str, Any]],
+        *,
+        source: str,
+    ) -> list[dict[str, Any]]:
+        """Backfill missing live positions from local SkyAware history snapshots."""
+        targets = [
+            row
+            for row in aircraft_rows
+            if row.get("lat") is None
+            and row.get("lon") is None
+            and str(row.get("hex") or "").strip()
+        ]
+        if not targets:
+            return aircraft_rows
+
+        session = async_get_clientsession(self.hass)
+        history_payloads: list[dict[str, Any]] = []
+        started = time.monotonic()
+        for index in range(120):
+            if time.monotonic() - started > 0.8:
+                break
+            try:
+                async with session.get(
+                    self._history_url(source, index),
+                    timeout=aiohttp.ClientTimeout(total=0.2),
+                ) as response:
+                    if response.status != 200:
+                        continue
+                    payload = await response.json()
+            except (aiohttp.ClientError, TimeoutError, json.JSONDecodeError):
+                continue
+            if isinstance(payload, dict):
+                history_payloads.append(payload)
+        if not history_payloads:
+            return aircraft_rows
+
+        changed = False
+        backfilled_rows: list[dict[str, Any]] = []
+        for row in aircraft_rows:
+            backfilled = backfill_position_from_history(row, history_payloads)
+            changed = changed or backfilled is not row
+            backfilled_rows.append(backfilled)
+        return backfilled_rows if changed else aircraft_rows
+
+    @staticmethod
+    def _history_url(source: str, index: int) -> str:
+        """Return the dump1090/SkyAware history URL next to aircraft.json."""
+        parts = urlsplit(source)
+        path = parts.path
+        if path.endswith("/aircraft.json"):
+            path = f"{path.removesuffix('/aircraft.json')}/history_{index}.json"
+        else:
+            path = f"/data/history_{index}.json"
+        return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
 
     async def _async_pick_interest_candidate(
         self,

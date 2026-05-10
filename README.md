@@ -69,6 +69,13 @@ coordinates. Aircraft Window does not fake coordinates. It treats a fresh,
 strong, low-altitude local receiver hit as a lower-confidence `no_position_nearby`
 candidate and says so in the announcement.
 
+When the current receiver row has no coordinates, Aircraft Window also checks
+the local SkyAware/dump1090 history snapshots for the same hex. If a recent
+position is found there, the candidate is reclassified with
+`position_source: skyaware_history` instead of staying no-position. This catches
+short timing gaps where PiAware/MLAT or ADS-B position data arrived just before
+the current row lost `lat`/`lon`.
+
 ## Automations
 
 The included blueprint can announce every new `aircraft_window_candidate` event

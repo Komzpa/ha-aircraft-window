@@ -201,6 +201,8 @@ class AircraftCandidate:
     ground_speed_kt: float | None = None
     track: float | None = None
     distance_km: float | None = None
+    position_source: str = ""
+    position_age_seconds: float | None = None
     seen: float | None = None
     seen_pos: float | None = None
     rssi: float | None = None
@@ -268,6 +270,52 @@ def altitude_ft(aircraft: dict[str, Any]) -> float | None:
         if number is not None:
             return number
     return None
+
+
+def backfill_position_from_history(
+    aircraft: dict[str, Any],
+    history_payloads: list[dict[str, Any]],
+    *,
+    max_age_seconds: float = 120.0,
+) -> dict[str, Any]:
+    """Copy a recent position for the same hex from local SkyAware history."""
+    if aircraft.get("lat") is not None and aircraft.get("lon") is not None:
+        return aircraft
+    hex_id = str(aircraft.get("hex") or "").strip().lower()
+    if not hex_id:
+        return aircraft
+
+    best: tuple[float, dict[str, Any], float] | None = None
+    for payload in history_payloads:
+        snapshot_now = parse_float(payload.get("now"))
+        rows = payload.get("aircraft")
+        if snapshot_now is None or not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            if str(row.get("hex") or "").strip().lower() != hex_id:
+                continue
+            lat = parse_float(row.get("lat"))
+            lon = parse_float(row.get("lon"))
+            seen_pos = parse_float(row.get("seen_pos")) or 0.0
+            if lat is None or lon is None or seen_pos > max_age_seconds:
+                continue
+            position_time = snapshot_now - seen_pos
+            if best is None or position_time > best[0]:
+                best = (position_time, row, seen_pos)
+
+    if best is None:
+        return aircraft
+    _, row, position_age = best
+    merged = dict(aircraft)
+    for key in ("lat", "lon", "nav_heading", "track", "gs", "alt_baro", "alt_geom"):
+        if merged.get(key) is None and row.get(key) is not None:
+            merged[key] = row[key]
+    merged["seen_pos"] = row.get("seen_pos")
+    merged["position_source"] = "skyaware_history"
+    merged["position_age_seconds"] = round(position_age, 1)
+    return merged
 
 
 def vertical_rate_fpm(aircraft: dict[str, Any]) -> float | None:
@@ -818,6 +866,8 @@ def candidate_from_aircraft(
         ground_speed_kt=parse_float(aircraft.get("gs")),
         track=parse_float(aircraft.get("track")),
         distance_km=classifier["distance_km"],
+        position_source=str(aircraft.get("position_source") or ""),
+        position_age_seconds=parse_float(aircraft.get("position_age_seconds")),
         seen=parse_float(aircraft.get("seen")),
         seen_pos=parse_float(aircraft.get("seen_pos")),
         rssi=parse_float(aircraft.get("rssi")),

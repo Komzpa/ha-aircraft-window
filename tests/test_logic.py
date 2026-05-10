@@ -222,6 +222,48 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("Польские ВВС", candidate.announcement)
         self.assertIn("C-295 M", candidate.announcement)
 
+    def test_history_position_backfill_can_promote_no_position_candidate(self) -> None:
+        aircraft = {
+            "hex": "48d841",
+            "flight": "PLF033",
+            "alt_baro": 1800,
+            "baro_rate": -500,
+            "seen": 1.0,
+            "rssi": -4,
+            "messages": 50,
+        }
+        backfilled = logic.backfill_position_from_history(
+            aircraft,
+            [
+                {
+                    "now": 1000.0,
+                    "aircraft": [
+                        {
+                            "hex": "48d841",
+                            "lat": 41.62,
+                            "lon": 41.61,
+                            "seen_pos": 8.0,
+                        }
+                    ],
+                }
+            ],
+        )
+
+        candidate = logic.pick_candidate(
+            [backfilled],
+            home_latitude=41.62,
+            home_longitude=41.62,
+            max_positioned_distance_km=8,
+            max_approach_distance_km=60,
+            max_approach_altitude_ft=10000,
+            max_no_position_seen_seconds=4,
+            source="test",
+        )
+
+        self.assertEqual(candidate.phase, "positioned_landing")
+        self.assertEqual(candidate.position_source, "skyaware_history")
+        self.assertEqual(candidate.position_age_seconds, 8.0)
+
     def test_kutaisi_route_is_special_interest_candidate(self) -> None:
         candidate = logic.interest_candidate(
             {"hex": "abc123", "flight": "WZZ123", "seen": 1.0},
