@@ -210,6 +210,84 @@ INTERESTING_SQUAWKS = {
     "7700": ("аварийная ситуация", "special squawk 7700"),
 }
 
+COMMON_SQUAWKS = {
+    "1000",
+    "1200",
+    "2000",
+    "7000",
+}
+
+WATCHED_SQUAWKS = {
+    "0000": ("нулевой код транспондера", "watched squawk 0000"),
+    "0025": ("локально интересный сквок 0025", "watched squawk 0025"),
+    "0033": ("локально интересный сквок 0033", "watched squawk 0033"),
+    "6100": ("локально интересный сквок 6100", "watched squawk 6100"),
+    "6400": ("локально интересный сквок 6400", "watched squawk 6400"),
+    "7777": ("особый код транспондера, возможно военный", "watched squawk 7777"),
+}
+
+MEDEVAC_TOKENS = (
+    "air ambulance",
+    "ambulance",
+    "hems",
+    "lifeguard",
+    "medevac",
+    "medical",
+    "rescue",
+)
+
+POLICE_TOKENS = (
+    "gendarmerie",
+    "police",
+    "polizei",
+    "sheriff",
+    "state police",
+)
+
+CALIBRATION_TOKENS = (
+    "calibration",
+    "calibrator",
+    "flight check",
+    "flightcheck",
+    "nav check",
+    "navaid",
+    "radar calibration",
+)
+
+DRONE_TOKENS = (
+    "bayraktar",
+    "drone",
+    "orlan",
+    "rpa",
+    "shahid",
+    "shahed",
+    "tb2",
+    "uas",
+    "uav",
+    "unmanned",
+)
+
+TANKER_TOKENS = (
+    "a330 mrtt",
+    "kc-10",
+    "kc-135",
+    "kc-46",
+    "k35a",
+    "k35r",
+    "mrtt",
+    "tanker",
+)
+
+HELICOPTER_TOKENS = (
+    "helicopter",
+    "rotorcraft",
+    "robinson",
+    "airbus helicopters",
+    "bell helicopter",
+    "eurocopter",
+    "sikorsky",
+)
+
 DIGIT_RU = {
     "0": "ноль",
     "1": "один",
@@ -307,6 +385,10 @@ class AircraftCandidate:
     built_year_speech: str = ""
     enrichment_source: str = ""
     interest_reason: str = ""
+    interest_type: str = ""
+    interest_label: str = ""
+    interest_detail: str = ""
+    squawk_label: str = ""
     novelty_reason: str = ""
     unusual_aircraft: bool = False
     spoken_flight: str = ""
@@ -463,6 +545,57 @@ def candidate_has_real_flight(candidate: AircraftCandidate) -> bool:
     return bool(flight) and not _is_hex_token(flight)
 
 
+def _metadata_text(aircraft: dict[str, Any], enrichment: dict[str, Any]) -> str:
+    """Return searchable public metadata text for interest classification."""
+    parts = [
+        aircraft.get("flight"),
+        aircraft.get("hex"),
+        aircraft.get("category"),
+        enrichment.get("airline_name"),
+        enrichment.get("registered_owner"),
+        enrichment.get("aircraft_model"),
+        enrichment.get("aircraft_type"),
+        enrichment.get("operator_flag_code"),
+        enrichment.get("adsb_category"),
+    ]
+    return " ".join(str(part or "") for part in parts).lower()
+
+
+def _has_token(text: str, tokens: tuple[str, ...]) -> bool:
+    """Return true when any configured token appears in text."""
+    return any(token in text for token in tokens)
+
+
+def ident_active(aircraft: dict[str, Any]) -> bool:
+    """Return true when the aircraft is pressing IDENT/SPI."""
+    for key in ("spi", "ident", "special_position_identification"):
+        value = aircraft.get(key)
+        if value is True:
+            return True
+        if isinstance(value, str) and value.strip().lower() in {"1", "true", "yes"}:
+            return True
+    return False
+
+
+def is_non_icao_address(aircraft: dict[str, Any]) -> bool:
+    """Return true for receiver-marked non-ICAO addresses."""
+    return str(aircraft.get("hex") or "").strip().startswith("~")
+
+
+def is_helicopter(aircraft: dict[str, Any], enrichment: dict[str, Any]) -> bool:
+    """Return true when metadata suggests a helicopter or rotorcraft."""
+    aircraft_type = str(enrichment.get("aircraft_type") or "").upper()
+    category = str(
+        aircraft.get("category") or enrichment.get("adsb_category") or ""
+    ).upper()
+    text = _metadata_text(aircraft, enrichment)
+    return (
+        category == "A7"
+        or aircraft_type.startswith("H")
+        or _has_token(text, HELICOPTER_TOKENS)
+    )
+
+
 def is_military_aircraft(enrichment: dict[str, Any]) -> bool:
     """Return true when public owner/type metadata suggests a military aircraft."""
     owner = str(
@@ -478,6 +611,21 @@ def is_military_aircraft(enrichment: dict[str, Any]) -> bool:
     return aircraft_type in MILITARY_TYPE_CODES or any(
         code in model for code in MILITARY_TYPE_CODES
     )
+
+
+def is_military_tanker(enrichment: dict[str, Any]) -> bool:
+    """Return true when military metadata points to an aerial refuelling aircraft."""
+    text = " ".join(
+        str(enrichment.get(key) or "")
+        for key in (
+            "airline_name",
+            "registered_owner",
+            "aircraft_model",
+            "aircraft_type",
+            "operator_flag_code",
+        )
+    ).lower()
+    return is_military_aircraft(enrichment) and _has_token(text, TANKER_TOKENS)
 
 
 def is_cargo_aircraft(enrichment: dict[str, Any]) -> bool:
@@ -519,6 +667,98 @@ def classify_service_type(enrichment: dict[str, Any]) -> tuple[str, float, str]:
     if category.startswith(("B", "C")):
         return "general_aviation", 0.42, f"ADS-B emitter category {category}"
     return "unknown", 0.0, ""
+
+
+def classify_special_interest(
+    aircraft: dict[str, Any],
+    enrichment: dict[str, Any],
+) -> tuple[str, str, str, float] | None:
+    """Classify ADS-B events worth a short observation announcement."""
+    squawk = squawk_code(aircraft)
+    if squawk in WATCHED_SQUAWKS:
+        label, reason = WATCHED_SQUAWKS[squawk]
+        return ("watched_squawk", label, reason, 0.74)
+    if ident_active(aircraft):
+        return ("ident", "самолёт нажал IDENT", "transponder IDENT/SPI active", 0.71)
+
+    altitude = altitude_ft(aircraft)
+    vertical_rate = vertical_rate_fpm(aircraft)
+    if vertical_rate is not None and vertical_rate <= -3500 and (
+        altitude is None or altitude >= 1000
+    ):
+        label = "резкое снижение"
+        return (
+            "rapid_descent",
+            label,
+            f"vertical rate {vertical_rate:.0f} fpm",
+            0.78 if vertical_rate <= -5000 else 0.7,
+        )
+
+    nav_modes = aircraft.get("nav_modes")
+    nav_text = (
+        " ".join(str(item) for item in nav_modes)
+        if isinstance(nav_modes, list)
+        else str(nav_modes or "")
+    )
+    nav_text = nav_text.lower()
+    track_rate = parse_float(aircraft.get("track_rate"))
+    ground_speed = parse_float(aircraft.get("gs"))
+    if "hold" in nav_text or "orbit" in nav_text:
+        return (
+            "holding_or_orbit",
+            "похоже на ожидание или круги",
+            f"navigation mode {nav_text}",
+            0.68,
+        )
+    if (
+        track_rate is not None
+        and abs(track_rate) >= 2.5
+        and ground_speed is not None
+        and 60 <= ground_speed <= 260
+    ):
+        return (
+            "orbiting",
+            "похоже на круговой манёвр",
+            f"track rate {track_rate:.1f} deg/s",
+            0.58,
+        )
+
+    text = _metadata_text(aircraft, enrichment)
+    if is_military_tanker(enrichment):
+        return (
+            "military_tanker",
+            "военный самолёт-заправщик",
+            "military tanker metadata",
+            0.9,
+        )
+    if _has_token(text, MEDEVAC_TOKENS):
+        return ("medevac", "медицинский или спасательный борт", "medevac metadata", 0.82)
+    if _has_token(text, POLICE_TOKENS):
+        return ("police", "полицейский самолёт или вертолёт", "police metadata", 0.82)
+    if _has_token(text, CALIBRATION_TOKENS):
+        return (
+            "calibration",
+            "похоже на проверочный или калибровочный полёт",
+            "calibration metadata",
+            0.8,
+        )
+    if is_helicopter(aircraft, enrichment) and not str(aircraft.get("flight") or "").strip():
+        return (
+            "helicopter_no_callsign",
+            "вертолёт без позывного",
+            "helicopter metadata without callsign",
+            0.72,
+        )
+    if _has_token(text, DRONE_TOKENS):
+        return ("drone", "похоже на беспилотник", "drone metadata", 0.82)
+    if is_non_icao_address(aircraft):
+        return (
+            "non_icao_address",
+            "нестандартный адрес транспондера",
+            "receiver marked non-ICAO address",
+            0.62,
+        )
+    return None
 
 
 def service_object_word(enrichment: dict[str, Any]) -> str:
@@ -696,6 +936,8 @@ def build_announcement(
         base = "Военный самолёт в зоне видимости"
     elif phase == "emergency_squawk":
         base = "Особый код транспондера"
+    elif phase == "special_interest":
+        base = "Интересный самолёт в зоне видимости"
     elif phase == "kutaisi_route":
         if str(enrichment.get("destination_iata") or "").upper() == "KUT":
             base = "Информация для наблюдения: рейс на Кутаиси"
@@ -738,7 +980,18 @@ def build_announcement(
         extra.append(f"сквок {squawk_code(aircraft)}: {meaning}")
         if origin and destination:
             extra.append(f"{origin} - {destination}")
+    elif phase == "special_interest":
+        interest_label = str(enrichment.get("interest_label") or "").strip()
+        if interest_label:
+            extra.append(interest_label)
+        if squawk_code(aircraft) and squawk_code(aircraft) not in COMMON_SQUAWKS:
+            extra.append(f"сквок {squawk_code(aircraft)}")
+        if origin and destination:
+            extra.append(f"{origin} - {destination}")
     elif phase == "military_visible":
+        interest_label = str(enrichment.get("interest_label") or "").strip()
+        if interest_label:
+            extra.append(interest_label)
         route = str(enrichment.get("route_summary") or "").strip()
         if route:
             extra.append(route)
@@ -986,12 +1239,24 @@ def interest_candidate(
         phase = "emergency_squawk"
         confidence = 0.93
         reason = INTERESTING_SQUAWKS[squawk][1]
-    elif is_military_aircraft(enrichment):
+    else:
+        special = classify_special_interest(aircraft, enrichment)
+        if special is not None:
+            interest_type, interest_label, interest_detail, confidence = special
+            enrichment["interest_type"] = interest_type
+            enrichment["interest_label"] = interest_label
+            enrichment["interest_detail"] = interest_detail
+            if squawk in WATCHED_SQUAWKS:
+                enrichment["squawk_label"] = interest_label
+            phase = "military_visible" if interest_type == "military_tanker" else "special_interest"
+            reason = interest_detail
+
+    if not phase and is_military_aircraft(enrichment):
         phase = "military_visible"
         confidence = 0.86
         operator = military_operator_speech(enrichment) or "unknown operator"
         reason = f"military metadata: {operator}"
-    elif "KUT" in {origin_iata, destination_iata}:
+    elif not phase and "KUT" in {origin_iata, destination_iata}:
         phase = "kutaisi_route"
         confidence = 0.64
         reason = f"route includes KUT: {origin_iata or '?'}-{destination_iata or '?'}"

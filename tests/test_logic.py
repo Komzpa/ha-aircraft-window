@@ -312,6 +312,108 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("Особый код транспондера", candidate.announcement)
         self.assertIn("сквок 7700: аварийная ситуация", candidate.announcement)
 
+    def test_common_squawk_is_not_special_by_itself(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "abc700",
+                "flight": "TST7000",
+                "squawk": "7000",
+                "alt_baro": 12000,
+                "seen": 1.0,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={"service_type": "unknown"},
+        )
+
+        self.assertIsNone(candidate)
+
+    def test_watched_squawk_is_special_interest_candidate(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "abc777",
+                "flight": "TST7777",
+                "squawk": "7777",
+                "alt_baro": 12000,
+                "seen": 1.0,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={"service_type": "unknown"},
+        )
+
+        assert candidate is not None
+        self.assertEqual(candidate.phase, "special_interest")
+        self.assertEqual(candidate.interest_type, "watched_squawk")
+        self.assertEqual(candidate.squawk_label, "особый код транспондера, возможно военный")
+        self.assertIn("Интересный самолёт", candidate.announcement)
+        self.assertIn("сквок 7777", candidate.announcement)
+
+    def test_ident_is_special_interest_candidate(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "abc123",
+                "flight": "TST123",
+                "spi": True,
+                "seen": 1.0,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={"service_type": "unknown"},
+        )
+
+        assert candidate is not None
+        self.assertEqual(candidate.phase, "special_interest")
+        self.assertEqual(candidate.interest_type, "ident")
+        self.assertIn("самолёт нажал IDENT", candidate.announcement)
+
+    def test_operational_metadata_interest_candidates(self) -> None:
+        cases = [
+            ("MED001", "medical helicopter", "medevac"),
+            ("POL001", "police air support", "police"),
+            ("CAL001", "flight check calibration", "calibration"),
+            ("DRN001", "Bayraktar TB2 UAV", "drone"),
+        ]
+        for flight, owner, interest_type in cases:
+            with self.subTest(interest_type=interest_type):
+                candidate = logic.interest_candidate(
+                    {"hex": "abc123", "flight": flight, "seen": 1.0},
+                    source="test",
+                    aircraft_count=1,
+                    enrichment={
+                        "registered_owner": owner,
+                        "aircraft_model": owner,
+                        "service_type": "unknown",
+                    },
+                )
+
+                assert candidate is not None
+                self.assertEqual(candidate.phase, "special_interest")
+                self.assertEqual(candidate.interest_type, interest_type)
+
+    def test_military_tanker_gets_specific_visible_label(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "ae0123",
+                "flight": "RCH135",
+                "seen": 1.0,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={
+                "operator_flag_code": "RCH",
+                "aircraft_type": "K35R",
+                "aircraft_model": "KC-135R Stratotanker",
+                "service_type": "military",
+                "spoken_flight": "один три пять",
+            },
+        )
+
+        assert candidate is not None
+        self.assertEqual(candidate.phase, "military_visible")
+        self.assertEqual(candidate.interest_type, "military_tanker")
+        self.assertIn("военный самолёт-заправщик", candidate.announcement)
+
     def test_history_position_backfill_can_promote_no_position_candidate(self) -> None:
         aircraft = {
             "hex": "48d841",

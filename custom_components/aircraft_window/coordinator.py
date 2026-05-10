@@ -38,7 +38,6 @@ from .const import (
     EVENT_CANDIDATE,
 )
 from .logic import (
-    INTERESTING_SQUAWKS,
     KNOWN_BUILT_YEAR_BY_REGISTRATION,
     AircraftCandidate,
     airport_label,
@@ -57,7 +56,6 @@ from .logic import (
     spoken_flight,
     spoken_model,
     spoken_year,
-    squawk_code,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -330,7 +328,16 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         """Return the best emergency, route, or military aircraft visible in the feed."""
         best: AircraftCandidate | None = None
         for aircraft in aircraft_rows:
-            if squawk_code(aircraft) not in INTERESTING_SQUAWKS:
+            raw_candidate = interest_candidate(
+                aircraft,
+                enrichment={},
+                source=source,
+                aircraft_count=len(aircraft_rows),
+            )
+            if raw_candidate is None or raw_candidate.phase not in {
+                "emergency_squawk",
+                "special_interest",
+            }:
                 continue
             enrichment = await self._async_enrich_aircraft(aircraft) if enable_enrichment else {}
             candidate = interest_candidate(
@@ -347,7 +354,12 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             return best
 
         for aircraft in aircraft_rows[:12]:
-            if squawk_code(aircraft) in INTERESTING_SQUAWKS:
+            if interest_candidate(
+                aircraft,
+                enrichment={},
+                source=source,
+                aircraft_count=len(aircraft_rows),
+            ) is not None:
                 continue
             try:
                 seen = float(aircraft.get("seen") or 999.0)
