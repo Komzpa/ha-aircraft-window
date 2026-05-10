@@ -19,6 +19,9 @@ announcements, covers, cameras, or whatever else belongs in your house.
 
 The announcement text includes the phase, airline, flight number, route direction,
 aircraft model, and built year when public enrichment data is available.
+If the receiver first sees only the transponder hex and the callsign appears a
+few seconds later, Aircraft Window announces the first sighting immediately and
+then sends a short "Уточнение..." follow-up with only the newly learned details.
 
 ## Installation
 

@@ -117,6 +117,40 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertTrue(text.startswith("Необычное."))
         self.assertIn("New Example Air", text)
 
+    def test_followup_announcement_adds_new_callsign_without_repeating_model(self) -> None:
+        previous = logic.AircraftCandidate(
+            state="positioned_takeoff:738286:738286",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:738286:738286",
+            hex="738286",
+            flight="738286",
+            aircraft_model="Airbus A320",
+            aircraft_model_speech="Аэробус триста двадцать",
+            built_year=2016,
+            built_year_speech="две тысячи шестнадцатого года",
+        )
+        current = logic.AircraftCandidate(
+            state="positioned_takeoff:738286:ISR890",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:738286:ISR890",
+            hex="738286",
+            flight="ISR890",
+            airline_name="Israir",
+            spoken_flight="восемь девять ноль",
+            destination_speech="Тель-Авив",
+            aircraft_model="Airbus A320",
+            aircraft_model_speech="Аэробус триста двадцать",
+            built_year=2016,
+            built_year_speech="две тысячи шестнадцатого года",
+        )
+
+        text = logic.build_followup_announcement(previous, current)
+
+        self.assertEqual(text, "Уточнение: это Исра Эйр восемь девять ноль, в Тель-Авив.")
+        self.assertNotIn("Самолёт. Взлёт", text)
+        self.assertNotIn("Аэробус", text)
+        self.assertNotIn("шестнадцатого", text)
+
     def test_speech_helpers(self) -> None:
         self.assertEqual(logic.spoken_flight("RWZ553", airline_icao="RWZ"), "пять пять три")
         self.assertEqual(

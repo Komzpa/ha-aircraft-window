@@ -262,6 +262,25 @@ def make_key(aircraft: dict[str, Any], phase: str) -> str:
     return f"{phase}:{hex_id}:{flight}"[:240]
 
 
+def candidate_airframe_key(candidate: AircraftCandidate) -> str:
+    """Return a stable key for follow-up announcements about the same aircraft pass."""
+    if candidate.hex:
+        return f"{candidate.phase}:{candidate.hex.strip().lower()}"
+    return candidate.event_key
+
+
+def _is_hex_token(value: str) -> bool:
+    """Return true when a flight label is just the transponder hex fallback."""
+    token = value.strip().lower()
+    return bool(token) and bool(re.fullmatch(r"[0-9a-f]{6}", token))
+
+
+def candidate_has_real_flight(candidate: AircraftCandidate) -> bool:
+    """Return true when the candidate has a real callsign, not a hex fallback."""
+    flight = candidate.flight.strip()
+    return bool(flight) and not _is_hex_token(flight)
+
+
 def spoken_flight(flight: str, airline_icao: str = "", airline_iata: str = "") -> str:
     """Turn AIZ414/RWZ553 into a short TTS-friendly flight number."""
     token = flight.strip().replace(" ", "").upper()
@@ -422,6 +441,60 @@ def build_announcement(
     if extra:
         sentence = f"{sentence} {', '.join(extra)}."
     return sentence
+
+
+def build_followup_announcement(
+    previous: AircraftCandidate,
+    current: AircraftCandidate,
+) -> str:
+    """Build a short update when more details arrive after the first sighting."""
+    if candidate_airframe_key(previous) != candidate_airframe_key(current):
+        return ""
+
+    details: list[str] = []
+    if (
+        candidate_has_real_flight(current)
+        and (
+            current.flight != previous.flight
+            or (current.airline_name and current.airline_name != previous.airline_name)
+        )
+    ):
+        airline = AIRLINE_SPEECH_RU.get(current.airline_name, current.airline_name)
+        flight = current.spoken_flight or current.flight
+        identity = " ".join(part for part in [airline, flight] if part)
+        if identity:
+            details.append(f"это {identity}")
+
+    if current.phase == "positioned_landing":
+        route = current.origin_speech or current.origin_name
+        if route and route != (previous.origin_speech or previous.origin_name):
+            details.append(f"из {route}")
+    elif current.phase == "positioned_takeoff":
+        route = current.destination_speech or current.destination_name
+        if route and route != (previous.destination_speech or previous.destination_name):
+            details.append(f"в {route}")
+    else:
+        origin = current.origin_speech or current.origin_name
+        destination = current.destination_speech or current.destination_name
+        if origin and destination and (
+            origin != (previous.origin_speech or previous.origin_name)
+            or destination != (previous.destination_speech or previous.destination_name)
+        ):
+            details.append(f"{origin} - {destination}")
+
+    model = current.aircraft_model_speech or current.aircraft_model or current.aircraft_type
+    previous_model = (
+        previous.aircraft_model_speech or previous.aircraft_model or previous.aircraft_type
+    )
+    if model and model != previous_model:
+        details.append(model)
+
+    if current.built_year_speech and current.built_year_speech != previous.built_year_speech:
+        details.append(current.built_year_speech)
+
+    if not details:
+        return ""
+    return f"Уточнение: {', '.join(details)}."
 
 
 def idle_candidate(reason: str, *, source: str = "", aircraft_count: int = 0) -> AircraftCandidate:

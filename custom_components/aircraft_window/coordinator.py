@@ -38,6 +38,8 @@ from .logic import (
     AircraftCandidate,
     airport_label,
     airport_speech,
+    build_followup_announcement,
+    candidate_airframe_key,
     extract_airport_data_year,
     flight_label,
     idle_candidate,
@@ -66,6 +68,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         self._store: Store[dict[str, Any]] = Store(hass, 1, f"{DOMAIN}_{entry.entry_id}")
         self._cache: dict[str, Any] | None = None
         self._last_event_key = ""
+        self._last_announced_by_airframe: dict[str, AircraftCandidate] = {}
+        self._announced_event_keys_by_airframe: dict[str, set[str]] = {}
         options = self.options
         super().__init__(
             hass,
@@ -151,9 +155,22 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     enrich=lambda _aircraft: enrichment,
                 )
 
-        if base_candidate.active and base_candidate.event_key != self._last_event_key:
-            self.hass.bus.async_fire(EVENT_CANDIDATE, base_candidate.as_dict())
-            self._last_event_key = base_candidate.event_key
+        if base_candidate.active:
+            airframe_key = candidate_airframe_key(base_candidate)
+            announced_keys = self._announced_event_keys_by_airframe.setdefault(
+                airframe_key,
+                set(),
+            )
+            if base_candidate.event_key not in announced_keys:
+                previous = self._last_announced_by_airframe.get(airframe_key)
+                if previous is not None:
+                    followup = build_followup_announcement(previous, base_candidate)
+                    if followup:
+                        base_candidate.announcement = followup
+                self.hass.bus.async_fire(EVENT_CANDIDATE, base_candidate.as_dict())
+                self._last_event_key = base_candidate.event_key
+                announced_keys.add(base_candidate.event_key)
+                self._last_announced_by_airframe[airframe_key] = base_candidate
         elif not base_candidate.active:
             self._last_event_key = ""
         return base_candidate
