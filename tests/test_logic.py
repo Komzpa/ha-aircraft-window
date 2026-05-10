@@ -492,6 +492,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "BUS → Natakhtari",
         )
         self.assertEqual(
+            logic.known_route_for_callsign("VAA021")["airline_name"],
+            "Vanilla Sky",
+        )
+        self.assertEqual(
             logic.spoken_model("L-410 UVP-E4", "L410"),
             "Лет четыреста десять Турболет, небольшой двухмоторный турбовинтовой",
         )

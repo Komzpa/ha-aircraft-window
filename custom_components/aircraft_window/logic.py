@@ -102,6 +102,7 @@ AIRLINE_SPEECH_RU = {
     "Uzbekistan Airways": "Узбекистон",
     "Varesh Airlines": "Вареш",
     "Van Air Europe": "Ван Эйр",
+    "Vanilla Sky": "Ванилла Скай",
     "Wizz Air": "Визз Эйр",
 }
 
@@ -111,7 +112,7 @@ KNOWN_AIRLINE_BY_CALLSIGN_PREFIX = {
 
 KNOWN_ROUTE_BY_CALLSIGN = {
     "VAA020": {
-        "airline_name": "Van Air Europe",
+        "airline_name": "Vanilla Sky",
         "origin_iata": "",
         "origin_name": "Natakhtari",
         "origin_speech": "Натахтари",
@@ -121,7 +122,7 @@ KNOWN_ROUTE_BY_CALLSIGN = {
         "route_summary": "Natakhtari → BUS",
     },
     "VAA021": {
-        "airline_name": "Van Air Europe",
+        "airline_name": "Vanilla Sky",
         "origin_iata": "BUS",
         "origin_name": "Batumi (BUS)",
         "origin_speech": "Батуми",

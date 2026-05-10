@@ -562,7 +562,9 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         fallback_route = known_route_for_callsign(flight)
         if fallback_route and not attrs["route_summary"]:
             for key, value in fallback_route.items():
-                if value and not attrs.get(key):
+                if key == "airline_name" and value:
+                    attrs[key] = value
+                elif value and not attrs.get(key):
                     attrs[key] = value
             attrs["enrichment_source"] = (
                 f"{attrs['enrichment_source']}+local_route"
