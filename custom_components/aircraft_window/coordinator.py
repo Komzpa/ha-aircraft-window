@@ -70,6 +70,10 @@ BUILT_YEAR_CACHE_SECONDS = 30 * 24 * 60 * 60
 AIRPORT_BOARD_CACHE_SECONDS = 5 * 60
 BATUMI_AIRPORT_BOARD_BASE_URL = "https://batumiairport.com/Home/searchFlights"
 TBILISI_TIMEZONE = timezone(timedelta(hours=4))
+BATUMI_AIRPORT_BOARD_LEGS = {
+    "DEPARTURE": "/en-EN/flights/departure-flights",
+    "ARRIVAL": "/en-EN/flights/arrival-flights",
+}
 
 CALLSIGN_PREFIX_TO_BOARD_AIRLINE = {
     "AIZ": "IZ",
@@ -206,7 +210,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 None,
             )
             if row is not None:
-                enrichment = await self._async_enrich_aircraft(row)
+                enrichment = await self._async_enrich_aircraft(row, phase=base_candidate.phase)
                 base_candidate = pick_candidate(
                     [row],
                     home_latitude=float(options.get(CONF_HOME_LATITUDE, self.hass.config.latitude)),
@@ -450,10 +454,16 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         await self._async_save_cache()
         return payload
 
-    async def _async_batumi_airport_board(self, session: aiohttp.ClientSession) -> dict[str, Any]:
-        """Return the current Batumi Airport live board."""
-        today = datetime.now(TBILISI_TIMEZONE).strftime("%d.%m.%Y")
-        cache_key = f"batumi-airport-board:{today}"
+    async def _async_batumi_airport_board_leg(
+        self,
+        session: aiohttp.ClientSession,
+        *,
+        today: str,
+        flight_leg: str,
+        request_raw_url: str,
+    ) -> dict[str, Any]:
+        """Return one Batumi Airport live-board leg."""
+        cache_key = f"batumi-airport-board:{today}:{flight_leg.lower()}"
         cache = await self._async_cache()
         now = int(time.time())
         cached = cache.get(cache_key)
@@ -466,11 +476,11 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
 
         payload: dict[str, Any] = {}
         params = {
-            "flightLeg": "DEPARTURE",
+            "flightLeg": flight_leg,
             "date": today,
             "destination": "",
             "airline": "",
-            "requestRawUrl": "/en-EN/flights/departure-flights",
+            "requestRawUrl": request_raw_url,
         }
         try:
             async with session.get(
@@ -478,7 +488,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 params=params,
                 headers={
                     "Accept": "application/json, text/javascript, */*; q=0.01",
-                    "Referer": "https://batumiairport.com/en-EN/flights/departure-flights",
+                    "Referer": f"https://batumiairport.com{request_raw_url}",
                     "User-Agent": "HomeAssistantAircraftWindow/1.0",
                     "X-Requested-With": "XMLHttpRequest",
                 },
@@ -492,7 +502,33 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         await self._async_save_cache()
         return payload
 
-    def _airport_board_match(self, payload: dict[str, Any], flight: str) -> dict[str, Any]:
+    async def _async_batumi_airport_board(self, session: aiohttp.ClientSession) -> dict[str, Any]:
+        """Return the current Batumi Airport live board for arrivals and departures."""
+        today = datetime.now(TBILISI_TIMEZONE).strftime("%d.%m.%Y")
+        flights: list[dict[str, Any]] = []
+        current_time = ""
+        for flight_leg, request_raw_url in BATUMI_AIRPORT_BOARD_LEGS.items():
+            payload = await self._async_batumi_airport_board_leg(
+                session,
+                today=today,
+                flight_leg=flight_leg,
+                request_raw_url=request_raw_url,
+            )
+            data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+            if not current_time:
+                current_time = str(data.get("currentTime") or "")
+            rows = data.get("flights")
+            if isinstance(rows, list):
+                flights.extend(row for row in rows if isinstance(row, dict))
+        return {"data": {"currentTime": current_time, "flights": flights}}
+
+    def _airport_board_match(
+        self,
+        payload: dict[str, Any],
+        flight: str,
+        *,
+        preferred_leg: str = "",
+    ) -> dict[str, Any]:
         """Match a callsign to a Batumi Airport board row."""
         token = flight.strip().replace(" ", "").upper()
         match = re.fullmatch(r"([A-Z]{2,3})([A-Z0-9]+)", token)
@@ -503,6 +539,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         rows = (((payload.get("data") or {}).get("flights")) or [])
         if not isinstance(rows, list):
             return {}
+        matches: list[dict[str, Any]] = []
         for row in rows:
             if not isinstance(row, dict):
                 continue
@@ -515,8 +552,24 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 airline_icao,
             }:
                 continue
-            return row
-        return {}
+            matches.append(row)
+        if preferred_leg:
+            for row in matches:
+                if str(row.get("flightLeg") or "").strip().upper() == preferred_leg:
+                    return row
+        for row in matches:
+            if str(row.get("flightLeg") or "").strip().upper() == "DEPARTURE":
+                return row
+        return matches[0] if matches else {}
+
+    @staticmethod
+    def _airport_board_leg_for_phase(phase: str) -> str:
+        """Return the board leg that matches a candidate movement phase."""
+        if phase in {"positioned_landing", "positioned_approach"}:
+            return "ARRIVAL"
+        if phase == "positioned_takeoff":
+            return "DEPARTURE"
+        return ""
 
     @staticmethod
     def _airport_board_city(data: dict[str, Any], key: str, suffix: str) -> str:
@@ -554,11 +607,15 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         attrs["scheduled_departure_local"] = str(row.get("stad") or "")[11:16]
         attrs["airport_board_remark"] = str((row.get("remark") or {}).get("remarkEn") or "")
         attrs["airport_board_estimated_local"] = str(row.get("etad") or "")
-        attrs["enrichment_source"] = (
-            f"{attrs['enrichment_source']}+airport_board"
-            if attrs["enrichment_source"]
-            else "airport_board"
-        )
+        self._add_enrichment_source(attrs, "airport_board")
+
+    @staticmethod
+    def _add_enrichment_source(attrs: dict[str, Any], source: str) -> None:
+        """Append an enrichment source once, preserving earlier providers."""
+        sources = [item for item in str(attrs.get("enrichment_source") or "").split("+") if item]
+        if source not in sources:
+            sources.append(source)
+        attrs["enrichment_source"] = "+".join(sources)
 
     async def _async_airport_data_year(
         self,
@@ -601,7 +658,12 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         await self._async_save_cache()
         return year
 
-    async def _async_enrich_aircraft(self, aircraft: dict[str, Any]) -> dict[str, Any]:
+    async def _async_enrich_aircraft(
+        self,
+        aircraft: dict[str, Any],
+        *,
+        phase: str = "",
+    ) -> dict[str, Any]:
         """Enrich aircraft with route, airline, model and built year."""
         options = self.options
         timeout = aiohttp.ClientTimeout(
@@ -650,7 +712,11 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         session = async_get_clientsession(self.hass)
         if flight and flight != "UNKNOWN" and not flight.lower().startswith(hex_id.lower()):
             board = await self._async_batumi_airport_board(session)
-            board_row = self._airport_board_match(board, flight)
+            board_row = self._airport_board_match(
+                board,
+                flight,
+                preferred_leg=self._airport_board_leg_for_phase(phase),
+            )
             if board_row:
                 self._apply_airport_board_route(attrs, board_row)
 
@@ -684,17 +750,13 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     airline_iata=str(airline.get("iata") or ""),
                 )
                 if attrs["airline_name"] or attrs["route_summary"]:
-                    attrs["enrichment_source"] = "adsbdb"
+                    self._add_enrichment_source(attrs, "adsbdb")
 
         fallback_airline, fallback_prefix = known_airline_for_callsign(flight)
         if fallback_airline:
             if not attrs["airline_name"]:
                 attrs["airline_name"] = fallback_airline
-                attrs["enrichment_source"] = (
-                    f"{attrs['enrichment_source']}+callsign"
-                    if attrs["enrichment_source"]
-                    else "callsign"
-                )
+                self._add_enrichment_source(attrs, "callsign")
             if fallback_prefix:
                 attrs["spoken_flight"] = spoken_flight(flight, airline_icao=fallback_prefix)
 
@@ -705,11 +767,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     attrs[key] = value
                 elif value and not attrs.get(key):
                     attrs[key] = value
-            attrs["enrichment_source"] = (
-                f"{attrs['enrichment_source']}+local_route"
-                if attrs["enrichment_source"]
-                else "local_route"
-            )
+            self._add_enrichment_source(attrs, "local_route")
 
         if hex_id:
             aircraft_payload = await self._async_get_json(
@@ -732,7 +790,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     aircraft_info.get("registered_owner_country_name") or ""
                 ).strip()
                 if attrs["aircraft_model"] or attrs["registration"]:
-                    attrs["enrichment_source"] = "adsbdb"
+                    self._add_enrichment_source(attrs, "adsbdb")
 
         if hex_id and (not attrs["aircraft_model"] or not attrs["registration"]):
             hexdb_payload = await self._async_get_json(
@@ -758,9 +816,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 hexdb_payload.get("OperatorFlagCode") or ""
             ).strip()
             if attrs["aircraft_model"] or attrs["registration"]:
-                attrs["enrichment_source"] = (
-                    "adsbdb+hexdb" if attrs["enrichment_source"] else "hexdb"
-                )
+                self._add_enrichment_source(attrs, "hexdb")
 
         attrs["aircraft_model_speech"] = spoken_model(
             attrs["aircraft_model"],
