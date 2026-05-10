@@ -546,7 +546,7 @@ def build_announcement(
     elif phase == "positioned_approach":
         base = "Заходит на посадку"
     elif phase == "positioned_landing":
-        base = "Посадка"
+        base = "Заходит на посадку"
     elif phase == "positioned_takeoff":
         base = "Вылетает"
     elif phase == "positioned_low_nearby":
