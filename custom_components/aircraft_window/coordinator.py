@@ -494,6 +494,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             "destination_name": "",
             "destination_speech": "",
             "route_summary": "",
+            "route_source": "",
+            "scheduled_departure_local": "",
             "aircraft_model": "",
             "aircraft_type": "",
             "aircraft_model_speech": "",

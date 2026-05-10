@@ -496,6 +496,14 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "Vanilla Sky",
         )
         self.assertEqual(
+            logic.known_route_for_callsign("VAA021")["route_source"],
+            "vanilla_sky_schedule",
+        )
+        self.assertEqual(
+            logic.known_route_for_callsign("VAA021")["scheduled_departure_local"],
+            "14:00",
+        )
+        self.assertEqual(
             logic.spoken_model("L-410 UVP-E4", "L410"),
             "Лет четыреста десять Турболет, небольшой двухмоторный турбовинтовой",
         )

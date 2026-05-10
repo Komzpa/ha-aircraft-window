@@ -120,6 +120,8 @@ KNOWN_ROUTE_BY_CALLSIGN = {
         "destination_name": "Batumi (BUS)",
         "destination_speech": "Батуми",
         "route_summary": "Natakhtari → BUS",
+        "route_source": "vanilla_sky_schedule",
+        "scheduled_departure_local": "12:30",
     },
     "VAA021": {
         "airline_name": "Vanilla Sky",
@@ -130,6 +132,8 @@ KNOWN_ROUTE_BY_CALLSIGN = {
         "destination_name": "Natakhtari",
         "destination_speech": "Натахтари",
         "route_summary": "BUS → Natakhtari",
+        "route_source": "vanilla_sky_schedule",
+        "scheduled_departure_local": "14:00",
     },
 }
 
@@ -397,6 +401,8 @@ class AircraftCandidate:
     destination_name: str = ""
     destination_speech: str = ""
     route_summary: str = ""
+    route_source: str = ""
+    scheduled_departure_local: str = ""
     aircraft_model: str = ""
     aircraft_type: str = ""
     aircraft_model_speech: str = ""
@@ -936,6 +942,8 @@ def has_route_details(enrichment: dict[str, Any]) -> bool:
         "destination_name",
         "destination_speech",
         "route_summary",
+        "route_source",
+        "scheduled_departure_local",
     )
     return any(str(enrichment.get(field) or "").strip() for field in route_fields)
 
