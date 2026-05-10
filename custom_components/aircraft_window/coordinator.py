@@ -51,6 +51,7 @@ from .logic import (
     idle_candidate,
     interest_candidate,
     known_airline_for_callsign,
+    known_route_for_callsign,
     make_key,
     pick_candidate,
     spoken_flight,
@@ -557,6 +558,17 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 )
             if fallback_prefix:
                 attrs["spoken_flight"] = spoken_flight(flight, airline_icao=fallback_prefix)
+
+        fallback_route = known_route_for_callsign(flight)
+        if fallback_route and not attrs["route_summary"]:
+            for key, value in fallback_route.items():
+                if value and not attrs.get(key):
+                    attrs[key] = value
+            attrs["enrichment_source"] = (
+                f"{attrs['enrichment_source']}+local_route"
+                if attrs["enrichment_source"]
+                else "local_route"
+            )
 
         if hex_id:
             aircraft_payload = await self._async_get_json(

@@ -101,12 +101,35 @@ AIRLINE_SPEECH_RU = {
     "Turkish Airlines": "Туркиш",
     "Uzbekistan Airways": "Узбекистон",
     "Varesh Airlines": "Вареш",
-    "Van Air Europe": "Ван Эйр Европа",
+    "Van Air Europe": "Ван Эйр",
     "Wizz Air": "Визз Эйр",
 }
 
 KNOWN_AIRLINE_BY_CALLSIGN_PREFIX = {
     "VAA": "Van Air Europe",
+}
+
+KNOWN_ROUTE_BY_CALLSIGN = {
+    "VAA020": {
+        "airline_name": "Van Air Europe",
+        "origin_iata": "",
+        "origin_name": "Natakhtari",
+        "origin_speech": "Натахтари",
+        "destination_iata": "BUS",
+        "destination_name": "Batumi (BUS)",
+        "destination_speech": "Батуми",
+        "route_summary": "Natakhtari → BUS",
+    },
+    "VAA021": {
+        "airline_name": "Van Air Europe",
+        "origin_iata": "BUS",
+        "origin_name": "Batumi (BUS)",
+        "origin_speech": "Батуми",
+        "destination_iata": "",
+        "destination_name": "Natakhtari",
+        "destination_speech": "Натахтари",
+        "route_summary": "BUS → Natakhtari",
+    },
 }
 
 PASSENGER_AIRLINES = {
@@ -804,6 +827,13 @@ def known_airline_for_callsign(flight: str) -> tuple[str, str]:
         if token.startswith(prefix):
             return airline_name, prefix
     return "", ""
+
+
+def known_route_for_callsign(flight: str) -> dict[str, str]:
+    """Return known local route metadata for callsigns missing from public APIs."""
+    token = flight.strip().replace(" ", "").upper()
+    route = KNOWN_ROUTE_BY_CALLSIGN.get(token)
+    return dict(route) if route is not None else {}
 
 
 def spoken_model(model: str, aircraft_type: str = "") -> str:

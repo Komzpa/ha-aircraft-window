@@ -176,7 +176,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
             },
         )
 
-        self.assertIn("Заходит на посадку самолёт Ван Эйр Европа ноль два ноль.", text)
+        self.assertIn("Заходит на посадку самолёт Ван Эйр ноль два ноль.", text)
         self.assertNotIn("Заходит на посадку рейс", text)
 
     def test_service_type_classification_is_conservative(self) -> None:
@@ -486,6 +486,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(
             logic.known_airline_for_callsign("VAA020"),
             ("Van Air Europe", "VAA"),
+        )
+        self.assertEqual(
+            logic.known_route_for_callsign("VAA021")["route_summary"],
+            "BUS → Natakhtari",
         )
         self.assertEqual(
             logic.spoken_model("L-410 UVP-E4", "L410"),
