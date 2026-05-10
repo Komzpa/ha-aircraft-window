@@ -141,6 +141,8 @@ MILITARY_TYPE_CODES = {
     "T154",
 }
 
+ANNOUNCEMENT_CHIME_RU = "Ту-тум-туу."
+
 DIGIT_RU = {
     "0": "ноль",
     "1": "один",
@@ -531,26 +533,26 @@ def build_announcement(
     flight_number = str(enrichment.get("spoken_flight") or label).strip()
 
     if phase == "military_visible":
-        base = "Военный борт в зоне видимости"
+        base = "Внимание: военный борт в зоне видимости"
     elif phase == "kutaisi_route":
         if str(enrichment.get("destination_iata") or "").upper() == "KUT":
-            base = "Рейс на Кутаиси"
+            base = "Информация для наблюдения: рейс на Кутаиси"
         elif str(enrichment.get("origin_iata") or "").upper() == "KUT":
-            base = "Рейс из Кутаиси"
+            base = "Информация для наблюдения: рейс из Кутаиси"
         else:
-            base = "Рейс через Кутаиси"
+            base = "Информация для наблюдения: рейс через Кутаиси"
     elif phase == "no_position_nearby":
-        base = "Похоже, рядом самолёт без координат"
+        base = "Внимание: рядом борт без координат"
     elif phase == "positioned_approach":
-        base = "Самолёт. Заход на посадку"
+        base = "Внимание: борт заходит на посадку"
     elif phase == "positioned_landing":
-        base = "Самолёт. Посадка"
+        base = "Внимание: посадка борта"
     elif phase == "positioned_takeoff":
-        base = "Самолёт. Взлёт"
+        base = "Внимание: взлёт борта"
     elif phase == "positioned_low_nearby":
-        base = "Самолёт рядом"
+        base = "Внимание: борт рядом"
     else:
-        base = "Самолёт"
+        base = "Внимание: борт"
 
     if phase == "military_visible":
         operator = military_operator_speech(enrichment)
@@ -560,7 +562,7 @@ def build_announcement(
     sentence = f"{base}: {subject or label}."
     reason = novelty_reason(enrichment, phase)
     if reason:
-        sentence = f"Необычное. {sentence}"
+        sentence = f"Особое объявление. {sentence}"
 
     extra: list[str] = []
     if phase == "military_visible":
@@ -586,7 +588,7 @@ def build_announcement(
         extra.append(built_year)
     if extra:
         sentence = f"{sentence} {', '.join(extra)}."
-    return sentence
+    return f"{ANNOUNCEMENT_CHIME_RU} {sentence}"
 
 
 def build_followup_announcement(
@@ -640,7 +642,7 @@ def build_followup_announcement(
 
     if not details:
         return ""
-    return f"Уточнение: {', '.join(details)}."
+    return f"{ANNOUNCEMENT_CHIME_RU} Дополнение к объявлению: {', '.join(details)}."
 
 
 def idle_candidate(reason: str, *, source: str = "", aircraft_count: int = 0) -> AircraftCandidate:

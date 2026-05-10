@@ -138,7 +138,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertEqual(candidate.phase, "positioned_approach")
         self.assertGreaterEqual(candidate.confidence, 0.55)
-        self.assertIn("Заход на посадку", candidate.announcement)
+        self.assertTrue(candidate.announcement.startswith("Ту-тум-туу."))
+        self.assertIn("заходит на посадку", candidate.announcement)
         self.assertIn("Исра Эйр", candidate.announcement)
         self.assertIn("Из Тель-Авива", candidate.announcement)
 
@@ -156,7 +157,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
             },
         )
 
-        self.assertTrue(text.startswith("Необычное."))
+        self.assertTrue(text.startswith("Ту-тум-туу. Особое объявление."))
         self.assertIn("New Example Air", text)
 
     def test_followup_announcement_adds_new_callsign_without_repeating_model(self) -> None:
@@ -188,8 +189,12 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         text = logic.build_followup_announcement(previous, current)
 
-        self.assertEqual(text, "Уточнение: это Исра Эйр восемь девять ноль, в Тель-Авив.")
-        self.assertNotIn("Самолёт. Взлёт", text)
+        self.assertEqual(
+            text,
+            "Ту-тум-туу. Дополнение к объявлению: "
+            "это Исра Эйр восемь девять ноль, в Тель-Авив.",
+        )
+        self.assertNotIn("Внимание: взлёт борта", text)
         self.assertNotIn("Аэробус", text)
         self.assertNotIn("шестнадцатого", text)
 
@@ -218,7 +223,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         assert candidate is not None
         self.assertEqual(candidate.phase, "military_visible")
-        self.assertIn("Военный борт", candidate.announcement)
+        self.assertTrue(candidate.announcement.startswith("Ту-тум-туу."))
+        self.assertIn("военный борт", candidate.announcement)
         self.assertIn("Польские ВВС", candidate.announcement)
         self.assertIn("C-295 M", candidate.announcement)
 
@@ -281,7 +287,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         assert candidate is not None
         self.assertEqual(candidate.phase, "kutaisi_route")
-        self.assertIn("Рейс из Кутаиси", candidate.announcement)
+        self.assertIn("рейс из Кутаиси", candidate.announcement)
         self.assertIn("Кутаиси - Ригу", candidate.announcement)
         self.assertFalse(candidate.unusual_aircraft)
 
