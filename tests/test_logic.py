@@ -395,6 +395,55 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(candidate.interest_type, "ident")
         self.assertIn("самолёт нажал IDENT", candidate.announcement)
 
+    def test_altitude_hold_nav_mode_is_not_special_interest_candidate(self) -> None:
+        for nav_modes in (["althold", "tcas"], ["autopilot", "althold", "tcas"], "alt hold"):
+            with self.subTest(nav_modes=nav_modes):
+                candidate = logic.interest_candidate(
+                    {
+                        "hex": "155c20",
+                        "flight": "AZO3029",
+                        "seen": 1.0,
+                        "alt_baro": 34975,
+                        "baro_rate": -128,
+                        "gs": 452,
+                        "track": 98.4,
+                        "nav_modes": nav_modes,
+                    },
+                    source="test",
+                    aircraft_count=1,
+                    enrichment={
+                        "airline_name": "Azimuth Airlines",
+                        "origin_iata": "KRR",
+                        "origin_name": "Krasnodar",
+                        "destination_iata": "EVN",
+                        "destination_speech": "Ереван",
+                        "aircraft_model_speech": "Суперджет",
+                        "route_summary": "KRR → EVN",
+                        "service_type": "unknown",
+                    },
+                )
+
+                self.assertIsNone(candidate)
+
+    def test_real_hold_nav_mode_is_special_interest_candidate(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "49d570",
+                "flight": "DFC8GP",
+                "seen": 1.0,
+                "alt_baro": 7000,
+                "gs": 180,
+                "nav_modes": ["hold"],
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={"service_type": "unknown"},
+        )
+
+        assert candidate is not None
+        self.assertEqual(candidate.phase, "special_interest")
+        self.assertEqual(candidate.interest_type, "holding_or_orbit")
+
     def test_operational_metadata_interest_candidates(self) -> None:
         cases = [
             ("MED001", "medical helicopter", "medevac"),

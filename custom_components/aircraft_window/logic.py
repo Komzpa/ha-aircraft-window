@@ -701,6 +701,32 @@ def classify_service_type(enrichment: dict[str, Any]) -> tuple[str, float, str]:
     return "unknown", 0.0, ""
 
 
+def _nav_mode_text(nav_modes: Any) -> str:
+    if isinstance(nav_modes, list):
+        return " ".join(str(item) for item in nav_modes)
+    return str(nav_modes or "")
+
+
+def _has_holding_or_orbit_nav_mode(nav_modes: Any) -> bool:
+    items = nav_modes if isinstance(nav_modes, list) else [nav_modes]
+    for item in items:
+        text = re.sub(r"[_-]+", " ", str(item or "").lower()).strip()
+        text = re.sub(r"\s+", " ", text)
+        if not text:
+            continue
+        if text in {"althold", "alt hold", "altitude hold"}:
+            continue
+        if re.fullmatch(r"(?:autopilot )?(?:alt|altitude) hold(?: tcas)?", text):
+            continue
+        if re.search(r"\b(?:holding|orbit|orbiting|racetrack)\b", text):
+            return True
+        if re.search(r"\bhold\b", text) and not re.search(
+            r"\b(?:alt|altitude)\s+hold\b", text
+        ):
+            return True
+    return False
+
+
 def classify_special_interest(
     aircraft: dict[str, Any],
     enrichment: dict[str, Any],
@@ -727,15 +753,10 @@ def classify_special_interest(
         )
 
     nav_modes = aircraft.get("nav_modes")
-    nav_text = (
-        " ".join(str(item) for item in nav_modes)
-        if isinstance(nav_modes, list)
-        else str(nav_modes or "")
-    )
-    nav_text = nav_text.lower()
+    nav_text = _nav_mode_text(nav_modes).lower()
     track_rate = parse_float(aircraft.get("track_rate"))
     ground_speed = parse_float(aircraft.get("gs"))
-    if "hold" in nav_text or "orbit" in nav_text:
+    if _has_holding_or_orbit_nav_mode(nav_modes):
         return (
             "holding_or_orbit",
             "похоже на ожидание или круги",
