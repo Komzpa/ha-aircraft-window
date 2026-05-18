@@ -266,24 +266,36 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             base_candidate = special_candidate
 
         if base_candidate.active:
-            airframe_key = candidate_airframe_key(base_candidate)
-            announced_keys = self._announced_event_keys_by_airframe.setdefault(
-                airframe_key,
-                set(),
-            )
-            if base_candidate.event_key not in announced_keys:
-                previous = self._last_announced_by_airframe.get(airframe_key)
-                if previous is not None:
-                    followup = build_followup_announcement(previous, base_candidate)
-                    if followup:
-                        base_candidate.announcement = followup
-                self.hass.bus.async_fire(EVENT_CANDIDATE, base_candidate.as_dict())
-                self._last_event_key = base_candidate.event_key
-                announced_keys.add(base_candidate.event_key)
-                self._last_announced_by_airframe[airframe_key] = base_candidate
+            self._handle_candidate_event(base_candidate)
         elif not base_candidate.active:
             self._last_event_key = ""
         return base_candidate
+
+    def _handle_candidate_event(self, base_candidate: AircraftCandidate) -> bool:
+        """Fire a candidate event unless it is same-airframe routine churn."""
+        airframe_key = candidate_airframe_key(base_candidate)
+        announced_keys = self._announced_event_keys_by_airframe.setdefault(
+            airframe_key,
+            set(),
+        )
+        if base_candidate.event_key in announced_keys:
+            return False
+
+        should_fire = True
+        previous = self._last_announced_by_airframe.get(airframe_key)
+        if previous is not None:
+            followup = build_followup_announcement(previous, base_candidate)
+            if followup:
+                base_candidate.announcement = followup
+            else:
+                should_fire = False
+
+        if should_fire:
+            announced_keys.add(base_candidate.event_key)
+            self._last_announced_by_airframe[airframe_key] = base_candidate
+            self.hass.bus.async_fire(EVENT_CANDIDATE, base_candidate.as_dict())
+            self._last_event_key = base_candidate.event_key
+        return should_fire
 
     async def _async_backfill_no_position_rows(
         self,

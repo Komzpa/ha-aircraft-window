@@ -85,6 +85,162 @@ coordinator = _load_component_module("coordinator")
 class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
     """Verify Batumi Airport board matching and aggregation."""
 
+    def test_handle_candidate_event_suppresses_callsign_only_followup(self) -> None:
+        events: list[tuple[str, dict[str, Any]]] = []
+
+        class FakeBus:
+            def async_fire(self, event_type: str, data: dict[str, Any]) -> None:
+                events.append((event_type, data))
+
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake.hass = types.SimpleNamespace(bus=FakeBus())
+        fake._last_event_key = ""
+        fake._announced_event_keys_by_airframe = {}
+        fake._last_announced_by_airframe = {}
+
+        previous = coordinator.AircraftCandidate(
+            state="positioned_takeoff:738286:738286",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:738286:738286",
+            hex="738286",
+            flight="738286",
+            aircraft_model="Airbus A320",
+            aircraft_model_speech="Аэробус триста двадцать",
+            built_year_speech="две тысячи шестнадцатого года",
+            announcement="Вылетает самолёт 738286.",
+        )
+        current = coordinator.AircraftCandidate(
+            state="positioned_takeoff:738286:ISR890",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:738286:ISR890",
+            hex="738286",
+            flight="ISR890",
+            airline_name="Israir",
+            spoken_flight="восемь девять ноль",
+            aircraft_model="Airbus A320",
+            aircraft_model_speech="Аэробус триста двадцать",
+            built_year_speech="две тысячи шестнадцатого года",
+            announcement="Вылетает рейс Исра Эйр восемь девять ноль.",
+        )
+
+        self.assertTrue(fake._handle_candidate_event(previous))
+        self.assertFalse(fake._handle_candidate_event(current))
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0][0], coordinator.EVENT_CANDIDATE)
+        self.assertEqual(fake._last_event_key, previous.event_key)
+        airframe_key = coordinator.candidate_airframe_key(current)
+        self.assertNotIn(current.event_key, fake._announced_event_keys_by_airframe[airframe_key])
+        self.assertIs(fake._last_announced_by_airframe[airframe_key], previous)
+
+    def test_handle_candidate_event_keeps_route_followup(self) -> None:
+        events: list[tuple[str, dict[str, Any]]] = []
+
+        class FakeBus:
+            def async_fire(self, event_type: str, data: dict[str, Any]) -> None:
+                events.append((event_type, data))
+
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake.hass = types.SimpleNamespace(bus=FakeBus())
+        fake._last_event_key = ""
+        fake._announced_event_keys_by_airframe = {}
+        fake._last_announced_by_airframe = {}
+
+        previous = coordinator.AircraftCandidate(
+            state="positioned_takeoff:738286:738286",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:738286:738286",
+            hex="738286",
+            flight="738286",
+            aircraft_model="Airbus A320",
+            aircraft_model_speech="Аэробус триста двадцать",
+            built_year_speech="две тысячи шестнадцатого года",
+            announcement="Вылетает самолёт 738286.",
+        )
+        current = coordinator.AircraftCandidate(
+            state="positioned_takeoff:738286:ISR890",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:738286:ISR890",
+            hex="738286",
+            flight="ISR890",
+            airline_name="Israir",
+            spoken_flight="восемь девять ноль",
+            destination_speech="Тель-Авив",
+            aircraft_model="Airbus A320",
+            aircraft_model_speech="Аэробус триста двадцать",
+            built_year_speech="две тысячи шестнадцатого года",
+            announcement="Вылетает рейс Исра Эйр восемь девять ноль.",
+        )
+
+        self.assertTrue(fake._handle_candidate_event(previous))
+        self.assertTrue(fake._handle_candidate_event(current))
+
+        self.assertEqual(len(events), 2)
+        self.assertEqual(
+            events[1][1]["announcement"],
+            "Дополнение: это Исра Эйр восемь девять ноль, в Тель-Авив.",
+        )
+
+    def test_handle_candidate_event_allows_late_route_after_suppressed_callsign(self) -> None:
+        events: list[tuple[str, dict[str, Any]]] = []
+
+        class FakeBus:
+            def async_fire(self, event_type: str, data: dict[str, Any]) -> None:
+                events.append((event_type, data))
+
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake.hass = types.SimpleNamespace(bus=FakeBus())
+        fake._last_event_key = ""
+        fake._announced_event_keys_by_airframe = {}
+        fake._last_announced_by_airframe = {}
+
+        previous = coordinator.AircraftCandidate(
+            state="positioned_takeoff:738286:738286",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:738286:738286",
+            hex="738286",
+            flight="738286",
+            aircraft_model="Airbus A320",
+            aircraft_model_speech="Аэробус триста двадцать",
+            built_year_speech="две тысячи шестнадцатого года",
+            announcement="Вылетает самолёт 738286.",
+        )
+        callsign_only = coordinator.AircraftCandidate(
+            state="positioned_takeoff:738286:ISR890",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:738286:ISR890",
+            hex="738286",
+            flight="ISR890",
+            airline_name="Israir",
+            spoken_flight="восемь девять ноль",
+            aircraft_model="Airbus A320",
+            aircraft_model_speech="Аэробус триста двадцать",
+            built_year_speech="две тысячи шестнадцатого года",
+            announcement="Вылетает рейс Исра Эйр восемь девять ноль.",
+        )
+        with_route = coordinator.AircraftCandidate(
+            **{
+                **callsign_only.as_dict(),
+                "destination_speech": "Тель-Авив",
+            }
+        )
+
+        self.assertTrue(fake._handle_candidate_event(previous))
+        self.assertFalse(fake._handle_candidate_event(callsign_only))
+        self.assertTrue(fake._handle_candidate_event(with_route))
+
+        self.assertEqual(len(events), 2)
+        self.assertEqual(
+            events[1][1]["announcement"],
+            "Дополнение: это Исра Эйр восемь девять ноль, в Тель-Авив.",
+        )
+
     async def test_batumi_board_fetches_arrival_and_departure_rows(self) -> None:
         calls: list[str] = []
 

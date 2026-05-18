@@ -220,7 +220,35 @@ class AircraftWindowLogicTest(unittest.TestCase):
         }
         self.assertEqual(logic.classify_service_type(express_passenger)[0], "unknown")
 
-    def test_followup_announcement_adds_new_callsign_without_repeating_model(self) -> None:
+    def test_followup_announcement_suppresses_callsign_only_update(self) -> None:
+        previous = logic.AircraftCandidate(
+            state="positioned_takeoff:738286:738286",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:738286:738286",
+            hex="738286",
+            flight="738286",
+            aircraft_model="Airbus A320",
+            aircraft_model_speech="Аэробус триста двадцать",
+            built_year=2016,
+            built_year_speech="две тысячи шестнадцатого года",
+        )
+        current = logic.AircraftCandidate(
+            state="positioned_takeoff:738286:ISR890",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:738286:ISR890",
+            hex="738286",
+            flight="ISR890",
+            airline_name="Israir",
+            spoken_flight="восемь девять ноль",
+            aircraft_model="Airbus A320",
+            aircraft_model_speech="Аэробус триста двадцать",
+            built_year=2016,
+            built_year_speech="две тысячи шестнадцатого года",
+        )
+
+        self.assertEqual(logic.build_followup_announcement(previous, current), "")
+
+    def test_followup_announcement_keeps_callsign_when_route_is_new(self) -> None:
         previous = logic.AircraftCandidate(
             state="positioned_takeoff:738286:738286",
             phase="positioned_takeoff",
@@ -390,6 +418,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 assert candidate is not None
                 self.assertEqual(candidate.phase, "special_interest")
                 self.assertEqual(candidate.interest_type, interest_type)
+                self.assertNotIn("борт", candidate.announcement.lower())
 
     def test_military_tanker_gets_specific_visible_label(self) -> None:
         candidate = logic.interest_candidate(

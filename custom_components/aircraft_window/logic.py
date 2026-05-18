@@ -764,7 +764,7 @@ def classify_special_interest(
             0.9,
         )
     if _has_token(text, MEDEVAC_TOKENS):
-        return ("medevac", "медицинский или спасательный борт", "medevac metadata", 0.82)
+        return ("medevac", "медицинская или спасательная авиация", "medevac metadata", 0.82)
     if _has_token(text, POLICE_TOKENS):
         return ("police", "полицейский самолёт или вертолёт", "police metadata", 0.82)
     if _has_token(text, CALIBRATION_TOKENS):
@@ -1107,6 +1107,8 @@ def build_followup_announcement(
     if current.built_year_speech and current.built_year_speech != previous.built_year_speech:
         details.append(current.built_year_speech)
 
+    if len(details) == 1 and details[0].startswith("это "):
+        return ""
     if not details:
         return ""
     return f"Дополнение: {', '.join(details)}."
