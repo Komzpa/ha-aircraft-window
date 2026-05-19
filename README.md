@@ -11,6 +11,16 @@ announcements, covers, cameras, or whatever else belongs in your house.
 ## What it exposes
 
 - `sensor.aircraft_window_candidate`: current candidate state and attributes.
+- `sensor.aircraft_window_schedule_preopen`: scheduled Batumi departure preopen
+  state from the airport board.
+- `sensor.aircraft_window_enrichment_prefetch`: background enrichment cache status.
+- `binary_sensor.aircraft_visible_outside_window`: on when the candidate is
+  currently in the configured window view geometry.
+- `binary_sensor.aircraft_window_curtain_preopen_needed`: on when the current
+  candidate is visible, projected into view soon, or active near the runway
+  staging area.
+- `binary_sensor.aircraft_scheduled_departure_curtain_preopen_needed`: on while
+  a scheduled Batumi departure is inside the preopen window.
 - `binary_sensor.aircraft_window_candidate_active`: on while a candidate is live.
 - `binary_sensor.aircraft_window_unusual_aircraft`: on for an unmapped airline,
   unmapped aircraft type, or no-position aircraft without useful reference data.
@@ -135,6 +145,12 @@ When enabled, Aircraft Window uses short cached requests to public data sources:
 
 If those sources are slow or unavailable, the local aircraft candidate still
 works; the announcement just contains less detail.
+
+The hot candidate scan uses only cached enrichment data, so slow route or
+aircraft lookups do not block the 2-second local receiver path. A background
+coordinator warms the same cache under a separate budget and also refreshes the
+Batumi airport board for scheduled curtain preopen state. Deadline misses are
+not stored as real network errors.
 
 The same enrichment is used for special-interest matching and service
 classification. Military detection is best-effort and conservative: it uses

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
 import time
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote, urlsplit, urlunsplit
@@ -18,6 +20,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
+    CONF_BACKGROUND_INTERVAL_SECONDS,
     CONF_DUMP1090_URL,
     CONF_ENABLE_ENRICHMENT,
     CONF_ENRICHMENT_TIMEOUT_SECONDS,
@@ -27,16 +30,23 @@ from .const import (
     CONF_MAX_APPROACH_DISTANCE_KM,
     CONF_MAX_NO_POSITION_SEEN_SECONDS,
     CONF_MAX_POSITIONED_DISTANCE_KM,
+    CONF_PREFETCH_BUDGET_SECONDS,
+    CONF_PREFETCH_LIMIT,
     CONF_SCAN_INTERVAL_SECONDS,
+    DEFAULT_BACKGROUND_INTERVAL_SECONDS,
     DEFAULT_DUMP1090_URL,
     DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
     DEFAULT_MAX_APPROACH_ALTITUDE_FT,
     DEFAULT_MAX_APPROACH_DISTANCE_KM,
     DEFAULT_MAX_NO_POSITION_SEEN_SECONDS,
     DEFAULT_MAX_POSITIONED_DISTANCE_KM,
+    DEFAULT_PREFETCH_BUDGET_SECONDS,
+    DEFAULT_PREFETCH_LIMIT,
     DEFAULT_SCAN_INTERVAL_SECONDS,
     DOMAIN,
     EVENT_CANDIDATE,
+    SCHEDULED_PREOPEN_AFTER_SECONDS,
+    SCHEDULED_PREOPEN_BEFORE_SECONDS,
 )
 from .logic import (
     KNOWN_BUILT_YEAR_BY_REGISTRATION,
@@ -74,6 +84,8 @@ BATUMI_AIRPORT_BOARD_LEGS = {
     "DEPARTURE": "/en-EN/flights/departure-flights",
     "ARRIVAL": "/en-EN/flights/arrival-flights",
 }
+EXTERNAL_LOOKUP_ERROR_CACHE_SECONDS = 10 * 60
+MIN_EXTERNAL_LOOKUP_TIMEOUT_SECONDS = 0.25
 
 CALLSIGN_PREFIX_TO_BOARD_AIRLINE = {
     "AIZ": "IZ",
@@ -89,6 +101,23 @@ CALLSIGN_PREFIX_TO_BOARD_AIRLINE = {
     "VAA": "V9",
     "WZZ": "W6",
 }
+
+
+@dataclass(slots=True)
+class AircraftWindowRuntimeData:
+    """Runtime data for one Aircraft Window config entry."""
+
+    candidate: AircraftWindowCoordinator
+    enrichment_prefetch: EnrichmentPrefetchCoordinator
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        """Initialize both coordinators with shared cache ownership."""
+        self.candidate = AircraftWindowCoordinator(hass, entry)
+        self.enrichment_prefetch = EnrichmentPrefetchCoordinator(
+            hass,
+            entry,
+            self.candidate,
+        )
 
 
 class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
@@ -210,7 +239,11 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 None,
             )
             if row is not None:
-                enrichment = await self._async_enrich_aircraft(row, phase=base_candidate.phase)
+                enrichment = await self._async_enrich_aircraft(
+                    row,
+                    phase=base_candidate.phase,
+                    cache_only=True,
+                )
                 base_candidate = pick_candidate(
                     [row],
                     home_latitude=float(options.get(CONF_HOME_LATITUDE, self.hass.config.latitude)),
@@ -375,7 +408,11 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 "special_interest",
             }:
                 continue
-            enrichment = await self._async_enrich_aircraft(aircraft) if enable_enrichment else {}
+            enrichment = (
+                await self._async_enrich_aircraft(aircraft, cache_only=True)
+                if enable_enrichment
+                else {}
+            )
             candidate = interest_candidate(
                 aircraft,
                 enrichment=enrichment,
@@ -408,7 +445,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 continue
             if seen > 20.0 and (seen_pos is None or seen_pos > 60.0):
                 continue
-            enrichment = await self._async_enrich_aircraft(aircraft)
+            enrichment = await self._async_enrich_aircraft(aircraft, cache_only=True)
             candidate = interest_candidate(
                 aircraft,
                 enrichment=enrichment,
@@ -440,20 +477,41 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         cache_key: str,
         ttl_seconds: int,
         timeout: aiohttp.ClientTimeout,
+        cache_only: bool = False,
+        deadline: float | None = None,
     ) -> dict[str, Any]:
         """Return cached JSON or fetch it."""
         cache = await self._async_cache()
         now = int(time.time())
         cached = cache.get(cache_key)
-        if isinstance(cached, dict) and now - int(cached.get("fetched_at", 0)) < ttl_seconds:
+        if isinstance(cached, dict):
+            cache_ttl_seconds = (
+                EXTERNAL_LOOKUP_ERROR_CACHE_SECONDS
+                if cached.get("error") is True
+                else ttl_seconds
+            )
+        else:
+            cache_ttl_seconds = ttl_seconds
+        if isinstance(cached, dict) and now - int(cached.get("fetched_at", 0)) < cache_ttl_seconds:
             payload = cached.get("payload")
             return payload if isinstance(payload, dict) else {}
+        if cache_only:
+            return {}
+
+        request_timeout = timeout
+        if deadline is not None:
+            remaining = deadline - time.monotonic()
+            if remaining < MIN_EXTERNAL_LOOKUP_TIMEOUT_SECONDS:
+                return {}
+            request_timeout = aiohttp.ClientTimeout(
+                total=min(timeout.total or remaining, remaining)
+            )
 
         try:
             async with session.get(
                 url,
                 headers={"User-Agent": "HomeAssistantAircraftWindow/1.0"},
-                timeout=timeout,
+                timeout=request_timeout,
             ) as response:
                 if response.status == 404:
                     payload = {}
@@ -462,7 +520,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     payload = await response.json()
         except (aiohttp.ClientError, TimeoutError, json.JSONDecodeError):
             payload = {}
-        cache[cache_key] = {"fetched_at": now, "payload": payload}
+        cache[cache_key] = {"fetched_at": now, "payload": payload, "error": not bool(payload)}
         await self._async_save_cache()
         return payload
 
@@ -473,6 +531,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         today: str,
         flight_leg: str,
         request_raw_url: str,
+        cache_only: bool = False,
+        deadline: float | None = None,
     ) -> dict[str, Any]:
         """Return one Batumi Airport live-board leg."""
         cache_key = f"batumi-airport-board:{today}:{flight_leg.lower()}"
@@ -485,8 +545,16 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         ):
             payload = cached.get("payload")
             return payload if isinstance(payload, dict) else {}
+        if cache_only:
+            return {}
 
         payload: dict[str, Any] = {}
+        request_timeout = 1.2
+        if deadline is not None:
+            remaining = deadline - time.monotonic()
+            if remaining < MIN_EXTERNAL_LOOKUP_TIMEOUT_SECONDS:
+                return {}
+            request_timeout = min(request_timeout, remaining)
         params = {
             "flightLeg": flight_leg,
             "date": today,
@@ -504,17 +572,23 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     "User-Agent": "HomeAssistantAircraftWindow/1.0",
                     "X-Requested-With": "XMLHttpRequest",
                 },
-                timeout=aiohttp.ClientTimeout(total=1.2),
+                timeout=aiohttp.ClientTimeout(total=request_timeout),
             ) as response:
                 response.raise_for_status()
                 payload = await response.json()
         except (aiohttp.ClientError, TimeoutError, json.JSONDecodeError):
             payload = {}
-        cache[cache_key] = {"fetched_at": now, "payload": payload}
+        cache[cache_key] = {"fetched_at": now, "payload": payload, "error": not bool(payload)}
         await self._async_save_cache()
         return payload
 
-    async def _async_batumi_airport_board(self, session: aiohttp.ClientSession) -> dict[str, Any]:
+    async def _async_batumi_airport_board(
+        self,
+        session: aiohttp.ClientSession,
+        *,
+        cache_only: bool = False,
+        deadline: float | None = None,
+    ) -> dict[str, Any]:
         """Return the current Batumi Airport live board for arrivals and departures."""
         today = datetime.now(TBILISI_TIMEZONE).strftime("%d.%m.%Y")
         flights: list[dict[str, Any]] = []
@@ -525,6 +599,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 today=today,
                 flight_leg=flight_leg,
                 request_raw_url=request_raw_url,
+                cache_only=cache_only,
+                deadline=deadline,
             )
             data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
             if not current_time:
@@ -622,6 +698,112 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         self._add_enrichment_source(attrs, "airport_board")
 
     @staticmethod
+    def _row_iata(row: dict[str, Any], direction: str) -> str:
+        """Return origin or destination IATA from a Batumi Airport board row."""
+        path = row.get("path") if isinstance(row.get("path"), dict) else {}
+        data = path.get(direction) if isinstance(path.get(direction), dict) else {}
+        key = f"{direction}Iata"
+        return str(data.get(key) or "").strip().upper()
+
+    @staticmethod
+    def _row_airport_name(row: dict[str, Any], direction: str) -> str:
+        """Return origin or destination label from a Batumi Airport board row."""
+        path = row.get("path") if isinstance(row.get("path"), dict) else {}
+        data = path.get(direction) if isinstance(path.get(direction), dict) else {}
+        key = f"{direction}En"
+        value = str(data.get(key) or data.get(f"{direction}Iata") or "").strip()
+        return value.split("(")[0].replace("-", " ").title().strip()
+
+    @staticmethod
+    def _parse_board_time(value: str, now: datetime) -> datetime | None:
+        """Parse a Batumi board timestamp into Tbilisi local time."""
+        value = value.strip()
+        if not value:
+            return None
+        for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+            try:
+                parsed = datetime.strptime(value[:19], fmt)
+            except ValueError:
+                continue
+            return parsed.replace(tzinfo=TBILISI_TIMEZONE)
+        if re.fullmatch(r"\d{2}:\d{2}", value):
+            hour, minute = (int(part) for part in value.split(":"))
+            return now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        return None
+
+    def _scheduled_preopen_result(
+        self,
+        board: dict[str, Any],
+        *,
+        now: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Return curtain preopen state from the Batumi Airport board."""
+        now = now or datetime.now(TBILISI_TIMEZONE)
+        rows = (((board.get("data") or {}).get("flights")) or [])
+        candidates: list[dict[str, Any]] = []
+        for row in rows if isinstance(rows, list) else []:
+            if not isinstance(row, dict):
+                continue
+            if str(row.get("flightLeg") or "").strip().upper() != "DEPARTURE":
+                continue
+            departure = self._parse_board_time(str(row.get("etad") or row.get("stad") or ""), now)
+            if departure is None:
+                continue
+            seconds_until = int((departure - now).total_seconds())
+            if seconds_until < -SCHEDULED_PREOPEN_AFTER_SECONDS:
+                continue
+            candidates.append(
+                {
+                    "row": row,
+                    "departure": departure,
+                    "seconds_until": seconds_until,
+                }
+            )
+        candidates.sort(key=lambda item: abs(item["seconds_until"]))
+        active = bool(
+            candidates
+            and -SCHEDULED_PREOPEN_AFTER_SECONDS
+            <= candidates[0]["seconds_until"]
+            <= SCHEDULED_PREOPEN_BEFORE_SECONDS
+        )
+        selected = candidates[0] if candidates else {}
+        row = selected.get("row") if isinstance(selected.get("row"), dict) else {}
+        destination_iata = self._row_iata(row, "destination") if row else ""
+        destination_name = self._row_airport_name(row, "destination") if row else ""
+        return {
+            "state": "on" if active else "off",
+            "phase": (
+                "scheduled_departure_preopen" if active else "scheduled_departure_waiting"
+            ),
+            "confidence": 0.7 if active else 0.0,
+            "confidence_reason": (
+                "scheduled departure inside curtain preopen window"
+                if active
+                else "no scheduled departure inside curtain preopen window"
+            ),
+            "flight": (
+                f"{row.get('airlineIcao') or row.get('airlineIata') or ''}"
+                f"{row.get('flightNumber') or ''}"
+            ).strip(),
+            "flight_number": str(row.get("flightNumber") or ""),
+            "airline_iata": str(row.get("airlineIata") or ""),
+            "airline_icao": str(row.get("airlineIcao") or ""),
+            "airline_name": str(row.get("airlineName") or ""),
+            "origin_iata": self._row_iata(row, "origin") if row else "",
+            "destination_iata": destination_iata,
+            "destination_name": destination_name,
+            "scheduled_departure_local": (
+                selected["departure"].strftime("%H:%M") if selected else ""
+            ),
+            "seconds_until_departure": selected.get("seconds_until"),
+            "scheduled_preopen_before_seconds": SCHEDULED_PREOPEN_BEFORE_SECONDS,
+            "scheduled_preopen_after_seconds": SCHEDULED_PREOPEN_AFTER_SECONDS,
+            "scheduled_candidates": len(candidates),
+            "source": "batumi_airport_board",
+            "updated_at": int(time.time()),
+        }
+
+    @staticmethod
     def _add_enrichment_source(attrs: dict[str, Any], source: str) -> None:
         """Append an enrichment source once, preserving earlier providers."""
         sources = [item for item in str(attrs.get("enrichment_source") or "").split("+") if item]
@@ -634,6 +816,9 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         session: aiohttp.ClientSession,
         registration: str,
         timeout: aiohttp.ClientTimeout,
+        *,
+        cache_only: bool = False,
+        deadline: float | None = None,
     ) -> int | None:
         """Fetch or return cached built year for a registration."""
         registration = registration.strip().upper()
@@ -652,14 +837,24 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         ):
             year = cached.get("year")
             return int(year) if isinstance(year, int) else None
+        if cache_only:
+            return None
 
         year = None
         url = f"https://airport-data.com/aircraft/{quote(registration)}.html"
+        request_timeout = timeout
+        if deadline is not None:
+            remaining = deadline - time.monotonic()
+            if remaining < MIN_EXTERNAL_LOOKUP_TIMEOUT_SECONDS:
+                return None
+            request_timeout = aiohttp.ClientTimeout(
+                total=min(timeout.total or remaining, remaining)
+            )
         try:
             async with session.get(
                 url,
                 headers={"User-Agent": "Mozilla/5.0 HomeAssistantAircraftWindow/1.0"},
-                timeout=timeout,
+                timeout=request_timeout,
             ) as response:
                 response.raise_for_status()
                 year = extract_airport_data_year(await response.text())
@@ -675,6 +870,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         aircraft: dict[str, Any],
         *,
         phase: str = "",
+        cache_only: bool = False,
+        deadline: float | None = None,
     ) -> dict[str, Any]:
         """Enrich aircraft with route, airline, model and built year."""
         options = self.options
@@ -723,7 +920,11 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
 
         session = async_get_clientsession(self.hass)
         if flight and flight != "UNKNOWN" and not flight.lower().startswith(hex_id.lower()):
-            board = await self._async_batumi_airport_board(session)
+            board = await self._async_batumi_airport_board(
+                session,
+                cache_only=cache_only,
+                deadline=deadline,
+            )
             board_row = self._airport_board_match(
                 board,
                 flight,
@@ -739,6 +940,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 cache_key=f"callsign:{flight}",
                 ttl_seconds=ROUTE_CACHE_SECONDS,
                 timeout=timeout,
+                cache_only=cache_only,
+                deadline=deadline,
             )
             route = ((route_payload or {}).get("response") or {}).get("flightroute")
             if isinstance(route, dict) and attrs["route_source"] != "batumi_airport_board":
@@ -788,6 +991,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 cache_key=f"aircraft:{hex_id}",
                 ttl_seconds=AIRCRAFT_CACHE_SECONDS,
                 timeout=timeout,
+                cache_only=cache_only,
+                deadline=deadline,
             )
             aircraft_info = ((aircraft_payload or {}).get("response") or {}).get("aircraft")
             if isinstance(aircraft_info, dict):
@@ -811,6 +1016,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 cache_key=f"hexdb-aircraft:{hex_id}",
                 ttl_seconds=AIRCRAFT_CACHE_SECONDS,
                 timeout=timeout,
+                cache_only=cache_only,
+                deadline=deadline,
             )
             attrs["aircraft_model"] = attrs["aircraft_model"] or str(
                 hexdb_payload.get("Type") or ""
@@ -834,7 +1041,13 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             attrs["aircraft_model"],
             attrs["aircraft_type"],
         )
-        built_year = await self._async_airport_data_year(session, attrs["registration"], timeout)
+        built_year = await self._async_airport_data_year(
+            session,
+            attrs["registration"],
+            timeout,
+            cache_only=cache_only,
+            deadline=deadline,
+        )
         attrs["built_year"] = built_year
         attrs["built_year_speech"] = spoken_year(built_year)
         service_type, service_confidence, service_reason = classify_service_type(attrs)
@@ -843,3 +1056,126 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         attrs["service_type_reason"] = service_reason
 
         return attrs
+
+
+class EnrichmentPrefetchCoordinator(DataUpdateCoordinator[dict[str, Any]]):
+    """Warm the enrichment cache away from the hot candidate scan."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        aircraft: AircraftWindowCoordinator,
+    ) -> None:
+        """Initialize the background prefetch coordinator."""
+        self.entry = entry
+        self.aircraft = aircraft
+        options = aircraft.options
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=f"{DOMAIN}_enrichment_prefetch",
+            update_interval=timedelta(
+                seconds=options.get(
+                    CONF_BACKGROUND_INTERVAL_SECONDS,
+                    DEFAULT_BACKGROUND_INTERVAL_SECONDS,
+                )
+            ),
+        )
+
+    @property
+    def options(self) -> dict[str, Any]:
+        """Return merged config entry data and options."""
+        return self.aircraft.options
+
+    async def _async_update_data(self) -> dict[str, Any]:
+        """Prefetch route and aircraft enrichment under a shared deadline."""
+        started = time.monotonic()
+        options = self.options
+        budget_seconds = float(
+            options.get(
+                CONF_PREFETCH_BUDGET_SECONDS,
+                DEFAULT_PREFETCH_BUDGET_SECONDS,
+            )
+        )
+        deadline = started + budget_seconds if budget_seconds > 0 else None
+        dump1090_url = options.get(CONF_DUMP1090_URL, DEFAULT_DUMP1090_URL)
+        session = async_get_clientsession(self.hass)
+        rows: list[dict[str, Any]] = []
+        try:
+            async with session.get(
+                dump1090_url,
+                timeout=aiohttp.ClientTimeout(total=3),
+            ) as response:
+                response.raise_for_status()
+                payload = await response.json()
+            aircraft_rows = payload.get("aircraft") if isinstance(payload, dict) else []
+            if isinstance(aircraft_rows, list):
+                rows = [row for row in aircraft_rows if isinstance(row, dict)]
+        except (aiohttp.ClientError, TimeoutError, json.JSONDecodeError):
+            rows = []
+
+        limit = int(options.get(CONF_PREFETCH_LIMIT, DEFAULT_PREFETCH_LIMIT))
+        selected = rows if limit == 0 else rows[:limit]
+        semaphore = asyncio.Semaphore(4)
+        warmed: list[str] = []
+        failed = 0
+        skipped = 0
+
+        async def prefetch_one(row: dict[str, Any]) -> None:
+            nonlocal failed, skipped
+            if (
+                deadline is not None
+                and deadline - time.monotonic() < MIN_EXTERNAL_LOOKUP_TIMEOUT_SECONDS
+            ):
+                skipped += 1
+                return
+            async with semaphore:
+                if (
+                    deadline is not None
+                    and deadline - time.monotonic() < MIN_EXTERNAL_LOOKUP_TIMEOUT_SECONDS
+                ):
+                    skipped += 1
+                    return
+                try:
+                    attrs = await self.aircraft._async_enrich_aircraft(
+                        row,
+                        cache_only=False,
+                        deadline=deadline,
+                    )
+                except Exception:
+                    failed += 1
+                    return
+                label = flight_label(row).replace(" ", "").upper()
+                source = str(attrs.get("enrichment_source") or "").strip()
+                if label and source:
+                    warmed.append(f"{label}:{source}")
+                elif label:
+                    warmed.append(label)
+
+        await asyncio.gather(*(prefetch_one(row) for row in selected))
+        elapsed_ms = round((time.monotonic() - started) * 1000)
+        board = await self.aircraft._async_batumi_airport_board(
+            session,
+            cache_only=False,
+            deadline=deadline,
+        )
+        schedule_preopen = self.aircraft._scheduled_preopen_result(board)
+        prefetch_status = {
+            "state": "ok",
+            "prefetch_candidates": len(rows),
+            "prefetch_limit": limit,
+            "prefetch_warmed": len(warmed),
+            "prefetch_failed": failed,
+            "prefetch_skipped": skipped + max(0, len(selected) - len(warmed) - failed - skipped),
+            "prefetch_budget_seconds": budget_seconds,
+            "prefetch_elapsed_ms": elapsed_ms,
+            "prefetch_items": ", ".join(warmed[:20]),
+            "updated_at": int(time.time()),
+        }
+        return {
+            "state": "ok",
+            "enrichment_prefetch": prefetch_status,
+            "schedule_preopen": schedule_preopen,
+            "updated_at": int(time.time()),
+        }

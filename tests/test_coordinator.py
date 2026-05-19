@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import types
 import unittest
+from datetime import datetime
 from importlib import util
 from pathlib import Path
 from typing import Any
@@ -252,6 +253,8 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
                 today: str,
                 flight_leg: str,
                 request_raw_url: str,
+                cache_only: bool = False,
+                deadline: float | None = None,
             ) -> dict[str, Any]:
                 calls.append(f"{flight_leg}:{request_raw_url}:{today}")
                 return {
@@ -352,6 +355,138 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         coordinator.AircraftWindowCoordinator._add_enrichment_source(attrs, "adsbdb")
 
         self.assertEqual(attrs["enrichment_source"], "airport_board+adsbdb")
+
+    def test_scheduled_preopen_result_turns_on_inside_departure_window(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        now = datetime(2026, 5, 20, 12, 0, tzinfo=coordinator.TBILISI_TIMEZONE)
+        board = {
+            "data": {
+                "flights": [
+                    {
+                        "airlineIata": "WZ",
+                        "airlineIcao": "RWZ",
+                        "airlineName": "Red Wings",
+                        "flightNumber": "1566",
+                        "flightLeg": "DEPARTURE",
+                        "stad": "2026-05-20T12:03:00",
+                        "path": {
+                            "origin": {
+                                "originIata": "BUS",
+                                "originEn": "Batumi (BUS)",
+                            },
+                            "destination": {
+                                "destinationIata": "AER",
+                                "destinationEn": "Sochi (AER)",
+                            },
+                        },
+                    }
+                ],
+            }
+        }
+
+        result = fake._scheduled_preopen_result(board, now=now)
+
+        self.assertEqual(result["state"], "on")
+        self.assertEqual(result["phase"], "scheduled_departure_preopen")
+        self.assertEqual(result["flight"], "RWZ1566")
+        self.assertEqual(result["origin_iata"], "BUS")
+        self.assertEqual(result["destination_iata"], "AER")
+        self.assertEqual(result["scheduled_departure_local"], "12:03")
+        self.assertEqual(result["seconds_until_departure"], 180)
+
+    async def test_deadline_miss_does_not_cache_airport_board_error(self) -> None:
+        class FailingSession:
+            def get(self, *_args: Any, **_kwargs: Any) -> object:
+                raise AssertionError("expired deadline must not fetch")
+
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake._cache = {}
+
+        async def load_cache() -> dict[str, Any]:
+            return fake._cache
+
+        async def save_cache() -> None:
+            raise AssertionError("deadline miss must not cache airport board error")
+
+        fake._async_cache = load_cache
+        fake._async_save_cache = save_cache
+
+        result = await fake._async_batumi_airport_board_leg(
+            FailingSession(),
+            today="20.05.2026",
+            flight_leg="DEPARTURE",
+            request_raw_url="/en-EN/flights/departure-flights",
+            deadline=coordinator.time.monotonic() - 0.01,
+        )
+
+        self.assertEqual(result, {})
+        self.assertEqual(fake._cache, {})
+
+    async def test_cache_only_json_does_not_fetch_external_lookup(self) -> None:
+        class FailingSession:
+            def get(self, *_args: Any, **_kwargs: Any) -> object:
+                raise AssertionError("cache-only enrichment must not fetch")
+
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake._cache = {}
+
+        async def load_cache() -> dict[str, Any]:
+            return fake._cache
+
+        async def save_cache() -> None:
+            raise AssertionError("cache-only miss must not write an error")
+
+        fake._async_cache = load_cache
+        fake._async_save_cache = save_cache
+
+        result = await fake._async_get_json(
+            FailingSession(),
+            "https://api.adsbdb.com/v0/callsign/RWZ1565",
+            cache_key="callsign:RWZ1565",
+            ttl_seconds=coordinator.ROUTE_CACHE_SECONDS,
+            timeout=coordinator.aiohttp.ClientTimeout(total=1.0),
+            cache_only=True,
+        )
+
+        self.assertEqual(result, {})
+        self.assertEqual(fake._cache, {})
+
+    async def test_deadline_miss_does_not_cache_external_error(self) -> None:
+        class FailingSession:
+            def get(self, *_args: Any, **_kwargs: Any) -> object:
+                raise AssertionError("expired deadline must not fetch")
+
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake._cache = {}
+
+        async def load_cache() -> dict[str, Any]:
+            return fake._cache
+
+        async def save_cache() -> None:
+            raise AssertionError("deadline miss must not cache an error")
+
+        fake._async_cache = load_cache
+        fake._async_save_cache = save_cache
+
+        result = await fake._async_get_json(
+            FailingSession(),
+            "https://api.adsbdb.com/v0/callsign/RWZ1565",
+            cache_key="callsign:RWZ1565",
+            ttl_seconds=coordinator.ROUTE_CACHE_SECONDS,
+            timeout=coordinator.aiohttp.ClientTimeout(total=1.0),
+            deadline=coordinator.time.monotonic() - 0.01,
+        )
+
+        self.assertEqual(result, {})
+        self.assertEqual(fake._cache, {})
 
 
 if __name__ == "__main__":

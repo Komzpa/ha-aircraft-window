@@ -110,8 +110,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 {
                     "hex": "738286",
                     "flight": "ISR890",
-                    "lat": 41.98,
-                    "lon": 41.92,
+                    "lat": 41.8,
+                    "lon": 41.2,
                     "alt_baro": 9200,
                     "baro_rate": -700,
                     "gs": 260,
@@ -143,6 +143,122 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("Заходит на посадку пассажирский рейс", candidate.announcement)
         self.assertIn("Исра Эйр", candidate.announcement)
         self.assertIn("Из Тель-Авива", candidate.announcement)
+
+    def test_approach_uses_geometric_window_view(self) -> None:
+        visible = logic.pick_candidate(
+            [
+                {
+                    "hex": "abc123",
+                    "flight": "TST123",
+                    "lat": 41.8,
+                    "lon": 41.2,
+                    "alt_baro": 2000,
+                    "baro_rate": -500,
+                    "gs": 160,
+                    "track": 300,
+                    "seen": 0,
+                    "seen_pos": 0,
+                }
+            ],
+            home_latitude=41.62121824843062,
+            home_longitude=41.59068703651429,
+            max_positioned_distance_km=8,
+            max_approach_distance_km=60,
+            max_approach_altitude_ft=10000,
+            max_no_position_seen_seconds=4,
+            source="test",
+        )
+
+        self.assertEqual(visible.phase, "positioned_approach")
+        self.assertTrue(visible.window_visible)
+        self.assertTrue(visible.window_preopen_needed)
+        self.assertIn("inside window view polygon", visible.window_view_reason)
+
+        outside_window = logic.pick_candidate(
+            [
+                {
+                    "hex": "abc124",
+                    "flight": "TST124",
+                    "lat": 41.8,
+                    "lon": 41.8,
+                    "alt_baro": 2000,
+                    "baro_rate": -500,
+                    "gs": 160,
+                    "track": 90,
+                    "seen": 0,
+                    "seen_pos": 0,
+                }
+            ],
+            home_latitude=41.62121824843062,
+            home_longitude=41.59068703651429,
+            max_positioned_distance_km=8,
+            max_approach_distance_km=60,
+            max_approach_altitude_ft=10000,
+            max_no_position_seen_seconds=4,
+            source="test",
+        )
+
+        self.assertEqual(outside_window.phase, "idle")
+        self.assertIn("no nearby landing/takeoff candidate", outside_window.confidence_reason)
+
+    def test_projected_window_view_sets_preopen_without_current_visibility(self) -> None:
+        candidate = logic.pick_candidate(
+            [
+                {
+                    "hex": "abc125",
+                    "flight": "TST125",
+                    "lat": 41.8,
+                    "lon": 41.8,
+                    "alt_baro": 2000,
+                    "baro_rate": -500,
+                    "gs": 160,
+                    "track": 250,
+                    "seen": 0,
+                    "seen_pos": 0,
+                }
+            ],
+            home_latitude=41.62121824843062,
+            home_longitude=41.59068703651429,
+            max_positioned_distance_km=8,
+            max_approach_distance_km=60,
+            max_approach_altitude_ft=10000,
+            max_no_position_seen_seconds=4,
+            source="test",
+        )
+
+        self.assertEqual(candidate.phase, "positioned_approach")
+        self.assertFalse(candidate.window_visible)
+        self.assertTrue(candidate.window_preopen_needed)
+        self.assertIn("projected into window view", candidate.window_view_reason)
+        self.assertEqual(candidate.window_view_lead_seconds, 225.0)
+
+    def test_runway_staging_sets_preopen_phase(self) -> None:
+        candidate = logic.pick_candidate(
+            [
+                {
+                    "hex": "abc126",
+                    "flight": "TST126",
+                    "lat": 41.6103,
+                    "lon": 41.6004,
+                    "alt_baro": "ground",
+                    "gs": 5,
+                    "seen": 0,
+                    "seen_pos": 0,
+                }
+            ],
+            home_latitude=41.62121824843062,
+            home_longitude=41.59068703651429,
+            max_positioned_distance_km=8,
+            max_approach_distance_km=60,
+            max_approach_altitude_ft=10000,
+            max_no_position_seen_seconds=4,
+            source="test",
+        )
+
+        self.assertEqual(candidate.phase, "positioned_runway_staging")
+        self.assertFalse(candidate.window_visible)
+        self.assertTrue(candidate.window_preopen_needed)
+        self.assertTrue(candidate.window_runway_staging)
 
     def test_unmapped_airline_and_model_are_marked_unusual(self) -> None:
         text = logic.build_announcement(
@@ -178,6 +294,34 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertIn("Заходит на посадку самолёт Ван Эйр ноль два ноль.", text)
         self.assertNotIn("Заходит на посадку рейс", text)
+
+    def test_partial_route_arrival_says_origin_is_unknown(self) -> None:
+        text = logic.build_announcement(
+            {"hex": "155c60", "flight": "RWZ1565"},
+            "positioned_approach",
+            0.8,
+            {
+                "airline_name": "Red Wings",
+                "destination_speech": "Батуми",
+                "spoken_flight": "один пять шесть пять",
+            },
+        )
+
+        self.assertIn("В Батуми, откуда летит, пока не определено", text)
+
+    def test_partial_route_takeoff_says_destination_is_unknown(self) -> None:
+        text = logic.build_announcement(
+            {"hex": "155c60", "flight": "RWZ1566"},
+            "positioned_takeoff",
+            0.8,
+            {
+                "airline_name": "Red Wings",
+                "origin_speech": "Батуми",
+                "spoken_flight": "один пять шесть шесть",
+            },
+        )
+
+        self.assertIn("Из Батуми, куда летит, пока не определено", text)
 
     def test_service_type_classification_is_conservative(self) -> None:
         passenger = {

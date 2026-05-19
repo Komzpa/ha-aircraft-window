@@ -9,6 +9,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 
 from .const import (
+    CONF_BACKGROUND_INTERVAL_SECONDS,
     CONF_DUMP1090_URL,
     CONF_ENABLE_ENRICHMENT,
     CONF_ENRICHMENT_TIMEOUT_SECONDS,
@@ -18,13 +19,18 @@ from .const import (
     CONF_MAX_APPROACH_DISTANCE_KM,
     CONF_MAX_NO_POSITION_SEEN_SECONDS,
     CONF_MAX_POSITIONED_DISTANCE_KM,
+    CONF_PREFETCH_BUDGET_SECONDS,
+    CONF_PREFETCH_LIMIT,
     CONF_SCAN_INTERVAL_SECONDS,
+    DEFAULT_BACKGROUND_INTERVAL_SECONDS,
     DEFAULT_DUMP1090_URL,
     DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
     DEFAULT_MAX_APPROACH_ALTITUDE_FT,
     DEFAULT_MAX_APPROACH_DISTANCE_KM,
     DEFAULT_MAX_NO_POSITION_SEEN_SECONDS,
     DEFAULT_MAX_POSITIONED_DISTANCE_KM,
+    DEFAULT_PREFETCH_BUDGET_SECONDS,
+    DEFAULT_PREFETCH_LIMIT,
     DEFAULT_SCAN_INTERVAL_SECONDS,
     DOMAIN,
 )
@@ -69,6 +75,13 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
             default=defaults.get(CONF_SCAN_INTERVAL_SECONDS, DEFAULT_SCAN_INTERVAL_SECONDS),
         ): vol.All(vol.Coerce(int), vol.Range(min=1, max=60)),
         vol.Required(
+            CONF_BACKGROUND_INTERVAL_SECONDS,
+            default=defaults.get(
+                CONF_BACKGROUND_INTERVAL_SECONDS,
+                DEFAULT_BACKGROUND_INTERVAL_SECONDS,
+            ),
+        ): vol.All(vol.Coerce(int), vol.Range(min=10, max=3600)),
+        vol.Required(
             CONF_ENABLE_ENRICHMENT,
             default=defaults.get(CONF_ENABLE_ENRICHMENT, True),
         ): bool,
@@ -79,6 +92,17 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
                 DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
             ),
         ): vol.Coerce(float),
+        vol.Required(
+            CONF_PREFETCH_LIMIT,
+            default=defaults.get(CONF_PREFETCH_LIMIT, DEFAULT_PREFETCH_LIMIT),
+        ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+        vol.Required(
+            CONF_PREFETCH_BUDGET_SECONDS,
+            default=defaults.get(
+                CONF_PREFETCH_BUDGET_SECONDS,
+                DEFAULT_PREFETCH_BUDGET_SECONDS,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=60.0)),
     }
 
     if include_home_coordinates:

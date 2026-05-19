@@ -6,7 +6,22 @@ from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import AircraftWindowConfigEntry
-from .coordinator import AircraftWindowCoordinator
+from .const import (
+    ENTITY_ID_CURTAIN_PREOPEN,
+    ENTITY_ID_SCHEDULED_PREOPEN,
+    ENTITY_ID_VISIBLE,
+)
+from .coordinator import AircraftWindowCoordinator, EnrichmentPrefetchCoordinator
+
+URGENT_CURTAIN_PHASES = {
+    "positioned_approach",
+    "positioned_landing",
+    "positioned_takeoff",
+    "positioned_low_nearby",
+    "military_visible",
+    "special_interest",
+    "kutaisi_route",
+}
 
 
 async def async_setup_entry(
@@ -15,11 +30,16 @@ async def async_setup_entry(
     async_add_entities,
 ) -> None:
     """Set up Aircraft Window binary sensors."""
-    coordinator = entry.runtime_data
+    runtime = entry.runtime_data
     async_add_entities(
         [
-            AircraftWindowActiveBinarySensor(coordinator),
-            AircraftWindowUnusualBinarySensor(coordinator),
+            AircraftWindowVisibleOutsideBinarySensor(runtime.candidate),
+            AircraftWindowCurtainPreopenBinarySensor(runtime.candidate),
+            AircraftWindowScheduledDeparturePreopenBinarySensor(
+                runtime.enrichment_prefetch
+            ),
+            AircraftWindowActiveBinarySensor(runtime.candidate),
+            AircraftWindowUnusualBinarySensor(runtime.candidate),
         ]
     )
 
@@ -41,6 +61,103 @@ class AircraftWindowBaseBinarySensor(
             "name": "Aircraft Window",
             "manufacturer": "Komzpa",
         }
+
+
+class AircraftWindowVisibleOutsideBinarySensor(AircraftWindowBaseBinarySensor):
+    """Whether the candidate aircraft is worth looking for outside."""
+
+    _attr_name = "Visible outside window"
+    _attr_icon = "mdi:window-open-variant"
+
+    def __init__(self, coordinator: AircraftWindowCoordinator) -> None:
+        """Initialize the binary sensor."""
+        super().__init__(coordinator, "visible_outside_window")
+        self._attr_unique_id = "aircraft_visible_outside_window"
+        self._attr_entity_id = ENTITY_ID_VISIBLE
+
+    @property
+    def is_on(self) -> bool:
+        """Return true when the aircraft should be visible from the window."""
+        return bool(self.coordinator.data.window_visible)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        """Return the visible-window reason."""
+        return {"window_view_reason": self.coordinator.data.window_view_reason}
+
+
+class AircraftWindowCurtainPreopenBinarySensor(AircraftWindowBaseBinarySensor):
+    """Whether curtains should preopen for the current aircraft candidate."""
+
+    _attr_name = "Curtain preopen needed"
+    _attr_icon = "mdi:curtains"
+
+    def __init__(self, coordinator: AircraftWindowCoordinator) -> None:
+        """Initialize the binary sensor."""
+        super().__init__(coordinator, "curtain_preopen_needed")
+        self._attr_unique_id = "aircraft_window_curtain_preopen_needed"
+        self._attr_entity_id = ENTITY_ID_CURTAIN_PREOPEN
+
+    @property
+    def is_on(self) -> bool:
+        """Return true when the current candidate should preopen curtains."""
+        candidate = self.coordinator.data
+        altitude = candidate.altitude_ft
+        altitude_ok = altitude is None or altitude <= 10000
+        return bool(
+            candidate.window_preopen_needed
+            and candidate.phase in URGENT_CURTAIN_PHASES
+            and altitude_ok
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        """Return the preopen reason."""
+        candidate = self.coordinator.data
+        return {
+            "phase": candidate.phase,
+            "altitude_ft": candidate.altitude_ft,
+            "window_view_reason": candidate.window_view_reason,
+        }
+
+
+class AircraftWindowScheduledDeparturePreopenBinarySensor(
+    CoordinatorEntity[EnrichmentPrefetchCoordinator],
+    BinarySensorEntity,
+):
+    """Whether a scheduled Batumi departure needs curtain preopen."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Scheduled departure curtain preopen needed"
+    _attr_icon = "mdi:calendar-clock"
+
+    def __init__(self, coordinator: EnrichmentPrefetchCoordinator) -> None:
+        """Initialize the binary sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = "aircraft_scheduled_departure_curtain_preopen_needed"
+        self._attr_entity_id = ENTITY_ID_SCHEDULED_PREOPEN
+        self._attr_device_info = {
+            "identifiers": {(coordinator.entry.domain, coordinator.entry.entry_id)},
+            "name": "Aircraft Window",
+            "manufacturer": "Komzpa",
+        }
+
+    @property
+    def _schedule_data(self) -> dict[str, object]:
+        """Return the nested schedule preopen payload."""
+        data = self.coordinator.data or {}
+        nested = data.get("schedule_preopen")
+        return nested if isinstance(nested, dict) else {}
+
+    @property
+    def is_on(self) -> bool:
+        """Return true when a scheduled departure is inside the preopen window."""
+        return self._schedule_data.get("state") == "on"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        """Return schedule attributes."""
+        return dict(self._schedule_data)
 
 
 class AircraftWindowActiveBinarySensor(AircraftWindowBaseBinarySensor):

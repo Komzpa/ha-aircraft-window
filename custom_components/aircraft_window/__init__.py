@@ -6,11 +6,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
-from .coordinator import AircraftWindowCoordinator
+from .coordinator import AircraftWindowRuntimeData
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
-type AircraftWindowConfigEntry = ConfigEntry[AircraftWindowCoordinator]
+type AircraftWindowConfigEntry = ConfigEntry[AircraftWindowRuntimeData]
 
 
 async def async_setup_entry(
@@ -18,10 +18,11 @@ async def async_setup_entry(
     entry: AircraftWindowConfigEntry,
 ) -> bool:
     """Set up Aircraft Window from a config entry."""
-    coordinator = AircraftWindowCoordinator(hass, entry)
-    await coordinator.async_config_entry_first_refresh()
+    runtime = AircraftWindowRuntimeData(hass, entry)
+    entry.runtime_data = runtime
+    await runtime.candidate.async_config_entry_first_refresh()
+    await runtime.enrichment_prefetch.async_config_entry_first_refresh()
 
-    entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 

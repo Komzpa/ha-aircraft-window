@@ -232,6 +232,31 @@ MILITARY_TYPE_CODES = {
     "T154",
 }
 
+DEFAULT_WINDOW_VIEW_LEAD_SECONDS = 240.0
+DEFAULT_WINDOW_VIEW_PROJECTION_STEP_SECONDS = 15.0
+DEFAULT_WINDOW_VIEW_RADIUS_KM = 80.0
+DEFAULT_DAY_HUMAN_VISIBLE_RADIUS_KM = 12.0
+DEFAULT_LOW_LIGHT_HUMAN_VISIBLE_RADIUS_KM = 35.0
+DEFAULT_NIGHT_HUMAN_VISIBLE_RADIUS_KM = 45.0
+WINDOW_VIEW_AZIMUTH_DEGREES = 290.0
+WINDOW_VIEW_HALF_ANGLE_DEGREES = 90.0
+BATUMI_RUNWAY_STAGING_LAT = 41.6103
+BATUMI_RUNWAY_STAGING_LON = 41.6004
+DEFAULT_RUNWAY_STAGING_RADIUS_KM = 3.0
+DEFAULT_RUNWAY_STAGING_MAX_ALTITUDE_FT = 500.0
+DEFAULT_RUNWAY_STAGING_MAX_SPEED_KT = 45.0
+FEET_TO_KILOMETERS = 0.0003048
+WINDOW_VIEW_POLYGON_LON_LAT = (
+    (41.5906258, 41.6211806),
+    (41.5759385, 41.6106128),
+    (40.5297019, 40.8787998),
+    (37.6439069, 39.8782721),
+    (30.1070473, 40.9740093),
+    (30.5487884, 46.1944223),
+    (41.4123703, 45.3912115),
+    (42.0420538, 42.0792269),
+)
+
 INTERESTING_SQUAWKS = {
     "7500": ("возможное незаконное вмешательство", "special squawk 7500"),
     "7600": ("потеря радиосвязи", "special squawk 7600"),
@@ -427,6 +452,18 @@ class AircraftCandidate:
     service_type: str = "unknown"
     service_type_confidence: float = 0.0
     service_type_reason: str = ""
+    window_visible: bool = False
+    window_preopen_needed: bool = False
+    window_view_reason: str = ""
+    window_runway_staging: bool = False
+    window_view_projected_lat: float | None = None
+    window_view_projected_lon: float | None = None
+    window_view_lead_seconds: float | None = None
+    window_view_radius_km: float | None = None
+    window_distance_km: float | None = None
+    window_bearing_degrees: float | None = None
+    window_direction: str = ""
+    window_elevation_degrees: float | None = None
     updated_at: int = field(default_factory=lambda: int(time.time()))
 
     @property
@@ -454,6 +491,12 @@ def parse_float(value: Any) -> float | None:
     if math.isnan(result) or math.isinf(result):
         return None
     return result
+
+
+def parse_float_or(value: Any, default: float) -> float:
+    """Parse a float while preserving valid zero values."""
+    parsed = parse_float(value)
+    return default if parsed is None else parsed
 
 
 def altitude_ft(aircraft: dict[str, Any]) -> float | None:
@@ -547,6 +590,270 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         + math.cos(phi1) * math.cos(phi2) * math.sin(d_lam / 2.0) ** 2
     )
     return 2.0 * radius_km * math.asin(math.sqrt(a))
+
+
+def bearing_degrees(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Return initial bearing in degrees from point 1 to point 2."""
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_lon = math.radians(lon2 - lon1)
+    y = math.sin(delta_lon) * math.cos(phi2)
+    x = math.cos(phi1) * math.sin(phi2) - math.sin(phi1) * math.cos(phi2) * math.cos(delta_lon)
+    return (math.degrees(math.atan2(y, x)) + 360.0) % 360.0
+
+
+def compass_ru(bearing: float) -> str:
+    """Return a compact Russian compass direction."""
+    directions = (
+        "север",
+        "северо-восток",
+        "восток",
+        "юго-восток",
+        "юг",
+        "юго-запад",
+        "запад",
+        "северо-запад",
+    )
+    return directions[int((bearing + 22.5) // 45) % 8]
+
+
+def point_in_polygon(lon: float, lat: float, polygon: tuple[tuple[float, float], ...]) -> bool:
+    """Return true when lon/lat is inside the configured window view polygon."""
+    inside = False
+    j = len(polygon) - 1
+    for i, (xi, yi) in enumerate(polygon):
+        xj, yj = polygon[j]
+        if ((yi > lat) != (yj > lat)) and (
+            lon < (xj - xi) * (lat - yi) / ((yj - yi) or 1e-12) + xi
+        ):
+            inside = not inside
+        j = i
+    return inside
+
+
+def inside_window_azimuth(bearing: float) -> bool:
+    """Match the live apartment window azimuth model."""
+    return abs(WINDOW_VIEW_AZIMUTH_DEGREES - bearing) < WINDOW_VIEW_HALF_ANGLE_DEGREES
+
+
+def project_position(
+    lat: float,
+    lon: float,
+    *,
+    track_degrees: float,
+    speed_kt: float,
+    seconds: float,
+) -> tuple[float, float]:
+    """Project a position along current track and speed."""
+    distance_km = max(speed_kt, 0.0) * 1.852 * seconds / 3600.0
+    radius_km = 6371.0088
+    angular_distance = distance_km / radius_km
+    bearing = math.radians(track_degrees)
+    lat1 = math.radians(lat)
+    lon1 = math.radians(lon)
+    lat2 = math.asin(
+        math.sin(lat1) * math.cos(angular_distance)
+        + math.cos(lat1) * math.sin(angular_distance) * math.cos(bearing)
+    )
+    lon2 = lon1 + math.atan2(
+        math.sin(bearing) * math.sin(angular_distance) * math.cos(lat1),
+        math.cos(angular_distance) - math.sin(lat1) * math.sin(lat2),
+    )
+    return math.degrees(lat2), ((math.degrees(lon2) + 540.0) % 360.0) - 180.0
+
+
+def human_visible_radius_km(
+    *,
+    outside_illuminance_lux: float | None = None,
+    sun_elevation_degrees: float | None = None,
+    weather_visibility_km: float | None = None,
+) -> float:
+    """Return the practical aircraft visibility radius for current light/weather."""
+    daylight = False
+    low_light = False
+    if sun_elevation_degrees is not None:
+        daylight = sun_elevation_degrees >= 4.0
+        low_light = sun_elevation_degrees < 1.0
+    if outside_illuminance_lux is not None:
+        daylight = daylight or outside_illuminance_lux >= 5000.0
+        low_light = low_light or outside_illuminance_lux < 1500.0
+
+    if low_light and not daylight:
+        radius = (
+            DEFAULT_NIGHT_HUMAN_VISIBLE_RADIUS_KM
+            if (
+                sun_elevation_degrees is not None
+                and sun_elevation_degrees < -4.0
+            )
+            or (
+                outside_illuminance_lux is not None
+                and outside_illuminance_lux < 250.0
+            )
+            else DEFAULT_LOW_LIGHT_HUMAN_VISIBLE_RADIUS_KM
+        )
+    elif daylight:
+        radius = DEFAULT_DAY_HUMAN_VISIBLE_RADIUS_KM
+    else:
+        radius = DEFAULT_WINDOW_VIEW_RADIUS_KM
+    if weather_visibility_km is not None and weather_visibility_km > 0:
+        radius = min(radius, weather_visibility_km)
+    return max(1.0, radius)
+
+
+def runway_staging_preopen_needed(aircraft: dict[str, Any], lat: float, lon: float) -> bool:
+    """Return true when an aircraft is active near the Batumi runway staging area."""
+    altitude = altitude_ft(aircraft)
+    speed_kt = parse_float(aircraft.get("gs"))
+    seen_pos = parse_float_or(aircraft.get("seen_pos"), 999.0)
+    seen = parse_float_or(aircraft.get("seen"), 999.0)
+    distance_to_runway_km = haversine_km(
+        BATUMI_RUNWAY_STAGING_LAT,
+        BATUMI_RUNWAY_STAGING_LON,
+        lat,
+        lon,
+    )
+    return (
+        seen <= 8.0
+        and seen_pos <= 12.0
+        and distance_to_runway_km <= DEFAULT_RUNWAY_STAGING_RADIUS_KM
+        and altitude is not None
+        and altitude <= DEFAULT_RUNWAY_STAGING_MAX_ALTITUDE_FT
+        and (speed_kt is None or speed_kt <= DEFAULT_RUNWAY_STAGING_MAX_SPEED_KT)
+    )
+
+
+def window_view_attrs(
+    aircraft: dict[str, Any],
+    *,
+    home_latitude: float,
+    home_longitude: float,
+    outside_illuminance_lux: float | None = None,
+    sun_elevation_degrees: float | None = None,
+    weather_visibility_km: float | None = None,
+) -> dict[str, Any]:
+    """Return window visibility and curtain preopen attributes for an aircraft."""
+    lat = parse_float(aircraft.get("lat"))
+    lon = parse_float(aircraft.get("lon"))
+    radius_km = human_visible_radius_km(
+        outside_illuminance_lux=outside_illuminance_lux,
+        sun_elevation_degrees=sun_elevation_degrees,
+        weather_visibility_km=weather_visibility_km,
+    )
+    if lat is None or lon is None:
+        return {
+            "window_visible": False,
+            "window_preopen_needed": False,
+            "window_runway_staging": False,
+            "window_view_reason": "no position",
+            "window_view_projected_lat": None,
+            "window_view_projected_lon": None,
+            "window_view_lead_seconds": DEFAULT_WINDOW_VIEW_LEAD_SECONDS,
+            "window_view_radius_km": round(radius_km, 1),
+            "window_distance_km": None,
+            "window_bearing_degrees": None,
+            "window_direction": "",
+            "window_elevation_degrees": None,
+        }
+
+    distance_km = haversine_km(home_latitude, home_longitude, lat, lon)
+    bearing = bearing_degrees(home_latitude, home_longitude, lat, lon)
+    altitude = altitude_ft(aircraft)
+    position_age_seconds = parse_float(aircraft.get("position_age_seconds"))
+    stale_history_position = (
+        aircraft.get("position_source") == "skyaware_history"
+        and position_age_seconds is not None
+        and position_age_seconds > 12.0
+    )
+    elevation_degrees = (
+        math.degrees(math.atan((altitude * FEET_TO_KILOMETERS) / distance_km))
+        if altitude is not None and distance_km > 0
+        else None
+    )
+    inside_polygon = point_in_polygon(lon, lat, WINDOW_VIEW_POLYGON_LON_LAT)
+    inside_azimuth = inside_window_azimuth(bearing)
+    inside_radius = distance_km <= radius_km
+    visible = inside_polygon and inside_azimuth and inside_radius and not stale_history_position
+    runway_staging = runway_staging_preopen_needed(aircraft, lat, lon)
+
+    projected_lat = None
+    projected_lon = None
+    projected_visible = False
+    projected_lead_seconds = DEFAULT_WINDOW_VIEW_LEAD_SECONDS
+    track = parse_float(aircraft.get("track"))
+    speed = parse_float(aircraft.get("gs"))
+    if not stale_history_position and track is not None and speed is not None and speed > 5:
+        step = DEFAULT_WINDOW_VIEW_PROJECTION_STEP_SECONDS
+        for sample_index in range(1, int(DEFAULT_WINDOW_VIEW_LEAD_SECONDS // step) + 1):
+            lead_seconds = sample_index * step
+            sample_lat, sample_lon = project_position(
+                lat,
+                lon,
+                track_degrees=track,
+                speed_kt=speed,
+                seconds=lead_seconds,
+            )
+            sample_distance_km = haversine_km(
+                home_latitude,
+                home_longitude,
+                sample_lat,
+                sample_lon,
+            )
+            sample_bearing = bearing_degrees(
+                home_latitude,
+                home_longitude,
+                sample_lat,
+                sample_lon,
+            )
+            if (
+                point_in_polygon(sample_lon, sample_lat, WINDOW_VIEW_POLYGON_LON_LAT)
+                and inside_window_azimuth(sample_bearing)
+                and sample_distance_km <= radius_km
+            ):
+                projected_lat = sample_lat
+                projected_lon = sample_lon
+                projected_lead_seconds = lead_seconds
+                projected_visible = True
+                break
+
+    reason_parts: list[str] = []
+    if stale_history_position:
+        reason_parts.append(f"stale SkyAware history position {position_age_seconds:.0f}s old")
+    elif visible:
+        reason_parts.append("inside window view polygon")
+    if projected_visible and not visible:
+        reason_parts.append(f"projected into window view in {projected_lead_seconds:.0f}s")
+    if runway_staging and not visible and not projected_visible:
+        reason_parts.append("aircraft active on runway staging area")
+    if inside_polygon and inside_radius and not inside_azimuth:
+        reason_parts.append(
+            "outside window azimuth "
+            f"{WINDOW_VIEW_AZIMUTH_DEGREES:.0f}+/-{WINDOW_VIEW_HALF_ANGLE_DEGREES:.0f}"
+        )
+    if (inside_polygon or projected_visible) and not inside_radius:
+        reason_parts.append(f"outside human-visible {radius_km:.0f} km window radius")
+    if not reason_parts:
+        reason_parts.append("outside window view polygon")
+    if visible:
+        projected_lead_seconds = 0.0
+
+    return {
+        "window_visible": visible,
+        "window_preopen_needed": visible or projected_visible or runway_staging,
+        "window_runway_staging": runway_staging,
+        "window_view_reason": "; ".join(reason_parts),
+        "window_view_projected_lat": round(projected_lat, 6) if projected_lat is not None else None,
+        "window_view_projected_lon": round(projected_lon, 6) if projected_lon is not None else None,
+        "window_view_lead_seconds": (
+            0.0 if runway_staging and not projected_visible else projected_lead_seconds
+        ),
+        "window_view_radius_km": round(radius_km, 1),
+        "window_distance_km": round(distance_km, 1),
+        "window_bearing_degrees": round(bearing, 1),
+        "window_direction": compass_ru(bearing),
+        "window_elevation_degrees": (
+            round(elevation_degrees, 1) if elevation_degrees is not None else None
+        ),
+    }
 
 
 def make_key(aircraft: dict[str, Any], phase: str) -> str:
@@ -1015,6 +1322,8 @@ def build_announcement(
         base = "Заходит на посадку"
     elif phase == "positioned_takeoff":
         base = "Вылетает"
+    elif phase == "positioned_runway_staging":
+        base = "Самолёт у взлётной полосы"
     elif phase == "positioned_low_nearby":
         base = "Самолёт рядом"
     else:
@@ -1025,7 +1334,12 @@ def build_announcement(
         subject = " ".join(part for part in [operator, flight_number] if part)
     else:
         subject = " ".join(part for part in [airline, flight_number] if part)
-    if phase in {"positioned_approach", "positioned_landing", "positioned_takeoff"}:
+    if phase in {
+        "positioned_approach",
+        "positioned_landing",
+        "positioned_takeoff",
+        "positioned_runway_staging",
+    }:
         sentence = f"{base} {service_object_word(enrichment)} {subject or label}."
     else:
         sentence = f"{base}: {subject or label}."
@@ -1064,10 +1378,16 @@ def build_announcement(
         extra.append("локальный приём сильный")
         if origin and destination:
             extra.append(f"{origin} - {destination}")
-    elif phase in {"positioned_approach", "positioned_landing"} and origin:
-        extra.append(f"Из {origin}")
-    elif phase == "positioned_takeoff" and destination:
-        extra.append(f"В {destination}")
+    elif phase in {"positioned_approach", "positioned_landing"}:
+        if origin:
+            extra.append(f"Из {origin}")
+        elif destination:
+            extra.append(f"В {destination}, откуда летит, пока не определено")
+    elif phase in {"positioned_takeoff", "positioned_runway_staging"}:
+        if destination:
+            extra.append(f"В {destination}")
+        elif origin:
+            extra.append(f"Из {origin}, куда летит, пока не определено")
     elif origin and destination:
         extra.append(f"{origin} - {destination}")
     if model:
@@ -1159,8 +1479,8 @@ def positioned_candidate(
     if lat is None or lon is None:
         return None
 
-    seen = parse_float(aircraft.get("seen")) or 999.0
-    seen_pos = parse_float(aircraft.get("seen_pos")) or 999.0
+    seen = parse_float_or(aircraft.get("seen"), 999.0)
+    seen_pos = parse_float_or(aircraft.get("seen_pos"), 999.0)
     if seen > 8.0 or seen_pos > 12.0:
         return None
 
@@ -1178,21 +1498,48 @@ def positioned_candidate(
     phase = None
     confidence = 0.0
     reason_parts = [f"position {distance_km:.1f} km from home", f"alt {altitude:.0f} ft"]
+    view_attrs = window_view_attrs(
+        aircraft,
+        home_latitude=home_latitude,
+        home_longitude=home_longitude,
+    )
+    window_preopen_needed = bool(view_attrs.get("window_preopen_needed"))
+    runway_staging = bool(view_attrs.get("window_runway_staging"))
 
-    if altitude <= 2800 and vertical_rate is not None and vertical_rate <= -160:
+    if runway_staging:
+        phase = "positioned_runway_staging"
+        confidence = 0.6
+        reason_parts.append("active on runway staging area")
+    elif (
+        distance_km <= max_distance_km
+        and altitude <= 2800
+        and vertical_rate is not None
+        and vertical_rate <= -160
+    ):
         phase = "positioned_landing"
         confidence = 0.62
         reason_parts.append(f"descending {vertical_rate:.0f} fpm")
-    elif altitude <= 3200 and vertical_rate is not None and vertical_rate >= 160:
+    elif (
+        (distance_km <= max_distance_km or window_preopen_needed)
+        and altitude <= 3200
+        and vertical_rate is not None
+        and vertical_rate >= 160
+    ):
         phase = "positioned_takeoff"
         confidence = 0.62
         reason_parts.append(f"climbing {vertical_rate:.0f} fpm")
-    elif altitude <= 900 and ground_speed is not None and 35 <= ground_speed <= 190:
+    elif (
+        distance_km <= max_distance_km
+        and altitude <= 900
+        and ground_speed is not None
+        and 35 <= ground_speed <= 190
+    ):
         phase = "positioned_low_nearby"
         confidence = 0.52
         reason_parts.append(f"low nearby at {ground_speed:.0f} kt")
     elif (
         distance_km <= max_approach_distance_km
+        and window_preopen_needed
         and altitude <= max_approach_altitude_ft
         and vertical_rate is not None
         and vertical_rate <= -160
@@ -1222,6 +1569,7 @@ def positioned_candidate(
         "confidence": round(min(confidence, 0.95), 3),
         "distance_km": round(distance_km, 3),
         "reason": "; ".join(reason_parts),
+        **view_attrs,
     }
 
 
@@ -1237,12 +1585,12 @@ def no_position_candidate(
     ):
         return None
 
-    seen = parse_float(aircraft.get("seen")) or 999.0
+    seen = parse_float_or(aircraft.get("seen"), 999.0)
     if seen > max_seen_seconds:
         return None
 
     rssi = parse_float(aircraft.get("rssi"))
-    messages = parse_float(aircraft.get("messages")) or 0.0
+    messages = parse_float_or(aircraft.get("messages"), 0.0)
     altitude = altitude_ft(aircraft)
     flight = str(aircraft.get("flight") or "").strip()
 
@@ -1288,7 +1636,7 @@ def interest_candidate(
     aircraft_count: int,
 ) -> AircraftCandidate | None:
     """Classify route and military aircraft visible in receiver range."""
-    seen = parse_float(aircraft.get("seen")) or 999.0
+    seen = parse_float_or(aircraft.get("seen"), 999.0)
     seen_pos = parse_float(aircraft.get("seen_pos"))
     if seen > 20.0 and (seen_pos is None or seen_pos > 60.0):
         return None
@@ -1363,6 +1711,11 @@ def candidate_from_aircraft(
         enrichment["unusual_aircraft"] = bool(reason)
         enrichment["interest_reason"] = str(classifier.get("reason") or "")
     announcement = build_announcement(aircraft, phase, confidence, enrichment)
+    window_visible = bool(classifier.get("window_visible"))
+    window_preopen_needed = bool(classifier.get("window_preopen_needed"))
+    if phase in {"military_visible", "special_interest", "kutaisi_route"}:
+        window_visible = bool(classifier.get("window_visible", True))
+        window_preopen_needed = bool(classifier.get("window_preopen_needed", window_visible))
 
     return AircraftCandidate(
         state=make_key(aircraft, phase),
@@ -1389,6 +1742,20 @@ def candidate_from_aircraft(
         messages=parse_float(aircraft.get("messages")),
         aircraft_count=aircraft_count,
         source=source,
+        window_visible=window_visible,
+        window_preopen_needed=window_preopen_needed,
+        window_view_reason=str(
+            classifier.get("window_view_reason") or classifier.get("reason") or ""
+        ),
+        window_runway_staging=bool(classifier.get("window_runway_staging")),
+        window_view_projected_lat=parse_float(classifier.get("window_view_projected_lat")),
+        window_view_projected_lon=parse_float(classifier.get("window_view_projected_lon")),
+        window_view_lead_seconds=parse_float(classifier.get("window_view_lead_seconds")),
+        window_view_radius_km=parse_float(classifier.get("window_view_radius_km")),
+        window_distance_km=parse_float(classifier.get("window_distance_km")),
+        window_bearing_degrees=parse_float(classifier.get("window_bearing_degrees")),
+        window_direction=str(classifier.get("window_direction") or ""),
+        window_elevation_degrees=parse_float(classifier.get("window_elevation_degrees")),
         **enrichment,
     )
 
