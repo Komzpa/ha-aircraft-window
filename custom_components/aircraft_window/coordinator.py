@@ -1168,6 +1168,11 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 attrs["operator_flag_code"] = str(
                     aircraft_info.get("registered_owner_operator_flag_code") or ""
                 ).strip()
+                if attrs["operator_flag_code"]:
+                    attrs["spoken_flight"] = spoken_flight(
+                        flight,
+                        airline_icao=attrs["operator_flag_code"],
+                    )
                 attrs["owner_country"] = str(
                     aircraft_info.get("registered_owner_country_name") or ""
                 ).strip()
@@ -1199,6 +1204,11 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             attrs["operator_flag_code"] = attrs.get("operator_flag_code") or str(
                 hexdb_payload.get("OperatorFlagCode") or ""
             ).strip()
+            if attrs["operator_flag_code"]:
+                attrs["spoken_flight"] = spoken_flight(
+                    flight,
+                    airline_icao=attrs["operator_flag_code"],
+                )
             if attrs["aircraft_model"] or attrs["registration"]:
                 self._add_enrichment_source(attrs, "hexdb")
 

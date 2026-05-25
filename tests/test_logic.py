@@ -23,6 +23,10 @@ SPEC.loader.exec_module(logic)
 class AircraftWindowLogicTest(unittest.TestCase):
     """Verify the logic that does not need Home Assistant."""
 
+    def assert_tts_has_no_latin(self, text: str) -> None:
+        """Verify a spoken announcement will not send Latin letters to TTS."""
+        self.assertNotRegex(text, r"[A-Za-z]")
+
     def test_landing_announcement_contains_route_model_and_year(self) -> None:
         aircraft = {
             "hex": "4BCE01",
@@ -52,7 +56,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "destination_speech": "Батуми",
                 "aircraft_model": "Boeing 737 MAX 8",
                 "aircraft_type": "B38M",
-                "aircraft_model_speech": "Боинг семьсот тридцать семь MAX восемь",
+                "aircraft_model_speech": "Боинг семьсот тридцать семь Макс восемь",
                 "built_year": 2019,
                 "built_year_speech": "две тысячи девятнадцатого года",
                 "spoken_flight": "один семь один один",
@@ -62,8 +66,9 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(candidate.phase, "positioned_landing")
         self.assertIn("Флай Дубай", candidate.announcement)
         self.assertIn("Из Дубая", candidate.announcement)
-        self.assertIn("Боинг семьсот тридцать семь MAX восемь", candidate.announcement)
+        self.assertIn("Боинг семьсот тридцать семь Макс восемь", candidate.announcement)
         self.assertIn("две тысячи девятнадцатого года", candidate.announcement)
+        self.assert_tts_has_no_latin(candidate.announcement)
 
     def test_no_position_candidate_uses_enrichment_and_mentions_missing_coordinates(self) -> None:
         candidate = logic.pick_candidate(
@@ -303,7 +308,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
 
         self.assertTrue(text.startswith("Особое объявление."))
-        self.assertIn("New Example Air", text)
+        self.assertIn("Нью Экзампл Эйр", text)
+        self.assert_tts_has_no_latin(text)
 
     def test_positioned_unknown_route_says_aircraft_not_flight(self) -> None:
         text = logic.build_announcement(
@@ -397,9 +403,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
             },
         )
 
-        self.assertIn("Example Jet Holdings", text)
+        self.assertIn("экзампл джет холдингс", text.lower())
         self.assertIn("ноль ноль один", text)
         self.assertIn("Гольфстрим", text)
+        self.assert_tts_has_no_latin(text)
 
     def test_partial_route_arrival_says_origin_is_unknown(self) -> None:
         text = logic.build_announcement(
@@ -533,9 +540,30 @@ class AircraftWindowLogicTest(unittest.TestCase):
             },
         )
 
-        self.assertIn("Вылетает бизнес-джет Bonair Havacilik TCSHE.", text)
-        self.assertIn("Хокер восемьсот пятьдесят XP", text)
+        self.assertIn("Вылетает бизнес-джет Бонэйр Хаваджылык ти си эс эйч и.", text)
+        self.assertIn("Хокер восемьсот пятьдесят икс пи", text)
         self.assertNotIn("125 850XP", text)
+        self.assert_tts_has_no_latin(text)
+
+    def test_positioned_pegasus_mixed_callsign_has_no_latin_for_tts(self) -> None:
+        text = logic.build_announcement(
+            {"hex": "4bb862", "flight": "PGT48DK"},
+            "positioned_takeoff",
+            0.87,
+            {
+                "registered_owner": "Pegasus Airlines",
+                "aircraft_model": "A320 251NSL",
+                "aircraft_type": "A20N",
+                "aircraft_model_speech": logic.spoken_model("A320 251NSL", "A20N"),
+                "operator_flag_code": "PGT",
+                "spoken_flight": logic.spoken_flight("PGT48DK", airline_icao="PGT"),
+            },
+        )
+
+        self.assertIn("Вылетает самолёт Пегасус четыре восемь ди кей.", text)
+        self.assertIn("Аэробус триста двадцать", text)
+        self.assertNotIn("PGT48DK", text)
+        self.assert_tts_has_no_latin(text)
 
     def test_positioned_global_6000_hyp001_says_business_jet(self) -> None:
         enrichment = {
@@ -557,10 +585,11 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
 
         self.assertEqual(service_type, "business_jet")
-        self.assertIn("Заходит на посадку бизнес-джет Hyperion Aviation ноль ноль один.", text)
+        self.assertIn("Заходит на посадку бизнес-джет Хайперион Авиэйшн ноль ноль один.", text)
         self.assertIn("Бомбардье Глобал шесть тысяч", text)
         self.assertNotIn("Global 6000", text)
         self.assertNotIn("самолёт ноль ноль один", text)
+        self.assert_tts_has_no_latin(text)
 
     def test_followup_announcement_omits_flight_number_when_route_is_new(self) -> None:
         previous = logic.AircraftCandidate(
@@ -626,7 +655,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(candidate.phase, "military_visible")
         self.assertIn("Военный самолёт", candidate.announcement)
         self.assertIn("Польские ВВС", candidate.announcement)
-        self.assertIn("C-295 M", candidate.announcement)
+        self.assertIn("си два девять пять эм", candidate.announcement)
+        self.assert_tts_has_no_latin(candidate.announcement)
 
     def test_emergency_squawk_is_special_interest_candidate(self) -> None:
         candidate = logic.interest_candidate(
@@ -792,7 +822,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "registered_owner": "Bonair Havacilik",
                 "aircraft_model": "125 850XP",
                 "aircraft_type": "H25B",
-                "aircraft_model_speech": "Хокер восемьсот пятьдесят XP",
+                "aircraft_model_speech": "Хокер восемьсот пятьдесят икс пи",
                 "service_type": "unknown",
             },
         )
@@ -806,7 +836,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
         self.assertEqual(
             logic.spoken_model("125 850XP", "H25B"),
-            "Хокер восемьсот пятьдесят XP",
+            "Хокер восемьсот пятьдесят икс пи",
         )
 
     def test_helicopter_without_coordinates_omits_hex_from_announcement(self) -> None:
@@ -932,6 +962,14 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "ноль два ноль",
         )
         self.assertEqual(
+            logic.spoken_flight("PGT48DK", airline_icao="PGT"),
+            "четыре восемь ди кей",
+        )
+        self.assertEqual(
+            logic.spoken_flight("TCSHE"),
+            "ти си эс эйч и",
+        )
+        self.assertEqual(
             logic.known_airline_for_callsign("VAA020"),
             ("Van Air Europe", "VAA"),
         )
@@ -1053,7 +1091,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
         self.assertEqual(
             logic.spoken_model("Boeing 737 MAX 8", "B38M"),
-            "Боинг семьсот тридцать семь MAX восемь",
+            "Боинг семьсот тридцать семь Макс восемь",
         )
         self.assertEqual(
             logic.extract_airport_data_year("<b>Year built:</b></td><td>2012</td>"),

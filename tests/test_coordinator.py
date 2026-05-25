@@ -762,6 +762,8 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(attrs["route_summary"], "SAW → BUS")
         self.assertEqual(attrs["route_source"], "adsbdb")
         self.assertEqual(attrs["origin_speech"], "Стамбула, Сабиха Гёкчен")
+        self.assertEqual(attrs["spoken_flight"], "четыре пять восемь эн")
+        self.assertNotRegex(attrs["spoken_flight"], r"[A-Za-z]")
 
     def test_parse_board_time_accepts_batumi_dot_format(self) -> None:
         parsed = coordinator.AircraftWindowCoordinator._parse_board_time(

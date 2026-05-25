@@ -95,6 +95,118 @@ CITY_ROUTE_RU = {
     "Zhukovsky": "Жуковский",
 }
 
+DIGIT_RU = {
+    "0": "ноль",
+    "1": "один",
+    "2": "два",
+    "3": "три",
+    "4": "четыре",
+    "5": "пять",
+    "6": "шесть",
+    "7": "семь",
+    "8": "восемь",
+    "9": "девять",
+}
+
+LATIN_LETTER_RE = re.compile(r"[A-Za-z]")
+LATIN_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9.+/-]*")
+
+LATIN_LETTER_SPEECH_RU = {
+    "A": "эй",
+    "B": "би",
+    "C": "си",
+    "D": "ди",
+    "E": "и",
+    "F": "эф",
+    "G": "джи",
+    "H": "эйч",
+    "I": "ай",
+    "J": "джей",
+    "K": "кей",
+    "L": "эл",
+    "M": "эм",
+    "N": "эн",
+    "O": "оу",
+    "P": "пи",
+    "Q": "кью",
+    "R": "ар",
+    "S": "эс",
+    "T": "ти",
+    "U": "ю",
+    "V": "ви",
+    "W": "дабл-ю",
+    "X": "икс",
+    "Y": "уай",
+    "Z": "зет",
+}
+
+LATIN_TOKEN_SPEECH_RU = {
+    "MAX": "Макс",
+    "NEO": "нео",
+    "XP": "икс пи",
+}
+
+LATIN_WORD_TRANSLITERATION_RU = {
+    "air": "эйр",
+    "airbus": "Аэробус",
+    "airlines": "авиалинии",
+    "aviation": "авиэйшн",
+    "example": "экзампл",
+    "havacilik": "хаваджылык",
+    "holdings": "холдингс",
+    "hyperion": "Хайперион",
+    "jet": "джет",
+    "lufthansa": "Люфтганза",
+    "new": "нью",
+    "polish": "польские",
+    "ural": "Уральские",
+}
+
+LATIN_TRANSLITERATION_DIGRAPHS_RU = (
+    ("sch", "щ"),
+    ("sh", "ш"),
+    ("ch", "ч"),
+    ("zh", "ж"),
+    ("yo", "ё"),
+    ("yu", "ю"),
+    ("ya", "я"),
+    ("ye", "е"),
+    ("kh", "х"),
+    ("ts", "ц"),
+    ("th", "т"),
+    ("ph", "ф"),
+    ("ck", "к"),
+)
+
+LATIN_TRANSLITERATION_CHARS_RU = {
+    "a": "а",
+    "b": "б",
+    "c": "к",
+    "d": "д",
+    "e": "е",
+    "f": "ф",
+    "g": "г",
+    "h": "х",
+    "i": "и",
+    "j": "дж",
+    "k": "к",
+    "l": "л",
+    "m": "м",
+    "n": "н",
+    "o": "о",
+    "p": "п",
+    "q": "к",
+    "r": "р",
+    "s": "с",
+    "t": "т",
+    "u": "у",
+    "v": "в",
+    "w": "в",
+    "x": "кс",
+    "y": "и",
+    "z": "з",
+}
+
 AIRPORT_CODE_FROM_RU = {
     "IST": "Стамбула",
     "SAW": "Стамбула, Сабиха Гёкчен",
@@ -190,6 +302,12 @@ AIRLINE_SPEECH_RU = {
     "Van Air Europe": "Ван Эйр",
     "Vanilla Sky": "Ванилла Скай",
     "Wizz Air": "Визз Эйр",
+    "Bonair Havacilik": "Бонэйр Хаваджылык",
+    "Hyperion Aviation": "Хайперион Авиэйшн",
+    "Lufthansa": "Люфтганза",
+    "New Example Air": "Нью Экзампл Эйр",
+    "Polish Air Force": "Польские ВВС",
+    "Ural Airlines": "Уральские авиалинии",
 }
 
 AIRLINE_SPEECH_ALIASES_RU = {
@@ -475,19 +593,6 @@ HELICOPTER_TOKENS = (
     "eurocopter",
     "sikorsky",
 )
-
-DIGIT_RU = {
-    "0": "ноль",
-    "1": "один",
-    "2": "два",
-    "3": "три",
-    "4": "четыре",
-    "5": "пять",
-    "6": "шесть",
-    "7": "семь",
-    "8": "восемь",
-    "9": "девять",
-}
 
 YEAR_RU = {
     1990: "тысяча девятьсот девяностого года",
@@ -1275,12 +1380,78 @@ def military_operator_speech(enrichment: dict[str, Any]) -> str:
     if operator in MILITARY_OPERATOR_SPEECH_RU:
         return MILITARY_OPERATOR_SPEECH_RU[operator]
     owner = str(enrichment.get("registered_owner") or "").strip()
-    return owner
+    return tts_cyrillic_text(owner)
+
+
+def spell_alnum_token_ru(token: str) -> str:
+    """Spell a compact Latin/digit token in Russian for TTS."""
+    words: list[str] = []
+    for char in token.strip().upper():
+        if char in DIGIT_RU:
+            words.append(DIGIT_RU[char])
+        elif char in LATIN_LETTER_SPEECH_RU:
+            words.append(LATIN_LETTER_SPEECH_RU[char])
+    return " ".join(words)
+
+
+def _transliterate_latin_word_ru(word: str) -> str:
+    """Return a rough Cyrillic rendering for an unmapped Latin word."""
+    if not word:
+        return ""
+    mapped = LATIN_WORD_TRANSLITERATION_RU.get(word.casefold())
+    if mapped:
+        return mapped
+
+    lower = word.casefold()
+    result: list[str] = []
+    index = 0
+    while index < len(lower):
+        for latin, cyrillic in LATIN_TRANSLITERATION_DIGRAPHS_RU:
+            if lower.startswith(latin, index):
+                result.append(cyrillic)
+                index += len(latin)
+                break
+        else:
+            result.append(LATIN_TRANSLITERATION_CHARS_RU.get(lower[index], lower[index]))
+            index += 1
+
+    transliterated = "".join(result)
+    return transliterated[:1].upper() + transliterated[1:] if word[:1].isupper() else transliterated
+
+
+def _latin_token_speech_ru(match: re.Match[str]) -> str:
+    """Render one Latin token without leaving ASCII letters for TTS."""
+    token = match.group(0)
+    stripped = token.strip()
+    leading = stripped[: len(stripped) - len(stripped.lstrip("([{"))]
+    stripped_tail = stripped[len(leading) :]
+    core = stripped_tail.rstrip(".,:;!?)]}")
+    trailing = stripped_tail[len(core) :]
+    upper = core.upper()
+    mapped = LATIN_TOKEN_SPEECH_RU.get(upper)
+    if mapped:
+        return f"{leading}{mapped}{trailing}"
+    if any(char.isdigit() for char in core):
+        spoken = spell_alnum_token_ru(core)
+        return f"{leading}{spoken or core}{trailing}"
+    if core.isupper() and len(core) <= 8:
+        spoken = spell_alnum_token_ru(core)
+        return f"{leading}{spoken or core}{trailing}"
+    return f"{leading}{_transliterate_latin_word_ru(core)}{trailing}"
+
+
+def tts_cyrillic_text(text: str) -> str:
+    """Remove Latin letters from announcement text before it reaches TTS."""
+    if not LATIN_LETTER_RE.search(text):
+        return text
+    return LATIN_TOKEN_RE.sub(_latin_token_speech_ru, text)
 
 
 def spoken_flight(flight: str, airline_icao: str = "", airline_iata: str = "") -> str:
     """Turn AIZ414/RWZ553 into a short TTS-friendly flight number."""
     token = flight.strip().replace(" ", "").upper()
+    if token in {"", "UNKNOWN"}:
+        return ""
     for prefix in (airline_icao.strip().upper(), airline_iata.strip().upper()):
         if prefix and token.startswith(prefix):
             token = token[len(prefix):]
@@ -1289,7 +1460,9 @@ def spoken_flight(flight: str, airline_icao: str = "", airline_iata: str = "") -
         return " ".join(DIGIT_RU.get(char, char) for char in token)
     if len(token) > 3 and token[:3].isalpha() and token[3:].isdigit():
         return " ".join(DIGIT_RU.get(char, char) for char in token[3:])
-    return flight.strip()
+    if token and token.isalnum() and LATIN_LETTER_RE.search(token):
+        return spell_alnum_token_ru(token)
+    return tts_cyrillic_text(flight.strip())
 
 
 def known_airline_for_callsign(flight: str) -> tuple[str, str]:
@@ -1321,7 +1494,7 @@ def airline_speech(airline_name: str) -> str:
     for known_name, speech in AIRLINE_SPEECH_RU.items():
         if known_name.casefold() == folded:
             return speech
-    return name
+    return tts_cyrillic_text(name)
 
 
 def spoken_model(model: str, aircraft_type: str = "") -> str:
@@ -1332,7 +1505,7 @@ def spoken_model(model: str, aircraft_type: str = "") -> str:
     if "TU-214" in text or "T214" in text:
         return "Ту-двести четырнадцать"
     if "A220" in text or "BCS3" in text or "BCS1" in text:
-        return "Аэробус A-двести двадцать"
+        return "Аэробус А-двести двадцать"
     if "A19N" in text or "A319" in text:
         return "Аэробус триста девятнадцать"
     if "A20N" in text or "A320" in text:
@@ -1342,9 +1515,9 @@ def spoken_model(model: str, aircraft_type: str = "") -> str:
     if "A332" in text or "A330" in text:
         return "Аэробус триста тридцать"
     if "B38M" in text or "737 MAX 8" in text or re.search(r"\b737-8(?!00)\b", text):
-        return "Боинг семьсот тридцать семь MAX восемь"
+        return "Боинг семьсот тридцать семь Макс восемь"
     if "B39M" in text or "737 MAX 9" in text or re.search(r"\b737-9(?!00)\b", text):
-        return "Боинг семьсот тридцать семь MAX девять"
+        return "Боинг семьсот тридцать семь Макс девять"
     if "B737" in text or "B738" in text or "B739" in text or "737" in text:
         return "Боинг семьсот тридцать семь"
     if "B752" in text or "757" in text:
@@ -1364,14 +1537,14 @@ def spoken_model(model: str, aircraft_type: str = "") -> str:
     if "GL5T" in text or "GLOBAL 5000" in text:
         return "Бомбардье Глобал пять тысяч"
     if "H25B" in text or "850XP" in text:
-        return "Хокер восемьсот пятьдесят XP"
+        return "Хокер восемьсот пятьдесят икс пи"
     if "SU95" in text or "SSJ" in text:
         return "Суперджет"
     if "C208" in text or "CARAVAN" in text:
         return "Цессна Караван"
     if "L410" in text or "LET" in text:
         return "Лет четыреста десять Турболет, небольшой двухмоторный турбовинтовой"
-    return model.strip()
+    return tts_cyrillic_text(model.strip())
 
 
 def spoken_year(year: int | None) -> str:
@@ -1691,7 +1864,7 @@ def build_announcement(
         extra.append(built_year)
     if extra:
         sentence = f"{sentence} {', '.join(extra)}."
-    return sentence
+    return tts_cyrillic_text(sentence)
 
 
 def build_followup_announcement(
@@ -1750,7 +1923,7 @@ def build_followup_announcement(
         return ""
     if not details:
         return ""
-    return f"Дополнение: {', '.join(details)}."
+    return tts_cyrillic_text(f"Дополнение: {', '.join(details)}.")
 
 
 def idle_candidate(reason: str, *, source: str = "", aircraft_count: int = 0) -> AircraftCandidate:
