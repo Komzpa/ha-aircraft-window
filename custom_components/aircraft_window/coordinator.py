@@ -7,7 +7,7 @@ import json
 import logging
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote, urlsplit, urlunsplit
@@ -82,6 +82,7 @@ AIRCRAFT_CACHE_SECONDS = 24 * 60 * 60
 BUILT_YEAR_CACHE_SECONDS = 30 * 24 * 60 * 60
 AIRPORT_BOARD_CACHE_SECONDS = 5 * 60
 ROUTINE_HEX_HOLD_SECONDS = 10.0
+ROUTINE_HEX_HOLD_SUPPRESSION_REASON = "waiting briefly for callsign"
 BATUMI_AIRPORT_BOARD_BASE_URL = "https://batumiairport.com/Home/searchFlights"
 TBILISI_TIMEZONE = timezone(timedelta(hours=4))
 BATUMI_AIRPORT_BOARD_LEGS = {
@@ -319,7 +320,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             base_candidate = special_candidate
 
         if base_candidate.active:
-            self._handle_candidate_event(base_candidate)
+            base_candidate = self._apply_routine_hex_announcement_hold(base_candidate)
+            self._handle_candidate_event(base_candidate, apply_hold=False)
         elif not base_candidate.active:
             self._last_event_key = ""
             self._held_routine_hex_candidates.clear()
@@ -342,23 +344,20 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             return False
         return not bool(hex_id and flight.startswith(hex_id))
 
-    def _handle_candidate_event(self, base_candidate: AircraftCandidate) -> bool:
+    def _handle_candidate_event(
+        self,
+        base_candidate: AircraftCandidate,
+        *,
+        apply_hold: bool = True,
+    ) -> bool:
         """Fire a candidate event unless it is same-airframe routine churn."""
         if base_candidate.announcement_suppressed or not base_candidate.announcement.strip():
             return False
 
-        airframe_key = candidate_airframe_key(base_candidate)
-        held_candidates = getattr(self, "_held_routine_hex_candidates", None)
-        if held_candidates is None:
-            held_candidates = self._held_routine_hex_candidates = {}
-        if self._should_hold_routine_hex_candidate(base_candidate):
-            first_seen = held_candidates.setdefault(airframe_key, time.monotonic())
-            if time.monotonic() - first_seen < ROUTINE_HEX_HOLD_SECONDS:
-                return False
-            held_candidates.pop(airframe_key, None)
-        else:
-            held_candidates.pop(airframe_key, None)
+        if apply_hold and self._routine_hex_announcement_hold_active(base_candidate):
+            return False
 
+        airframe_key = candidate_airframe_key(base_candidate)
         announced_keys = self._announced_event_keys_by_airframe.setdefault(
             airframe_key,
             set(),
@@ -392,6 +391,36 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             self.hass.bus.async_fire(EVENT_CANDIDATE, base_candidate.as_dict())
             self._last_event_key = base_candidate.event_key
         return should_fire
+
+    def _apply_routine_hex_announcement_hold(
+        self,
+        candidate: AircraftCandidate,
+    ) -> AircraftCandidate:
+        """Suppress sensor announcements while waiting briefly for a real callsign."""
+        if not self._routine_hex_announcement_hold_active(candidate):
+            return candidate
+        return replace(
+            candidate,
+            announcement="",
+            announcement_suppressed=True,
+            announcement_suppression_reason=ROUTINE_HEX_HOLD_SUPPRESSION_REASON,
+        )
+
+    def _routine_hex_announcement_hold_active(self, candidate: AircraftCandidate) -> bool:
+        """Return true when a weak hex-only routine announcement should wait."""
+        airframe_key = candidate_airframe_key(candidate)
+        held_candidates = getattr(self, "_held_routine_hex_candidates", None)
+        if held_candidates is None:
+            held_candidates = self._held_routine_hex_candidates = {}
+        if self._should_hold_routine_hex_candidate(candidate):
+            now = time.monotonic()
+            first_seen = held_candidates.setdefault(airframe_key, now)
+            if now - first_seen < ROUTINE_HEX_HOLD_SECONDS:
+                return True
+            held_candidates.pop(airframe_key, None)
+            return False
+        held_candidates.pop(airframe_key, None)
+        return False
 
     def _should_hold_routine_hex_candidate(self, candidate: AircraftCandidate) -> bool:
         """Return true when a hex-only routine candidate should wait for callsign."""

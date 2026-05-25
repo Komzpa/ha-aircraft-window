@@ -355,6 +355,58 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0][1]["announcement"], hex_only.announcement)
 
+    def test_routine_hex_hold_suppresses_sensor_announcement_only(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake._held_routine_hex_candidates = {}
+
+        hex_only = coordinator.AircraftCandidate(
+            state="positioned_takeoff:155bf7:155bf7",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:155bf7:155bf7",
+            hex="155bf7",
+            flight="155bf7",
+            registered_owner="Azimuth",
+            aircraft_model_speech="Суперджет",
+            announcement="Вылетает самолёт Азимут. Суперджет.",
+            window_visible=True,
+            window_preopen_needed=True,
+        )
+
+        with patch.object(coordinator.time, "monotonic", return_value=100.0):
+            held = fake._apply_routine_hex_announcement_hold(hex_only)
+
+        self.assertEqual(held.state, hex_only.state)
+        self.assertTrue(held.window_visible)
+        self.assertTrue(held.window_preopen_needed)
+        self.assertEqual(held.announcement, "")
+        self.assertTrue(held.announcement_suppressed)
+        self.assertEqual(
+            held.announcement_suppression_reason,
+            coordinator.ROUTINE_HEX_HOLD_SUPPRESSION_REASON,
+        )
+
+        callsign = coordinator.AircraftCandidate(
+            state="positioned_takeoff:155bf7:AZO7054",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:155bf7:AZO7054",
+            hex="155bf7",
+            flight="AZO7054",
+            airline_name="Azimuth Airlines",
+            destination_speech="Москву, Внуково",
+            aircraft_model_speech="Суперджет",
+            announcement="Вылетает пассажирский рейс Азимут. "
+            "В Москву, Внуково, Суперджет.",
+        )
+
+        with patch.object(coordinator.time, "monotonic", return_value=104.0):
+            released = fake._apply_routine_hex_announcement_hold(callsign)
+
+        self.assertIs(released, callsign)
+        self.assertFalse(released.announcement_suppressed)
+        self.assertEqual(fake._held_routine_hex_candidates, {})
+
     def test_handle_candidate_event_callsign_arrival_beats_hex_hold(self) -> None:
         events: list[tuple[str, dict[str, Any]]] = []
 
