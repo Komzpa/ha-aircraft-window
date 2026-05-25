@@ -9,6 +9,7 @@ from datetime import datetime
 from importlib import util
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 COMPONENT_ROOT = Path(__file__).resolve().parents[1] / "custom_components" / "aircraft_window"
 
@@ -126,7 +127,14 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             announcement="Вылетает рейс Исра Эйр восемь девять ноль.",
         )
 
-        self.assertTrue(fake._handle_candidate_event(previous))
+        with patch.object(coordinator.time, "monotonic", return_value=100.0):
+            self.assertFalse(fake._handle_candidate_event(previous))
+        with patch.object(
+            coordinator.time,
+            "monotonic",
+            return_value=100.0 + coordinator.ROUTINE_HEX_HOLD_SECONDS + 0.1,
+        ):
+            self.assertTrue(fake._handle_candidate_event(previous))
         self.assertFalse(fake._handle_candidate_event(current))
 
         self.assertEqual(len(events), 1)
@@ -177,7 +185,14 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             announcement="Вылетает рейс Исра Эйр восемь девять ноль.",
         )
 
-        self.assertTrue(fake._handle_candidate_event(previous))
+        with patch.object(coordinator.time, "monotonic", return_value=100.0):
+            self.assertFalse(fake._handle_candidate_event(previous))
+        with patch.object(
+            coordinator.time,
+            "monotonic",
+            return_value=100.0 + coordinator.ROUTINE_HEX_HOLD_SECONDS + 0.1,
+        ):
+            self.assertTrue(fake._handle_candidate_event(previous))
         self.assertTrue(fake._handle_candidate_event(current))
 
         self.assertEqual(len(events), 2)
@@ -233,7 +248,14 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             }
         )
 
-        self.assertTrue(fake._handle_candidate_event(previous))
+        with patch.object(coordinator.time, "monotonic", return_value=100.0):
+            self.assertFalse(fake._handle_candidate_event(previous))
+        with patch.object(
+            coordinator.time,
+            "monotonic",
+            return_value=100.0 + coordinator.ROUTINE_HEX_HOLD_SECONDS + 0.1,
+        ):
+            self.assertTrue(fake._handle_candidate_event(previous))
         self.assertFalse(fake._handle_candidate_event(callsign_only))
         self.assertTrue(fake._handle_candidate_event(with_route))
 
@@ -293,6 +315,127 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             "Дополнение: это Азимут, из Москвы, Внуково, Суперджет.",
         )
         self.assertEqual(events[1][1]["announcement_kind"], "followup")
+
+    def test_handle_candidate_event_holds_hex_only_routine_briefly(self) -> None:
+        events: list[tuple[str, dict[str, Any]]] = []
+
+        class FakeBus:
+            def async_fire(self, event_type: str, data: dict[str, Any]) -> None:
+                events.append((event_type, data))
+
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake.hass = types.SimpleNamespace(bus=FakeBus())
+        fake._last_event_key = ""
+        fake._announced_event_keys_by_airframe = {}
+        fake._last_announced_by_airframe = {}
+        fake._held_routine_hex_candidates = {}
+
+        hex_only = coordinator.AircraftCandidate(
+            state="positioned_takeoff:155bf7:155bf7",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:155bf7:155bf7",
+            hex="155bf7",
+            flight="155bf7",
+            registered_owner="Azimuth",
+            aircraft_model_speech="Суперджет",
+            announcement="Вылетает самолёт Азимут. Суперджет.",
+        )
+
+        with patch.object(coordinator.time, "monotonic", return_value=100.0):
+            self.assertFalse(fake._handle_candidate_event(hex_only))
+        with patch.object(
+            coordinator.time,
+            "monotonic",
+            return_value=100.0 + coordinator.ROUTINE_HEX_HOLD_SECONDS + 0.1,
+        ):
+            self.assertTrue(fake._handle_candidate_event(hex_only))
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0][1]["announcement"], hex_only.announcement)
+
+    def test_handle_candidate_event_callsign_arrival_beats_hex_hold(self) -> None:
+        events: list[tuple[str, dict[str, Any]]] = []
+
+        class FakeBus:
+            def async_fire(self, event_type: str, data: dict[str, Any]) -> None:
+                events.append((event_type, data))
+
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake.hass = types.SimpleNamespace(bus=FakeBus())
+        fake._last_event_key = ""
+        fake._announced_event_keys_by_airframe = {}
+        fake._last_announced_by_airframe = {}
+        fake._held_routine_hex_candidates = {}
+
+        hex_only = coordinator.AircraftCandidate(
+            state="positioned_takeoff:155bf7:155bf7",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:155bf7:155bf7",
+            hex="155bf7",
+            flight="155bf7",
+            registered_owner="Azimuth",
+            aircraft_model_speech="Суперджет",
+            announcement="Вылетает самолёт Азимут. Суперджет.",
+        )
+        with_route = coordinator.AircraftCandidate(
+            state="positioned_takeoff:155bf7:AZO7054",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:155bf7:AZO7054",
+            hex="155bf7",
+            flight="AZO7054",
+            airline_name="Azimuth Airlines",
+            destination_speech="Москву, Внуково",
+            aircraft_model_speech="Суперджет",
+            announcement="Вылетает пассажирский рейс Азимут. "
+            "В Москву, Внуково, Суперджет.",
+        )
+
+        with patch.object(coordinator.time, "monotonic", return_value=100.0):
+            self.assertFalse(fake._handle_candidate_event(hex_only))
+        with patch.object(coordinator.time, "monotonic", return_value=104.0):
+            self.assertTrue(fake._handle_candidate_event(with_route))
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0][1]["announcement"], with_route.announcement)
+        self.assertEqual(fake._held_routine_hex_candidates, {})
+
+    def test_handle_candidate_event_keeps_private_numbered_flight_immediate(self) -> None:
+        events: list[tuple[str, dict[str, Any]]] = []
+
+        class FakeBus:
+            def async_fire(self, event_type: str, data: dict[str, Any]) -> None:
+                events.append((event_type, data))
+
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake.hass = types.SimpleNamespace(bus=FakeBus())
+        fake._last_event_key = ""
+        fake._announced_event_keys_by_airframe = {}
+        fake._last_announced_by_airframe = {}
+        fake._held_routine_hex_candidates = {}
+
+        private = coordinator.AircraftCandidate(
+            state="positioned_approach:424242:001",
+            phase="positioned_approach",
+            event_key="positioned_approach:424242:001",
+            hex="424242",
+            flight="001",
+            registered_owner="Example Jet Holdings",
+            spoken_flight="ноль ноль один",
+            aircraft_model_speech="Гольфстрим",
+            announcement="Заходит на посадку самолёт Example Jet Holdings ноль ноль один. "
+            "Гольфстрим.",
+        )
+
+        self.assertTrue(fake._handle_candidate_event(private))
+
+        self.assertEqual(len(events), 1)
+        self.assertIn("ноль ноль один", events[0][1]["announcement"])
 
     def test_handle_candidate_event_ignores_silent_no_position_chatter(self) -> None:
         events: list[tuple[str, dict[str, Any]]] = []

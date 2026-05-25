@@ -56,6 +56,7 @@ from .logic import (
     backfill_position_from_history,
     build_followup_announcement,
     candidate_airframe_key,
+    candidate_has_real_flight,
     classify_service_type,
     extract_airport_data_year,
     flight_label,
@@ -80,6 +81,7 @@ ROUTE_CACHE_SECONDS = 6 * 60 * 60
 AIRCRAFT_CACHE_SECONDS = 24 * 60 * 60
 BUILT_YEAR_CACHE_SECONDS = 30 * 24 * 60 * 60
 AIRPORT_BOARD_CACHE_SECONDS = 5 * 60
+ROUTINE_HEX_HOLD_SECONDS = 10.0
 BATUMI_AIRPORT_BOARD_BASE_URL = "https://batumiairport.com/Home/searchFlights"
 TBILISI_TIMEZONE = timezone(timedelta(hours=4))
 BATUMI_AIRPORT_BOARD_LEGS = {
@@ -135,6 +137,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         self._last_event_key = ""
         self._last_announced_by_airframe: dict[str, AircraftCandidate] = {}
         self._announced_event_keys_by_airframe: dict[str, set[str]] = {}
+        self._held_routine_hex_candidates: dict[str, float] = {}
         options = self.options
         super().__init__(
             hass,
@@ -319,6 +322,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             self._handle_candidate_event(base_candidate)
         elif not base_candidate.active:
             self._last_event_key = ""
+            self._held_routine_hex_candidates.clear()
         return base_candidate
 
     def _should_fetch_live_route(
@@ -344,6 +348,17 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             return False
 
         airframe_key = candidate_airframe_key(base_candidate)
+        held_candidates = getattr(self, "_held_routine_hex_candidates", None)
+        if held_candidates is None:
+            held_candidates = self._held_routine_hex_candidates = {}
+        if self._should_hold_routine_hex_candidate(base_candidate):
+            first_seen = held_candidates.setdefault(airframe_key, time.monotonic())
+            if time.monotonic() - first_seen < ROUTINE_HEX_HOLD_SECONDS:
+                return False
+            held_candidates.pop(airframe_key, None)
+        else:
+            held_candidates.pop(airframe_key, None)
+
         announced_keys = self._announced_event_keys_by_airframe.setdefault(
             airframe_key,
             set(),
@@ -377,6 +392,20 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             self.hass.bus.async_fire(EVENT_CANDIDATE, base_candidate.as_dict())
             self._last_event_key = base_candidate.event_key
         return should_fire
+
+    def _should_hold_routine_hex_candidate(self, candidate: AircraftCandidate) -> bool:
+        """Return true when a hex-only routine candidate should wait for callsign."""
+        if candidate.phase not in {
+            "positioned_approach",
+            "positioned_landing",
+            "positioned_takeoff",
+            "positioned_runway_staging",
+            "positioned_low_nearby",
+        }:
+            return False
+        if candidate_has_real_flight(candidate):
+            return False
+        return not has_route_details(candidate.as_dict())
 
     async def _async_backfill_no_position_rows(
         self,
