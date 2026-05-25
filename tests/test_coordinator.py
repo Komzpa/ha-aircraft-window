@@ -486,6 +486,40 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(parsed.isoformat(), "2026-05-25T15:00:00+04:00")
 
+    def test_live_route_fetch_is_limited_to_real_callsign_route_misses(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+
+        self.assertTrue(
+            fake._should_fetch_live_route(
+                {"hex": "155bf7", "flight": "AZO7054"},
+                "positioned_takeoff",
+                {"aircraft_model_speech": "Суперджет"},
+            )
+        )
+        self.assertFalse(
+            fake._should_fetch_live_route(
+                {"hex": "155bf7", "flight": "155bf7"},
+                "positioned_takeoff",
+                {"registered_owner": "Azimuth", "aircraft_model_speech": "Суперджет"},
+            )
+        )
+        self.assertFalse(
+            fake._should_fetch_live_route(
+                {"hex": "155bf7", "flight": "AZO7054"},
+                "positioned_takeoff",
+                {"destination_speech": "Москву, Внуково"},
+            )
+        )
+        self.assertFalse(
+            fake._should_fetch_live_route(
+                {"hex": "4bb18e", "flight": "THY299"},
+                "no_position_nearby",
+                {},
+            )
+        )
+
     def test_enrichment_sources_are_appended_once(self) -> None:
         attrs = {"enrichment_source": "airport_board"}
 

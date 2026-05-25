@@ -59,6 +59,7 @@ from .logic import (
     classify_service_type,
     extract_airport_data_year,
     flight_label,
+    has_route_details,
     idle_candidate,
     interest_candidate,
     known_airline_for_callsign,
@@ -247,6 +248,19 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     phase=base_candidate.phase,
                     cache_only=True,
                 )
+                if self._should_fetch_live_route(row, base_candidate.phase, enrichment):
+                    enrichment = await self._async_enrich_aircraft(
+                        row,
+                        phase=base_candidate.phase,
+                        cache_only=False,
+                        deadline=time.monotonic()
+                        + float(
+                            options.get(
+                                CONF_ENRICHMENT_TIMEOUT_SECONDS,
+                                DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
+                            )
+                        ),
+                    )
                 base_candidate = pick_candidate(
                     [row],
                     home_latitude=float(options.get(CONF_HOME_LATITUDE, self.hass.config.latitude)),
@@ -306,6 +320,23 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         elif not base_candidate.active:
             self._last_event_key = ""
         return base_candidate
+
+    def _should_fetch_live_route(
+        self,
+        aircraft: dict[str, Any],
+        phase: str,
+        enrichment: dict[str, Any],
+    ) -> bool:
+        """Return true when a hot candidate can cheaply improve missing route data."""
+        if not self._airport_board_leg_for_phase(phase):
+            return False
+        if has_route_details(enrichment):
+            return False
+        flight = flight_label(aircraft).replace(" ", "").upper()
+        hex_id = str(aircraft.get("hex") or "").strip().upper()
+        if not flight or flight == "UNKNOWN":
+            return False
+        return not bool(hex_id and flight.startswith(hex_id))
 
     def _handle_candidate_event(self, base_candidate: AircraftCandidate) -> bool:
         """Fire a candidate event unless it is same-airframe routine churn."""
