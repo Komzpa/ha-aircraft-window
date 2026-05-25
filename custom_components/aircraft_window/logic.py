@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 import time
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -108,8 +109,8 @@ DIGIT_RU = {
     "9": "девять",
 }
 
-LATIN_LETTER_RE = re.compile(r"[A-Za-z]")
-LATIN_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9.+/-]*")
+LATIN_LETTER_RE = re.compile(r"[A-Za-z\u00c0-\u024f]")
+LATIN_TOKEN_RE = re.compile(r"[A-Za-z\u00c0-\u024f][A-Za-z0-9.+/\-\u00c0-\u024f]*")
 
 LATIN_LETTER_SPEECH_RU = {
     "A": "эй",
@@ -206,6 +207,28 @@ LATIN_TRANSLITERATION_CHARS_RU = {
     "y": "и",
     "z": "з",
 }
+
+LATIN_SPECIAL_BASE_CHARS = str.maketrans(
+    {
+        "Æ": "Ae",
+        "æ": "ae",
+        "Ð": "D",
+        "ð": "d",
+        "Đ": "D",
+        "đ": "d",
+        "Ł": "L",
+        "ł": "l",
+        "Ø": "O",
+        "ø": "o",
+        "Œ": "Oe",
+        "œ": "oe",
+        "Þ": "Th",
+        "þ": "th",
+        "ß": "ss",
+        "İ": "I",
+        "ı": "i",
+    }
+)
 
 AIRPORT_CODE_FROM_RU = {
     "IST": "Стамбула",
@@ -1402,7 +1425,9 @@ def _transliterate_latin_word_ru(word: str) -> str:
     if mapped:
         return mapped
 
-    lower = word.casefold()
+    normalized = unicodedata.normalize("NFKD", word.translate(LATIN_SPECIAL_BASE_CHARS))
+    ascii_base = "".join(char for char in normalized if not unicodedata.combining(char))
+    lower = ascii_base.casefold()
     result: list[str] = []
     index = 0
     while index < len(lower):

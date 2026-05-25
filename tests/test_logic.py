@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import unicodedata
 import unittest
 from importlib import util
 from pathlib import Path
@@ -25,7 +26,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
     def assert_tts_has_no_latin(self, text: str) -> None:
         """Verify a spoken announcement will not send Latin letters to TTS."""
-        self.assertNotRegex(text, r"[A-Za-z]")
+        latin = [
+            char for char in text if char.isalpha() and "LATIN" in unicodedata.name(char, "")
+        ]
+        self.assertEqual(latin, [])
 
     def test_landing_announcement_contains_route_model_and_year(self) -> None:
         aircraft = {
@@ -969,6 +973,11 @@ class AircraftWindowLogicTest(unittest.TestCase):
             logic.spoken_flight("TCSHE"),
             "ти си эс эйч и",
         )
+        cyrillic = logic.tts_cyrillic_text(
+            "Кутаиси - Wrocław, Gökçen, Arnavutköy, Istanbul."
+        )
+        self.assertIn("Кутаиси - Вроклав", cyrillic)
+        self.assert_tts_has_no_latin(cyrillic)
         self.assertEqual(
             logic.known_airline_for_callsign("VAA020"),
             ("Van Air Europe", "VAA"),
