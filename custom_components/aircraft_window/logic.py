@@ -152,7 +152,11 @@ LATIN_WORD_TRANSLITERATION_RU = {
     "airbus": "Аэробус",
     "airlines": "авиалинии",
     "aviation": "авиэйшн",
+    "bombardier": "Бомбардье",
+    "challenger": "Челленджер",
     "example": "экзампл",
+    "gulf": "Галф",
+    "gulfstream": "Гольфстрим",
     "havacilik": "хаваджылык",
     "holdings": "холдингс",
     "hyperion": "Хайперион",
@@ -326,6 +330,7 @@ AIRLINE_SPEECH_RU = {
     "Vanilla Sky": "Ванилла Скай",
     "Wizz Air": "Визз Эйр",
     "Bonair Havacilik": "Бонэйр Хаваджылык",
+    "Gulf Wings": "Галф Вингс",
     "Hyperion Aviation": "Хайперион Авиэйшн",
     "Lufthansa": "Люфтганза",
     "New Example Air": "Нью Экзампл Эйр",
@@ -440,6 +445,7 @@ BUSINESS_JET_TYPE_CODES = {
     "CL30",
     "CL35",
     "CL60",
+    "CL65",
     "E50P",
     "E545",
     "E55P",
@@ -1557,10 +1563,30 @@ def spoken_model(model: str, aircraft_type: str = "") -> str:
         return "Эмбраер сто семьдесят"
     if "CRJ" in text:
         return "Си-ар-джей"
+    if "CHALLENGER 300" in text or "CL30" in text:
+        return "Бомбардье Челленджер трёхсотый"
+    if "CHALLENGER 350" in text or "CL35" in text:
+        return "Бомбардье Челленджер триста пятидесятый"
+    if "CHALLENGER 604" in text:
+        return "Бомбардье Челленджер шестьсот четвёртый"
+    if "CHALLENGER 605" in text:
+        return "Бомбардье Челленджер шестьсот пятый"
+    if "CHALLENGER 650" in text:
+        return "Бомбардье Челленджер шестьсот пятидесятый"
+    if "CHALLENGER" in text or "CL60" in text or "CL65" in text:
+        return "Бомбардье Челленджер"
     if "GL6T" in text or "GLOBAL 6000" in text:
         return "Бомбардье Глобал шесть тысяч"
     if "GL5T" in text or "GLOBAL 5000" in text:
         return "Бомбардье Глобал пять тысяч"
+    if "G650" in text or "GLF6" in text:
+        return "Гольфстрим Джи-шестьсот пятьдесят"
+    if "G550" in text or "GLF5" in text:
+        return "Гольфстрим Джи-пятьсот пятьдесят"
+    if "GLF4" in text:
+        return "Гольфстрим четыре"
+    if "GULFSTREAM" in text or "GLF" in text:
+        return "Гольфстрим"
     if "H25B" in text or "850XP" in text:
         return "Хокер восемьсот пятьдесят икс пи"
     if "SU95" in text or "SSJ" in text:

@@ -595,6 +595,37 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertNotIn("самолёт ноль ноль один", text)
         self.assert_tts_has_no_latin(text)
 
+    def test_positioned_challenger_gulf_wings_uses_clear_business_jet_speech(
+        self,
+    ) -> None:
+        enrichment = {
+            "registered_owner": "Gulf Wings",
+            "aircraft_model": "Challenger 605",
+            "aircraft_type": "CL65",
+            "aircraft_model_speech": logic.spoken_model("Challenger 605", "CL65"),
+            "operator_flag_code": "GWC",
+            "spoken_flight": logic.spoken_flight("GWC2", airline_icao="GWC"),
+        }
+        service_type, confidence, _reason = logic.classify_service_type(enrichment)
+        enrichment["service_type"] = service_type
+        enrichment["service_type_confidence"] = confidence
+
+        text = logic.build_announcement(
+            {"hex": "8965f2", "flight": "GWC2"},
+            "positioned_landing",
+            0.87,
+            enrichment,
+        )
+
+        self.assertEqual(service_type, "business_jet")
+        self.assertIn("Заходит на посадку бизнес-джет Галф Вингс два.", text)
+        self.assertIn("Бомбардье Челленджер шестьсот пятый", text)
+        self.assertNotIn("Гулф", text)
+        self.assertNotIn("Чалленгер", text)
+        self.assertNotIn("Challenger", text)
+        self.assertNotIn("Gulf", text)
+        self.assert_tts_has_no_latin(text)
+
     def test_followup_announcement_omits_flight_number_when_route_is_new(self) -> None:
         previous = logic.AircraftCandidate(
             state="positioned_takeoff:738286:738286",
@@ -1101,6 +1132,14 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(
             logic.spoken_model("Boeing 737 MAX 8", "B38M"),
             "Боинг семьсот тридцать семь Макс восемь",
+        )
+        self.assertEqual(
+            logic.spoken_model("Challenger 605", "CL65"),
+            "Бомбардье Челленджер шестьсот пятый",
+        )
+        self.assertEqual(
+            logic.spoken_model("Gulfstream G650", "GLF6"),
+            "Гольфстрим Джи-шестьсот пятьдесят",
         )
         self.assertEqual(
             logic.extract_airport_data_year("<b>Year built:</b></td><td>2012</td>"),
