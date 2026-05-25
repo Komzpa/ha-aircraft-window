@@ -46,7 +46,10 @@ public owner, operator, or airframe metadata can produce `kutaisi_route` and
 `military_visible` events even when they are not landing at the home airport.
 Aircraft transmitting emergency transponder codes `7500`, `7600`, or `7700`
 produce an `emergency_squawk` event with cautious wording for unlawful
-interference, radio failure, or a general emergency.
+interference, radio failure, or a general emergency. Speech names the situation
+without reading raw squawk or transponder details aloud; locally watched routine
+squawk codes and other receiver-only technical flags are not voice triggers by
+themselves.
 
 ## Installation
 
@@ -85,7 +88,9 @@ receiver feed.
 Near conflict zones or over water, aircraft may sometimes appear without usable
 coordinates. Aircraft Window does not fake coordinates. It treats a fresh,
 strong, low-altitude local receiver hit as a lower-confidence `no_position_nearby`
-candidate and says so in the announcement.
+candidate. That receiver-only evidence is exposed in attributes for debugging,
+but it stays silent unless route-like context makes the interruption useful; the
+announcement should not read out "strong local reception" chatter.
 
 When the current receiver row has no coordinates, Aircraft Window also checks
 the local SkyAware/dump1090 history snapshots for the same hex. If a recent

@@ -183,8 +183,9 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(events), 2)
         self.assertEqual(
             events[1][1]["announcement"],
-            "Дополнение: это Исра Эйр восемь девять ноль, в Тель-Авив.",
+            "Дополнение: это Исра Эйр, в Тель-Авив.",
         )
+        self.assertEqual(events[1][1]["announcement_kind"], "followup")
 
     def test_handle_candidate_event_allows_late_route_after_suppressed_callsign(self) -> None:
         events: list[tuple[str, dict[str, Any]]] = []
@@ -239,8 +240,105 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(events), 2)
         self.assertEqual(
             events[1][1]["announcement"],
-            "Дополнение: это Исра Эйр восемь девять ноль, в Тель-Авив.",
+            "Дополнение: это Исра Эйр, в Тель-Авив.",
         )
+        self.assertEqual(events[1][1]["announcement_kind"], "followup")
+
+    def test_handle_candidate_event_allows_late_details_for_same_event_key(self) -> None:
+        events: list[tuple[str, dict[str, Any]]] = []
+
+        class FakeBus:
+            def async_fire(self, event_type: str, data: dict[str, Any]) -> None:
+                events.append((event_type, data))
+
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake.hass = types.SimpleNamespace(bus=FakeBus())
+        fake._last_event_key = ""
+        fake._announced_event_keys_by_airframe = {}
+        fake._last_announced_by_airframe = {}
+
+        previous = coordinator.AircraftCandidate(
+            state="positioned_approach:155bf7:AZO7053",
+            phase="positioned_approach",
+            event_key="positioned_approach:155bf7:AZO7053",
+            hex="155bf7",
+            flight="AZO7053",
+            spoken_flight="семь ноль пять три",
+            announcement="Заходит на посадку самолёт семь ноль пять три.",
+        )
+        current = coordinator.AircraftCandidate(
+            state="positioned_approach:155bf7:AZO7053",
+            phase="positioned_approach",
+            event_key="positioned_approach:155bf7:AZO7053",
+            hex="155bf7",
+            flight="AZO7053",
+            airline_name="Azimuth Airlines",
+            spoken_flight="семь ноль пять три",
+            origin_speech="Москвы, Внуково",
+            destination_speech="Батуми",
+            aircraft_model_speech="Суперджет",
+            announcement="Заходит на посадку пассажирский рейс Азимут. "
+            "Из Москвы, Внуково, Суперджет.",
+        )
+
+        self.assertTrue(fake._handle_candidate_event(previous))
+        self.assertTrue(fake._handle_candidate_event(current))
+        self.assertFalse(fake._handle_candidate_event(current))
+
+        self.assertEqual(len(events), 2)
+        self.assertEqual(
+            events[1][1]["announcement"],
+            "Дополнение: это Азимут, из Москвы, Внуково, Суперджет.",
+        )
+        self.assertEqual(events[1][1]["announcement_kind"], "followup")
+
+    def test_handle_candidate_event_ignores_silent_no_position_chatter(self) -> None:
+        events: list[tuple[str, dict[str, Any]]] = []
+
+        class FakeBus:
+            def async_fire(self, event_type: str, data: dict[str, Any]) -> None:
+                events.append((event_type, data))
+
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake.hass = types.SimpleNamespace(bus=FakeBus())
+        fake._last_event_key = ""
+        fake._announced_event_keys_by_airframe = {}
+        fake._last_announced_by_airframe = {}
+
+        silent = coordinator.AircraftCandidate(
+            state="no_position_nearby:152559:VLK559",
+            phase="no_position_nearby",
+            event_key="no_position_nearby:152559:VLK559",
+            hex="152559",
+            flight="VLK559",
+            spoken_flight="пять пять девять",
+            announcement="",
+            announcement_suppressed=True,
+        )
+        with_route = coordinator.AircraftCandidate(
+            state="no_position_nearby:152559:VLK559",
+            phase="no_position_nearby",
+            event_key="no_position_nearby:152559:VLK559:route",
+            hex="152559",
+            flight="VLK559",
+            airline_name="Van Air",
+            spoken_flight="пять пять девять",
+            origin_speech="Тбилиси",
+            destination_speech="Батуми",
+            announcement="Рядом самолёт без координат: Ван Эйр пять пять девять. Тбилиси - Батуми.",
+        )
+
+        self.assertFalse(fake._handle_candidate_event(silent))
+        self.assertTrue(fake._handle_candidate_event(with_route))
+
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0][0], coordinator.EVENT_CANDIDATE)
+        self.assertEqual(events[0][1]["announcement"], with_route.announcement)
+        self.assertNotIn("Дополнение", events[0][1]["announcement"])
 
     async def test_batumi_board_fetches_arrival_and_departure_rows(self) -> None:
         calls: list[str] = []
@@ -322,6 +420,31 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(arrival["path"]["destination"]["destinationIata"], "BUS")
         self.assertEqual(fallback["path"]["origin"]["originIata"], "BUS")
 
+    def test_batumi_board_match_maps_flyone_callsign_prefix_to_board_code(self) -> None:
+        board = {
+            "data": {
+                "flights": [
+                    {
+                        "airlineIata": "3F",
+                        "airlineIcao": "3F",
+                        "flightNumber": "588",
+                        "flightLeg": "DEPARTURE",
+                        "path": {
+                            "origin": {"originIata": "BUS"},
+                            "destination": {"destinationIata": "EVN"},
+                        },
+                    },
+                ]
+            }
+        }
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+
+        departure = fake._airport_board_match(board, "FIE588", preferred_leg="DEPARTURE")
+
+        self.assertEqual(departure["path"]["destination"]["destinationIata"], "EVN")
+
     def test_batumi_board_leg_for_positioned_phase(self) -> None:
         self.assertEqual(
             coordinator.AircraftWindowCoordinator._airport_board_leg_for_phase(
@@ -348,6 +471,21 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             "",
         )
 
+    def test_parse_board_time_accepts_batumi_dot_format(self) -> None:
+        parsed = coordinator.AircraftWindowCoordinator._parse_board_time(
+            "25.05.2026 15:00",
+            coordinator.datetime(
+                2026,
+                5,
+                25,
+                12,
+                0,
+                tzinfo=coordinator.TBILISI_TIMEZONE,
+            ),
+        )
+
+        self.assertEqual(parsed.isoformat(), "2026-05-25T15:00:00+04:00")
+
     def test_enrichment_sources_are_appended_once(self) -> None:
         attrs = {"enrichment_source": "airport_board"}
 
@@ -355,6 +493,35 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         coordinator.AircraftWindowCoordinator._add_enrichment_source(attrs, "adsbdb")
 
         self.assertEqual(attrs["enrichment_source"], "airport_board+adsbdb")
+
+    def test_airport_board_route_uses_russian_speech_labels(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        attrs = {
+            "airline_name": "",
+            "enrichment_source": "",
+        }
+        fake._apply_airport_board_route(
+            attrs,
+            {
+                "airlineName": "RED WINGS AIRLINES",
+                "flightLeg": "DEPARTURE",
+                "stad": "2026-05-25T12:00:00",
+                "path": {
+                    "origin": {"originIata": "BUS", "originEn": "Batumi (BUS)"},
+                    "destination": {
+                        "destinationIata": "ZIA",
+                        "destinationEn": "Moscow Zhukovsky (ZIA)",
+                    },
+                },
+            },
+        )
+
+        self.assertEqual(attrs["airline_name"], "RED WINGS AIRLINES")
+        self.assertEqual(attrs["origin_speech"], "Батуми")
+        self.assertEqual(attrs["destination_speech"], "Жуковский")
+        self.assertEqual(attrs["route_summary"], "BUS → ZIA")
 
     def test_scheduled_preopen_result_turns_on_inside_departure_window(self) -> None:
         fake = coordinator.AircraftWindowCoordinator.__new__(

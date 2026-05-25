@@ -64,6 +64,7 @@ from .logic import (
     known_airline_for_callsign,
     known_route_for_callsign,
     make_key,
+    normalized_airport_city,
     pick_candidate,
     spoken_flight,
     spoken_model,
@@ -93,6 +94,8 @@ CALLSIGN_PREFIX_TO_BOARD_AIRLINE = {
     "BRU": "B2",
     "ELY": "LY",
     "FDB": "FZ",
+    "FIA": "3F",
+    "FIE": "3F",
     "ISR": "6H",
     "PGT": "PC",
     "RWZ": "WZ",
@@ -306,12 +309,25 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
 
     def _handle_candidate_event(self, base_candidate: AircraftCandidate) -> bool:
         """Fire a candidate event unless it is same-airframe routine churn."""
+        if base_candidate.announcement_suppressed or not base_candidate.announcement.strip():
+            return False
+
         airframe_key = candidate_airframe_key(base_candidate)
         announced_keys = self._announced_event_keys_by_airframe.setdefault(
             airframe_key,
             set(),
         )
         if base_candidate.event_key in announced_keys:
+            previous = self._last_announced_by_airframe.get(airframe_key)
+            if previous is not None:
+                followup = build_followup_announcement(previous, base_candidate)
+                if followup:
+                    base_candidate.announcement = followup
+                    base_candidate.announcement_kind = "followup"
+                    self._last_announced_by_airframe[airframe_key] = base_candidate
+                    self.hass.bus.async_fire(EVENT_CANDIDATE, base_candidate.as_dict())
+                    self._last_event_key = base_candidate.event_key
+                    return True
             return False
 
         should_fire = True
@@ -320,6 +336,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             followup = build_followup_announcement(previous, base_candidate)
             if followup:
                 base_candidate.announcement = followup
+                base_candidate.announcement_kind = "followup"
             else:
                 should_fire = False
 
@@ -665,7 +682,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         value = str(data.get(f"{key}En") or data.get(f"{key}Iata") or "").strip()
         if not value:
             return ""
-        city = value.split("(")[0].replace("-", " ").title().strip()
+        city = normalized_airport_city(value)
         iata = str(data.get(f"{key}Iata") or "").strip()
         return f"{city} ({iata})" if iata and iata not in city else city
 
@@ -712,7 +729,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         data = path.get(direction) if isinstance(path.get(direction), dict) else {}
         key = f"{direction}En"
         value = str(data.get(key) or data.get(f"{direction}Iata") or "").strip()
-        return value.split("(")[0].replace("-", " ").title().strip()
+        return normalized_airport_city(value)
 
     @staticmethod
     def _parse_board_time(value: str, now: datetime) -> datetime | None:
@@ -721,6 +738,12 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         if not value:
             return None
         for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+            try:
+                parsed = datetime.strptime(value[:19], fmt)
+            except ValueError:
+                continue
+            return parsed.replace(tzinfo=TBILISI_TIMEZONE)
+        for fmt in ("%d.%m.%Y %H:%M:%S", "%d.%m.%Y %H:%M"):
             try:
                 parsed = datetime.strptime(value[:19], fmt)
             except ValueError:

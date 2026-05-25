@@ -23,6 +23,7 @@ CITY_FROM_RU = {
     "Larnaca": "Ларнаки",
     "Minsk": "Минска",
     "Moscow": "Москвы",
+    "Moscow Zhukovsky": "Жуковского",
     "Natakhtari": "Натахтари",
     "Riga": "Риги",
     "Riyadh": "Эр-Рияда",
@@ -33,6 +34,7 @@ CITY_FROM_RU = {
     "Tehran": "Тегерана",
     "Tel Aviv": "Тель-Авива",
     "Yerevan": "Еревана",
+    "Zhukovsky": "Жуковского",
 }
 
 CITY_TO_RU = {
@@ -50,6 +52,7 @@ CITY_TO_RU = {
     "Larnaca": "Ларнаку",
     "Minsk": "Минск",
     "Moscow": "Москву",
+    "Moscow Zhukovsky": "Жуковский",
     "Natakhtari": "Натахтари",
     "Riga": "Ригу",
     "Riyadh": "Эр-Рияд",
@@ -60,6 +63,27 @@ CITY_TO_RU = {
     "Tehran": "Тегеран",
     "Tel Aviv": "Тель-Авив",
     "Yerevan": "Ереван",
+    "Zhukovsky": "Жуковский",
+}
+
+AIRPORT_DETAIL_SPEECH_RU = {
+    "DME": "Домодедово",
+    "EVN": "Звартноц",
+    "SVO": "Шереметьево",
+    "VKO": "Внуково",
+    "ZIA": "Жуковский",
+}
+
+AIRPORT_NAME_DETAIL_SPEECH_RU = {
+    "Domodedovo International Airport": "Домодедово",
+    "Moscow Domodedovo Airport": "Домодедово",
+    "Moscow Sheremetyevo Airport": "Шереметьево",
+    "Moscow Vnukovo Airport": "Внуково",
+    "Moscow Zhukovsky Airport": "Жуковский",
+    "Sheremetyevo International Airport": "Шереметьево",
+    "Vnukovo International Airport": "Внуково",
+    "Zvartnots International Airport": "Звартноц",
+    "Zhukovsky International Airport": "Жуковский",
 }
 
 AIRLINE_SPEECH_RU = {
@@ -71,6 +95,7 @@ AIRLINE_SPEECH_RU = {
     "Azerbaijan Airlines": "Азербайджанские авиалинии",
     "Azerbaijan Airlines (Buta Airways)": "Азербайджанские авиалинии",
     "AZAL": "Азал",
+    "Azimuth": "Азимут",
     "Azimuth Airlines": "Азимут",
     "Air Samarkand": "Эйр Самарканд",
     "Belavia": "Белавиа",
@@ -79,6 +104,8 @@ AIRLINE_SPEECH_RU = {
     "El-Al Israel Airlines": "Эль Аль",
     "El Al": "Эль Аль",
     "FlyArystan": "Флай Арыстан",
+    "Fly One": "Флай Уан",
+    "Fly One Armenia": "Флай Уан Армения",
     "flydubai": "Флай Дубай",
     "Flydubai": "Флай Дубай",
     "Fly Lili": "Флай Лили",
@@ -96,6 +123,7 @@ AIRLINE_SPEECH_RU = {
     "Pegasus Airlines": "Пегасус",
     "Qeshm Air": "Кешм Эйр",
     "Red Wings": "Ред Вингс",
+    "Red Wings Airlines": "Ред Вингс",
     "SCAT Airlines": "Скат",
     "Scat": "Скат",
     "Turkish Airlines": "Туркиш",
@@ -104,6 +132,10 @@ AIRLINE_SPEECH_RU = {
     "Van Air Europe": "Ван Эйр",
     "Vanilla Sky": "Ванилла Скай",
     "Wizz Air": "Визз Эйр",
+}
+
+AIRLINE_SPEECH_ALIASES_RU = {
+    "red wings airlines": "Ред Вингс",
 }
 
 KNOWN_AIRLINE_BY_CALLSIGN_PREFIX = {
@@ -143,6 +175,7 @@ PASSENGER_AIRLINES = {
     "Air Samarkand",
     "Arkia Israel Airlines",
     "Arkia Israeli Airlines",
+    "Azimuth Airlines",
     "Azerbaijan Airlines",
     "Azerbaijan Airlines (Buta Airways)",
     "AZAL",
@@ -261,22 +294,6 @@ INTERESTING_SQUAWKS = {
     "7500": ("возможное незаконное вмешательство", "special squawk 7500"),
     "7600": ("потеря радиосвязи", "special squawk 7600"),
     "7700": ("аварийная ситуация", "special squawk 7700"),
-}
-
-COMMON_SQUAWKS = {
-    "1000",
-    "1200",
-    "2000",
-    "7000",
-}
-
-WATCHED_SQUAWKS = {
-    "0000": ("нулевой код транспондера", "watched squawk 0000"),
-    "0025": ("локально интересный сквок 0025", "watched squawk 0025"),
-    "0033": ("локально интересный сквок 0033", "watched squawk 0033"),
-    "6100": ("локально интересный сквок 6100", "watched squawk 6100"),
-    "6400": ("локально интересный сквок 6400", "watched squawk 6400"),
-    "7777": ("особый код транспондера, возможно военный", "watched squawk 7777"),
 }
 
 MEDEVAC_TOKENS = (
@@ -403,6 +420,9 @@ class AircraftCandidate:
     flight: str = ""
     squawk: str = ""
     announcement: str = ""
+    announcement_suppressed: bool = False
+    announcement_suppression_reason: str = ""
+    announcement_kind: str = "initial"
     lat: float | None = None
     lon: float | None = None
     altitude_ft: float | None = None
@@ -1039,13 +1059,6 @@ def classify_special_interest(
     enrichment: dict[str, Any],
 ) -> tuple[str, str, str, float] | None:
     """Classify ADS-B events worth a short observation announcement."""
-    squawk = squawk_code(aircraft)
-    if squawk in WATCHED_SQUAWKS:
-        label, reason = WATCHED_SQUAWKS[squawk]
-        return ("watched_squawk", label, reason, 0.74)
-    if ident_active(aircraft):
-        return ("ident", "самолёт нажал IDENT", "transponder IDENT/SPI active", 0.71)
-
     altitude = altitude_ft(aircraft)
     vertical_rate = vertical_rate_fpm(aircraft)
     if vertical_rate is not None and vertical_rate <= -3500 and (
@@ -1111,13 +1124,6 @@ def classify_special_interest(
         )
     if _has_token(text, DRONE_TOKENS):
         return ("drone", "похоже на беспилотник", "drone metadata", 0.82)
-    if is_non_icao_address(aircraft):
-        return (
-            "non_icao_address",
-            "нестандартный адрес транспондера",
-            "receiver marked non-ICAO address",
-            0.62,
-        )
     return None
 
 
@@ -1171,6 +1177,22 @@ def known_route_for_callsign(flight: str) -> dict[str, str]:
     token = flight.strip().replace(" ", "").upper()
     route = KNOWN_ROUTE_BY_CALLSIGN.get(token)
     return dict(route) if route is not None else {}
+
+
+def airline_speech(airline_name: str) -> str:
+    """Return a TTS-friendly airline name when we know one."""
+    name = " ".join(airline_name.strip().split())
+    if not name:
+        return ""
+    if name in AIRLINE_SPEECH_RU:
+        return AIRLINE_SPEECH_RU[name]
+    folded = name.casefold()
+    if folded in AIRLINE_SPEECH_ALIASES_RU:
+        return AIRLINE_SPEECH_ALIASES_RU[folded]
+    for known_name, speech in AIRLINE_SPEECH_RU.items():
+        if known_name.casefold() == folded:
+            return speech
+    return name
 
 
 def spoken_model(model: str, aircraft_type: str = "") -> str:
@@ -1236,29 +1258,51 @@ def airport_label(airport: dict[str, Any] | None) -> str:
     return municipality or code or name
 
 
+def normalized_airport_city(value: str) -> str:
+    """Return a stable lookup key from route API or airport-board city labels."""
+    label = value.split("(")[0].replace("-", " ").strip()
+    return " ".join(label.split()).title()
+
+
+def airport_detail_speech(airport: dict[str, Any]) -> str:
+    """Return a specific airport name when route data identifies one."""
+    code = str(airport.get("iata_code") or "").strip().upper()
+    if code in AIRPORT_DETAIL_SPEECH_RU:
+        return AIRPORT_DETAIL_SPEECH_RU[code]
+    name = normalized_airport_city(str(airport.get("name") or ""))
+    return AIRPORT_NAME_DETAIL_SPEECH_RU.get(name, "")
+
+
 def airport_speech(airport: dict[str, Any] | None, *, direction: str) -> str:
     """Return a TTS-friendly city name for origin/destination."""
     if not isinstance(airport, dict):
         return ""
-    municipality = str(airport.get("municipality") or "").strip()
+    municipality = normalized_airport_city(str(airport.get("municipality") or ""))
+    name = normalized_airport_city(str(airport.get("name") or ""))
     city_map = CITY_TO_RU if direction == "to" else CITY_FROM_RU
-    if municipality in city_map:
-        return city_map[municipality]
-    return municipality or str(airport.get("iata_code") or airport.get("icao_code") or "").strip()
+    airport_detail = airport_detail_speech(airport)
+    for label in (municipality, name):
+        if label in city_map:
+            city = city_map[label]
+            if airport_detail and airport_detail != city:
+                return f"{city}, {airport_detail}"
+            return city
+    code = str(airport.get("iata_code") or airport.get("icao_code") or "").strip()
+    if airport_detail:
+        return airport_detail
+    return municipality or name or code
 
 
 def novelty_reason(enrichment: dict[str, Any], phase: str) -> str:
     """Return why a candidate should be announced as unusual."""
     reasons: list[str] = []
     airline_name = str(enrichment.get("airline_name") or "").strip()
-    if airline_name and airline_name not in AIRLINE_SPEECH_RU:
+    if airline_name and airline_speech(airline_name) == airline_name:
         reasons.append(f"новая авиакомпания {airline_name}")
     model = str(enrichment.get("aircraft_model") or enrichment.get("aircraft_type") or "").strip()
     model_speech = str(enrichment.get("aircraft_model_speech") or "").strip()
     if model and (not model_speech or model_speech == model):
         reasons.append(f"новый тип {model}")
-    if phase == "no_position_nearby" and not model and not airline_name:
-        reasons.append("самолёт без координат и без справочных данных")
     return "; ".join(reasons)
 
 
@@ -1278,6 +1322,38 @@ def has_route_details(enrichment: dict[str, Any]) -> bool:
     return any(str(enrichment.get(field) or "").strip() for field in route_fields)
 
 
+def has_routine_speech_context(enrichment: dict[str, Any]) -> bool:
+    """Return true when a routine aircraft announcement has useful context."""
+    if has_route_details(enrichment):
+        return True
+    context_fields = (
+        "airline_name",
+        "registered_owner",
+    )
+    return any(str(enrichment.get(field) or "").strip() for field in context_fields)
+
+
+def include_flight_number_in_speech(
+    *,
+    phase: str,
+    airline: str,
+    enrichment: dict[str, Any],
+) -> bool:
+    """Return true when the flight number adds useful spoken identity."""
+    if not airline:
+        return True
+    if phase in {
+        "positioned_approach",
+        "positioned_landing",
+        "positioned_takeoff",
+        "positioned_runway_staging",
+        "positioned_low_nearby",
+        "no_position_nearby",
+    } and has_route_details(enrichment):
+        return False
+    return True
+
+
 def build_announcement(
     aircraft: dict[str, Any],
     phase: str,
@@ -1285,9 +1361,30 @@ def build_announcement(
     enrichment: dict[str, Any],
 ) -> str:
     """Build the short spoken announcement."""
+    if phase == "no_position_nearby" and not has_route_details(enrichment):
+        return ""
+    if phase in {
+        "positioned_approach",
+        "positioned_landing",
+        "positioned_takeoff",
+        "positioned_runway_staging",
+        "positioned_low_nearby",
+    } and not has_routine_speech_context(enrichment):
+        return ""
+
+    routine_phase = phase in {
+        "positioned_approach",
+        "positioned_landing",
+        "positioned_takeoff",
+        "positioned_runway_staging",
+        "positioned_low_nearby",
+    }
     label = flight_label(aircraft)
-    airline_name = str(enrichment.get("airline_name") or "").strip()
-    airline = AIRLINE_SPEECH_RU.get(airline_name, airline_name)
+    fallback_label = "" if routine_phase and _is_hex_token(label) else label
+    airline_name = str(
+        enrichment.get("airline_name") or enrichment.get("registered_owner") or ""
+    ).strip()
+    airline = airline_speech(airline_name)
     model = str(
         enrichment.get("aircraft_model_speech")
         or enrichment.get("aircraft_model")
@@ -1300,11 +1397,13 @@ def build_announcement(
         enrichment.get("destination_speech") or enrichment.get("destination_name") or ""
     ).strip()
     flight_number = str(enrichment.get("spoken_flight") or label).strip()
+    if routine_phase and _is_hex_token(flight_number):
+        flight_number = ""
 
     if phase == "military_visible":
         base = "Военный самолёт в зоне видимости"
     elif phase == "emergency_squawk":
-        base = "Особый код транспондера"
+        base = "Нештатная ситуация у самолёта"
     elif phase == "special_interest":
         base = "Интересный самолёт в зоне видимости"
     elif phase == "kutaisi_route":
@@ -1333,16 +1432,25 @@ def build_announcement(
         operator = military_operator_speech(enrichment)
         subject = " ".join(part for part in [operator, flight_number] if part)
     else:
-        subject = " ".join(part for part in [airline, flight_number] if part)
+        subject_parts = [airline]
+        if include_flight_number_in_speech(
+            phase=phase,
+            airline=airline,
+            enrichment=enrichment,
+        ):
+            subject_parts.append(flight_number)
+        subject = " ".join(part for part in subject_parts if part)
     if phase in {
         "positioned_approach",
         "positioned_landing",
         "positioned_takeoff",
         "positioned_runway_staging",
     }:
-        sentence = f"{base} {service_object_word(enrichment)} {subject or label}."
+        object_word = service_object_word(enrichment)
+        identity = subject or fallback_label
+        sentence = f"{base} {object_word} {identity}." if identity else f"{base} {object_word}."
     else:
-        sentence = f"{base}: {subject or label}."
+        sentence = f"{base}: {subject or fallback_label or label}."
     reason = novelty_reason(enrichment, phase)
     if reason:
         sentence = f"Особое объявление. {sentence}"
@@ -1353,15 +1461,13 @@ def build_announcement(
             squawk_code(aircraft),
             ("нештатная ситуация", ""),
         )[0]
-        extra.append(f"сквок {squawk_code(aircraft)}: {meaning}")
+        extra.append(meaning)
         if origin and destination:
             extra.append(f"{origin} - {destination}")
     elif phase == "special_interest":
         interest_label = str(enrichment.get("interest_label") or "").strip()
         if interest_label:
             extra.append(interest_label)
-        if squawk_code(aircraft) and squawk_code(aircraft) not in COMMON_SQUAWKS:
-            extra.append(f"сквок {squawk_code(aircraft)}")
         if origin and destination:
             extra.append(f"{origin} - {destination}")
     elif phase == "military_visible":
@@ -1375,7 +1481,6 @@ def build_announcement(
         if origin and destination:
             extra.append(f"{origin} - {destination}")
     elif phase == "no_position_nearby":
-        extra.append("локальный приём сильный")
         if origin and destination:
             extra.append(f"{origin} - {destination}")
     elif phase in {"positioned_approach", "positioned_landing"}:
@@ -1410,18 +1515,24 @@ def build_followup_announcement(
     details: list[str] = []
     if (
         candidate_has_real_flight(current)
-        and (
-            current.flight != previous.flight
-            or (current.airline_name and current.airline_name != previous.airline_name)
-        )
+        and (current.flight != previous.flight or current.airline_name != previous.airline_name)
     ):
-        airline = AIRLINE_SPEECH_RU.get(current.airline_name, current.airline_name)
+        airline = airline_speech(current.airline_name)
         flight = current.spoken_flight or current.flight
-        identity = " ".join(part for part in [airline, flight] if part)
+        if _is_hex_token(flight):
+            flight = ""
+        identity_parts = [airline]
+        if include_flight_number_in_speech(
+            phase=current.phase,
+            airline=airline,
+            enrichment=current.as_dict(),
+        ):
+            identity_parts.append(flight)
+        identity = " ".join(part for part in identity_parts if part)
         if identity:
             details.append(f"это {identity}")
 
-    if current.phase == "positioned_landing":
+    if current.phase in {"positioned_approach", "positioned_landing"}:
         route = current.origin_speech or current.origin_name
         if route and route != (previous.origin_speech or previous.origin_name):
             details.append(f"из {route}")
@@ -1658,9 +1769,11 @@ def interest_candidate(
             enrichment["interest_type"] = interest_type
             enrichment["interest_label"] = interest_label
             enrichment["interest_detail"] = interest_detail
-            if squawk in WATCHED_SQUAWKS:
-                enrichment["squawk_label"] = interest_label
-            phase = "military_visible" if interest_type == "military_tanker" else "special_interest"
+            phase = (
+                "military_visible"
+                if interest_type == "military_tanker"
+                else "special_interest"
+            )
             reason = interest_detail
 
     if not phase and is_military_aircraft(enrichment):
@@ -1711,6 +1824,24 @@ def candidate_from_aircraft(
         enrichment["unusual_aircraft"] = bool(reason)
         enrichment["interest_reason"] = str(classifier.get("reason") or "")
     announcement = build_announcement(aircraft, phase, confidence, enrichment)
+    announcement_suppressed = False
+    announcement_suppression_reason = ""
+    if not announcement:
+        announcement_suppressed = True
+        announcement_suppression_reason = (
+            "no-position aircraft has no route context worth speech"
+            if phase == "no_position_nearby"
+            else "routine aircraft has no airline, route, or aircraft context worth speech"
+            if phase
+            in {
+                "positioned_approach",
+                "positioned_landing",
+                "positioned_takeoff",
+                "positioned_runway_staging",
+                "positioned_low_nearby",
+            }
+            else "announcement renderer returned empty"
+        )
     window_visible = bool(classifier.get("window_visible"))
     window_preopen_needed = bool(classifier.get("window_preopen_needed"))
     if phase in {"military_visible", "special_interest", "kutaisi_route"}:
@@ -1727,6 +1858,8 @@ def candidate_from_aircraft(
         flight=flight_label(aircraft),
         squawk=squawk_code(aircraft),
         announcement=announcement,
+        announcement_suppressed=announcement_suppressed,
+        announcement_suppression_reason=announcement_suppression_reason,
         lat=parse_float(aircraft.get("lat")),
         lon=parse_float(aircraft.get("lon")),
         altitude_ft=altitude_ft(aircraft),

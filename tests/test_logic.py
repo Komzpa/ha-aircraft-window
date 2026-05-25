@@ -103,6 +103,34 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("Сочи - Батуми", candidate.announcement)
         self.assertIn("Ту-двести четырнадцать", candidate.announcement)
         self.assertIn("две тысячи восьмого года", candidate.announcement)
+        self.assertNotIn("локальный приём", candidate.announcement)
+
+    def test_no_position_candidate_without_route_context_is_silent(self) -> None:
+        candidate = logic.pick_candidate(
+            [
+                {
+                    "hex": "152559",
+                    "flight": "VLK559",
+                    "alt_baro": 1800,
+                    "seen": 0.4,
+                    "rssi": -4,
+                    "messages": 559,
+                }
+            ],
+            home_latitude=41.62,
+            home_longitude=41.62,
+            max_positioned_distance_km=8,
+            max_approach_distance_km=60,
+            max_approach_altitude_ft=10000,
+            max_no_position_seen_seconds=4,
+            source="test",
+            enrich=lambda _aircraft: {"spoken_flight": "пять пять девять"},
+        )
+
+        self.assertEqual(candidate.phase, "no_position_nearby")
+        self.assertEqual(candidate.announcement, "")
+        self.assertTrue(candidate.announcement_suppressed)
+        self.assertIn("no route context", candidate.announcement_suppression_reason)
 
     def test_far_descending_aircraft_is_approach_watch_candidate(self) -> None:
         candidate = logic.pick_candidate(
@@ -295,6 +323,68 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("Заходит на посадку самолёт Ван Эйр ноль два ноль.", text)
         self.assertNotIn("Заходит на посадку рейс", text)
 
+    def test_routine_route_omits_flight_number_when_airline_and_route_are_known(self) -> None:
+        text = logic.build_announcement(
+            {"hex": "14fc25", "flight": "RWZ550"},
+            "positioned_takeoff",
+            0.75,
+            {
+                "airline_name": "RED WINGS AIRLINES",
+                "destination_iata": "ZIA",
+                "destination_speech": "Жуковский",
+                "spoken_flight": "пять пять ноль",
+                "service_type": "passenger",
+                "service_type_confidence": 0.74,
+            },
+        )
+
+        self.assertIn("Вылетает пассажирский рейс Ред Вингс.", text)
+        self.assertIn("В Жуковский", text)
+        self.assertNotIn("пять пять ноль", text)
+
+    def test_routine_aircraft_without_context_is_silent(self) -> None:
+        self.assertEqual(
+            logic.build_announcement(
+                {"hex": "155bf7", "flight": "AZO7053"},
+                "positioned_approach",
+                0.58,
+                {"spoken_flight": "семь ноль пять три"},
+            ),
+            "",
+        )
+
+    def test_routine_aircraft_with_only_model_is_silent(self) -> None:
+        self.assertEqual(
+            logic.build_announcement(
+                {"hex": "504e65", "flight": "504E65"},
+                "positioned_takeoff",
+                0.92,
+                {
+                    "aircraft_model_speech": "Аэробус триста двадцать",
+                    "spoken_flight": "504E65",
+                },
+            ),
+            "",
+        )
+
+    def test_routine_hex_fallback_uses_owner_not_raw_address(self) -> None:
+        text = logic.build_announcement(
+            {"hex": "504e65", "flight": "504E65"},
+            "positioned_takeoff",
+            0.92,
+            {
+                "registered_owner": "Fly One",
+                "aircraft_model_speech": "Аэробус триста двадцать",
+                "spoken_flight": "504E65",
+            },
+        )
+
+        self.assertEqual(
+            text,
+            "Вылетает самолёт Флай Уан. Аэробус триста двадцать.",
+        )
+        self.assertNotIn("504E65", text)
+
     def test_partial_route_arrival_says_origin_is_unknown(self) -> None:
         text = logic.build_announcement(
             {"hex": "155c60", "flight": "RWZ1565"},
@@ -336,6 +426,14 @@ class AircraftWindowLogicTest(unittest.TestCase):
         passenger["service_type_reason"] = reason
         self.assertEqual(service_type, "passenger")
         self.assertEqual(logic.service_object_word(passenger), "пассажирский рейс")
+
+        azimuth = {
+            "airline_name": "Azimuth Airlines",
+            "origin_iata": "VKO",
+            "destination_iata": "BUS",
+            "route_summary": "VKO → BUS",
+        }
+        self.assertEqual(logic.classify_service_type(azimuth)[0], "passenger")
 
         cargo = {
             "airline_name": "DHL Aviation",
@@ -392,7 +490,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertEqual(logic.build_followup_announcement(previous, current), "")
 
-    def test_followup_announcement_keeps_callsign_when_route_is_new(self) -> None:
+    def test_followup_announcement_omits_flight_number_when_route_is_new(self) -> None:
         previous = logic.AircraftCandidate(
             state="positioned_takeoff:738286:738286",
             phase="positioned_takeoff",
@@ -423,7 +521,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertEqual(
             text,
-            "Дополнение: это Исра Эйр восемь девять ноль, в Тель-Авив.",
+            "Дополнение: это Исра Эйр, в Тель-Авив.",
         )
         self.assertNotIn("Вылетает", text)
         self.assertNotIn("Аэробус", text)
@@ -481,8 +579,11 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(candidate.phase, "emergency_squawk")
         self.assertEqual(candidate.squawk, "7700")
         self.assertEqual(candidate.event_key, "emergency_squawk:abc770:TST7700:7700")
-        self.assertIn("Особый код транспондера", candidate.announcement)
-        self.assertIn("сквок 7700: аварийная ситуация", candidate.announcement)
+        self.assertIn("Нештатная ситуация у самолёта", candidate.announcement)
+        self.assertIn("аварийная ситуация", candidate.announcement)
+        self.assertNotIn("сквок", candidate.announcement.lower())
+        self.assertNotIn("транспондер", candidate.announcement.lower())
+        self.assertNotIn("7700", candidate.announcement)
 
     def test_common_squawk_is_not_special_by_itself(self) -> None:
         candidate = logic.interest_candidate(
@@ -500,7 +601,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertIsNone(candidate)
 
-    def test_watched_squawk_is_special_interest_candidate(self) -> None:
+    def test_watched_squawk_is_not_a_voice_candidate_by_itself(self) -> None:
         candidate = logic.interest_candidate(
             {
                 "hex": "abc777",
@@ -514,14 +615,9 @@ class AircraftWindowLogicTest(unittest.TestCase):
             enrichment={"service_type": "unknown"},
         )
 
-        assert candidate is not None
-        self.assertEqual(candidate.phase, "special_interest")
-        self.assertEqual(candidate.interest_type, "watched_squawk")
-        self.assertEqual(candidate.squawk_label, "особый код транспондера, возможно военный")
-        self.assertIn("Интересный самолёт", candidate.announcement)
-        self.assertIn("сквок 7777", candidate.announcement)
+        self.assertIsNone(candidate)
 
-    def test_ident_is_special_interest_candidate(self) -> None:
+    def test_ident_is_not_a_voice_candidate_by_itself(self) -> None:
         candidate = logic.interest_candidate(
             {
                 "hex": "abc123",
@@ -534,10 +630,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
             enrichment={"service_type": "unknown"},
         )
 
-        assert candidate is not None
-        self.assertEqual(candidate.phase, "special_interest")
-        self.assertEqual(candidate.interest_type, "ident")
-        self.assertIn("самолёт нажал IDENT", candidate.announcement)
+        self.assertIsNone(candidate)
 
     def test_altitude_hold_nav_mode_is_not_special_interest_candidate(self) -> None:
         for nav_modes in (["althold", "tcas"], ["autopilot", "althold", "tcas"], "alt hold"):
@@ -724,6 +817,48 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(
             logic.known_route_for_callsign("VAA021")["scheduled_departure_local"],
             "14:00",
+        )
+        self.assertEqual(logic.airline_speech("RED WINGS AIRLINES"), "Ред Вингс")
+        self.assertEqual(
+            logic.airport_speech({"municipality": "Moscow Zhukovsky"}, direction="to"),
+            "Жуковский",
+        )
+        self.assertEqual(
+            logic.airport_speech({"municipality": "Moscow-Zhukovsky"}, direction="from"),
+            "Жуковского",
+        )
+        self.assertEqual(
+            logic.airport_speech(
+                {
+                    "iata_code": "VKO",
+                    "municipality": "Moscow",
+                    "name": "Vnukovo International Airport",
+                },
+                direction="from",
+            ),
+            "Москвы, Внуково",
+        )
+        self.assertEqual(
+            logic.airport_speech(
+                {
+                    "iata_code": "VKO",
+                    "municipality": "Moscow",
+                    "name": "Vnukovo International Airport",
+                },
+                direction="to",
+            ),
+            "Москву, Внуково",
+        )
+        self.assertEqual(
+            logic.airport_speech(
+                {
+                    "iata_code": "EVN",
+                    "municipality": "Yerevan",
+                    "name": "Zvartnots International Airport",
+                },
+                direction="to",
+            ),
+            "Ереван, Звартноц",
         )
         self.assertEqual(
             logic.spoken_model("L-410 UVP-E4", "L410"),

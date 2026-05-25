@@ -105,7 +105,7 @@ class AircraftWindowCurtainPreopenBinarySensor(AircraftWindowBaseBinarySensor):
         altitude = candidate.altitude_ft
         altitude_ok = altitude is None or altitude <= 10000
         return bool(
-            candidate.window_preopen_needed
+            (candidate.window_visible or candidate.window_runway_staging)
             and candidate.phase in URGENT_CURTAIN_PHASES
             and altitude_ok
         )
