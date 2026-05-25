@@ -311,6 +311,7 @@ BUSINESS_JET_TYPE_CODES = {
     "G200",
     "G280",
     "GL5T",
+    "GL6T",
     "GL7T",
     "GLF2",
     "GLF3",
@@ -1358,6 +1359,10 @@ def spoken_model(model: str, aircraft_type: str = "") -> str:
         return "Эмбраер сто семьдесят"
     if "CRJ" in text:
         return "Си-ар-джей"
+    if "GL6T" in text or "GLOBAL 6000" in text:
+        return "Бомбардье Глобал шесть тысяч"
+    if "GL5T" in text or "GLOBAL 5000" in text:
+        return "Бомбардье Глобал пять тысяч"
     if "H25B" in text or "850XP" in text:
         return "Хокер восемьсот пятьдесят XP"
     if "SU95" in text or "SSJ" in text:

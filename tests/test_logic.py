@@ -537,6 +537,31 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("Хокер восемьсот пятьдесят XP", text)
         self.assertNotIn("125 850XP", text)
 
+    def test_positioned_global_6000_hyp001_says_business_jet(self) -> None:
+        enrichment = {
+            "registered_owner": "Hyperion Aviation",
+            "aircraft_model": "Global 6000",
+            "aircraft_type": "GL6T",
+            "aircraft_model_speech": logic.spoken_model("Global 6000", "GL6T"),
+            "spoken_flight": "ноль ноль один",
+        }
+        service_type, confidence, _reason = logic.classify_service_type(enrichment)
+        enrichment["service_type"] = service_type
+        enrichment["service_type_confidence"] = confidence
+
+        text = logic.build_announcement(
+            {"hex": "4d206d", "flight": "HYP001"},
+            "positioned_approach",
+            0.72,
+            enrichment,
+        )
+
+        self.assertEqual(service_type, "business_jet")
+        self.assertIn("Заходит на посадку бизнес-джет Hyperion Aviation ноль ноль один.", text)
+        self.assertIn("Бомбардье Глобал шесть тысяч", text)
+        self.assertNotIn("Global 6000", text)
+        self.assertNotIn("самолёт ноль ноль один", text)
+
     def test_followup_announcement_omits_flight_number_when_route_is_new(self) -> None:
         previous = logic.AircraftCandidate(
             state="positioned_takeoff:738286:738286",
