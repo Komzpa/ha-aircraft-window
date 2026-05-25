@@ -385,6 +385,22 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
         self.assertNotIn("504E65", text)
 
+    def test_routine_private_numbered_flight_keeps_owner_and_flight(self) -> None:
+        text = logic.build_announcement(
+            {"hex": "424242", "flight": "001"},
+            "positioned_approach",
+            0.73,
+            {
+                "registered_owner": "Example Jet Holdings",
+                "aircraft_model_speech": "Гольфстрим",
+                "spoken_flight": "ноль ноль один",
+            },
+        )
+
+        self.assertIn("Example Jet Holdings", text)
+        self.assertIn("ноль ноль один", text)
+        self.assertIn("Гольфстрим", text)
+
     def test_partial_route_arrival_says_origin_is_unknown(self) -> None:
         text = logic.build_announcement(
             {"hex": "155c60", "flight": "RWZ1565"},
