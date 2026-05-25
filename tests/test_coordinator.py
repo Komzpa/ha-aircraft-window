@@ -178,7 +178,7 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             flight="ISR890",
             airline_name="Israir",
             spoken_flight="восемь девять ноль",
-            destination_speech="Тель-Авив",
+            destination_speech="Бен Гурион",
             aircraft_model="Airbus A320",
             aircraft_model_speech="Аэробус триста двадцать",
             built_year_speech="две тысячи шестнадцатого года",
@@ -198,7 +198,7 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(events), 2)
         self.assertEqual(
             events[1][1]["announcement"],
-            "Дополнение: это Исра Эйр, в Тель-Авив.",
+            "Дополнение: это Исра Эйр, в Бен Гурион.",
         )
         self.assertEqual(events[1][1]["announcement_kind"], "followup")
 
@@ -244,7 +244,7 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         with_route = coordinator.AircraftCandidate(
             **{
                 **callsign_only.as_dict(),
-                "destination_speech": "Тель-Авив",
+                "destination_speech": "Бен Гурион",
             }
         )
 
@@ -262,7 +262,7 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(events), 2)
         self.assertEqual(
             events[1][1]["announcement"],
-            "Дополнение: это Исра Эйр, в Тель-Авив.",
+            "Дополнение: это Исра Эйр, в Бен Гурион.",
         )
         self.assertEqual(events[1][1]["announcement_kind"], "followup")
 
@@ -666,6 +666,36 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             "",
         )
 
+    def test_callsign_route_must_match_local_phase(self) -> None:
+        self.assertTrue(
+            coordinator.AircraftWindowCoordinator._route_matches_local_phase(
+                "positioned_approach",
+                "TLV",
+                "BUS",
+            )
+        )
+        self.assertFalse(
+            coordinator.AircraftWindowCoordinator._route_matches_local_phase(
+                "positioned_approach",
+                "TLV",
+                "WAW",
+            )
+        )
+        self.assertTrue(
+            coordinator.AircraftWindowCoordinator._route_matches_local_phase(
+                "positioned_takeoff",
+                "BUS",
+                "TLV",
+            )
+        )
+        self.assertFalse(
+            coordinator.AircraftWindowCoordinator._route_matches_local_phase(
+                "positioned_takeoff",
+                "TLV",
+                "WAW",
+            )
+        )
+
     def test_parse_board_time_accepts_batumi_dot_format(self) -> None:
         parsed = coordinator.AircraftWindowCoordinator._parse_board_time(
             "25.05.2026 15:00",
@@ -681,34 +711,44 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(parsed.isoformat(), "2026-05-25T15:00:00+04:00")
 
-    def test_live_route_fetch_is_limited_to_real_callsign_route_misses(self) -> None:
+    def test_live_enrichment_fetches_route_or_missing_aircraft_identity(self) -> None:
         fake = coordinator.AircraftWindowCoordinator.__new__(
             coordinator.AircraftWindowCoordinator
         )
 
         self.assertTrue(
-            fake._should_fetch_live_route(
+            fake._should_fetch_live_enrichment(
                 {"hex": "155bf7", "flight": "AZO7054"},
                 "positioned_takeoff",
                 {"aircraft_model_speech": "Суперджет"},
             )
         )
         self.assertFalse(
-            fake._should_fetch_live_route(
+            fake._should_fetch_live_enrichment(
                 {"hex": "155bf7", "flight": "155bf7"},
                 "positioned_takeoff",
                 {"registered_owner": "Azimuth", "aircraft_model_speech": "Суперджет"},
             )
         )
-        self.assertFalse(
-            fake._should_fetch_live_route(
-                {"hex": "155bf7", "flight": "AZO7054"},
-                "positioned_takeoff",
-                {"destination_speech": "Москву, Внуково"},
+        self.assertTrue(
+            fake._should_fetch_live_enrichment(
+                {"hex": "73805a", "flight": "ELY5115"},
+                "positioned_approach",
+                {"destination_speech": "Батуми"},
             )
         )
         self.assertFalse(
-            fake._should_fetch_live_route(
+            fake._should_fetch_live_enrichment(
+                {"hex": "155bf7", "flight": "AZO7054"},
+                "positioned_takeoff",
+                {
+                    "aircraft_model_speech": "Суперджет",
+                    "destination_speech": "Москву, Внуково",
+                },
+            )
+        )
+        self.assertFalse(
+            fake._should_fetch_live_enrichment(
                 {"hex": "4bb18e", "flight": "THY299"},
                 "no_position_nearby",
                 {},
@@ -751,6 +791,60 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(attrs["origin_speech"], "Батуми")
         self.assertEqual(attrs["destination_speech"], "Жуковский")
         self.assertEqual(attrs["route_summary"], "BUS → ZIA")
+
+    def test_airport_board_route_uses_tlv_airport_pronunciation(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        attrs = {
+            "airline_name": "",
+            "enrichment_source": "",
+        }
+        fake._apply_airport_board_route(
+            attrs,
+            {
+                "airlineName": "EL AL",
+                "flightLeg": "ARRIVAL",
+                "stad": "2026-05-25T16:55:00",
+                "path": {
+                    "origin": {"originIata": "TLV", "originEn": "Tel Aviv (TLV)"},
+                    "destination": {"destinationIata": "BUS", "destinationEn": "Batumi (BUS)"},
+                },
+            },
+        )
+
+        self.assertEqual(attrs["origin_speech"], "Бен Гуриона")
+        self.assertEqual(attrs["destination_speech"], "Батуми")
+        self.assertEqual(attrs["route_summary"], "TLV → BUS")
+
+    def test_airplanes_live_aircraft_fills_missing_aircraft_identity(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        attrs = {
+            "aircraft_model": "",
+            "aircraft_type": "",
+            "registration": "",
+            "enrichment_source": "airport_board",
+        }
+
+        fake._apply_airplanes_live_aircraft(
+            attrs,
+            {
+                "ac": [
+                    {
+                        "r": "4X-EKN",
+                        "t": "B738",
+                        "desc": "BOEING 737-800",
+                    }
+                ]
+            },
+        )
+
+        self.assertEqual(attrs["registration"], "4X-EKN")
+        self.assertEqual(attrs["aircraft_type"], "B738")
+        self.assertEqual(attrs["aircraft_model"], "BOEING 737-800")
+        self.assertEqual(attrs["enrichment_source"], "airport_board+airplanes_live")
 
     def test_scheduled_preopen_result_turns_on_inside_departure_window(self) -> None:
         fake = coordinator.AircraftWindowCoordinator.__new__(

@@ -77,6 +77,8 @@ _LOGGER = logging.getLogger(__name__)
 
 ADSBDB_BASE_URL = "https://api.adsbdb.com/v0"
 HEXDB_BASE_URL = "https://hexdb.io/api/v1"
+AIRPLANES_LIVE_BASE_URL = "https://api.airplanes.live/v2"
+LOCAL_AIRPORT_IATA = "BUS"
 ROUTE_CACHE_SECONDS = 6 * 60 * 60
 AIRCRAFT_CACHE_SECONDS = 24 * 60 * 60
 BUILT_YEAR_CACHE_SECONDS = 30 * 24 * 60 * 60
@@ -252,7 +254,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     phase=base_candidate.phase,
                     cache_only=True,
                 )
-                if self._should_fetch_live_route(row, base_candidate.phase, enrichment):
+                if self._should_fetch_live_enrichment(row, base_candidate.phase, enrichment):
                     enrichment = await self._async_enrich_aircraft(
                         row,
                         phase=base_candidate.phase,
@@ -327,22 +329,31 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             self._held_routine_hex_candidates.clear()
         return base_candidate
 
-    def _should_fetch_live_route(
+    def _should_fetch_live_enrichment(
         self,
         aircraft: dict[str, Any],
         phase: str,
         enrichment: dict[str, Any],
     ) -> bool:
-        """Return true when a hot candidate can cheaply improve missing route data."""
+        """Return true when a hot candidate can cheaply improve missing data."""
         if not self._airport_board_leg_for_phase(phase):
-            return False
-        if has_route_details(enrichment):
             return False
         flight = flight_label(aircraft).replace(" ", "").upper()
         hex_id = str(aircraft.get("hex") or "").strip().upper()
-        if not flight or flight == "UNKNOWN":
-            return False
-        return not bool(hex_id and flight.startswith(hex_id))
+        real_flight = bool(flight and flight != "UNKNOWN" and not flight.startswith(hex_id))
+        if real_flight and not has_route_details(enrichment):
+            return True
+        has_aircraft_identity = any(
+            str(enrichment.get(key) or "").strip()
+            for key in (
+                "aircraft_model",
+                "aircraft_type",
+                "aircraft_model_speech",
+                "registration",
+                "registered_owner",
+            )
+        )
+        return bool(hex_id and not has_aircraft_identity)
 
     def _handle_candidate_event(
         self,
@@ -616,7 +627,10 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         try:
             async with session.get(
                 url,
-                headers={"User-Agent": "HomeAssistantAircraftWindow/1.0"},
+                headers={
+                    "User-Agent": "HomeAssistantAircraftWindow/1.0 "
+                    "(+https://github.com/Komzpa/ha-aircraft-window)",
+                },
                 timeout=request_timeout,
             ) as response:
                 if response.status == 404:
@@ -766,6 +780,17 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         return ""
 
     @staticmethod
+    def _route_matches_local_phase(phase: str, origin_iata: str, destination_iata: str) -> bool:
+        """Return true when route direction matches the local Batumi movement."""
+        origin = origin_iata.strip().upper()
+        destination = destination_iata.strip().upper()
+        if phase in {"positioned_landing", "positioned_approach"}:
+            return destination == LOCAL_AIRPORT_IATA
+        if phase == "positioned_takeoff":
+            return origin == LOCAL_AIRPORT_IATA
+        return True
+
+    @staticmethod
     def _airport_board_city(data: dict[str, Any], key: str, suffix: str) -> str:
         """Return a compact city label from Batumi Airport board path data."""
         value = str(data.get(f"{key}En") or data.get(f"{key}Iata") or "").strip()
@@ -786,13 +811,19 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         attrs["origin_iata"] = str(origin.get("originIata") or "").strip()
         attrs["origin_name"] = self._airport_board_city(origin, "origin", "from")
         attrs["origin_speech"] = airport_speech(
-            {"municipality": attrs["origin_name"].split(" (")[0]},
+            {
+                "iata_code": attrs["origin_iata"],
+                "municipality": attrs["origin_name"].split(" (")[0],
+            },
             direction="from",
         )
         attrs["destination_iata"] = str(destination.get("destinationIata") or "").strip()
         attrs["destination_name"] = self._airport_board_city(destination, "destination", "to")
         attrs["destination_speech"] = airport_speech(
-            {"municipality": attrs["destination_name"].split(" (")[0]},
+            {
+                "iata_code": attrs["destination_iata"],
+                "municipality": attrs["destination_name"].split(" (")[0],
+            },
             direction="to",
         )
         if attrs["origin_iata"] and attrs["destination_iata"]:
@@ -922,6 +953,22 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         if source not in sources:
             sources.append(source)
         attrs["enrichment_source"] = "+".join(sources)
+
+    def _apply_airplanes_live_aircraft(
+        self,
+        attrs: dict[str, Any],
+        payload: dict[str, Any],
+    ) -> None:
+        """Apply aircraft metadata from Airplanes.live ADS-B rows."""
+        rows = payload.get("ac")
+        if not isinstance(rows, list) or not rows or not isinstance(rows[0], dict):
+            return
+        row = rows[0]
+        attrs["aircraft_model"] = attrs["aircraft_model"] or str(row.get("desc") or "").strip()
+        attrs["aircraft_type"] = attrs["aircraft_type"] or str(row.get("t") or "").strip()
+        attrs["registration"] = attrs["registration"] or str(row.get("r") or "").strip()
+        if attrs["aircraft_model"] or attrs["aircraft_type"] or attrs["registration"]:
+            self._add_enrichment_source(attrs, "airplanes_live")
 
     async def _async_airport_data_year(
         self,
@@ -1063,14 +1110,19 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     route.get("destination") if isinstance(route.get("destination"), dict) else {}
                 )
                 attrs["airline_name"] = str(airline.get("name") or "").strip()
-                attrs["origin_iata"] = str(origin.get("iata_code") or "").strip()
-                attrs["origin_name"] = airport_label(origin)
-                attrs["origin_speech"] = airport_speech(origin, direction="from")
-                attrs["destination_iata"] = str(destination.get("iata_code") or "").strip()
-                attrs["destination_name"] = airport_label(destination)
-                attrs["destination_speech"] = airport_speech(destination, direction="to")
-                if attrs["origin_iata"] and attrs["destination_iata"]:
-                    attrs["route_summary"] = f"{attrs['origin_iata']} → {attrs['destination_iata']}"
+                origin_iata = str(origin.get("iata_code") or "").strip()
+                destination_iata = str(destination.get("iata_code") or "").strip()
+                if self._route_matches_local_phase(phase, origin_iata, destination_iata):
+                    attrs["origin_iata"] = origin_iata
+                    attrs["origin_name"] = airport_label(origin)
+                    attrs["origin_speech"] = airport_speech(origin, direction="from")
+                    attrs["destination_iata"] = destination_iata
+                    attrs["destination_name"] = airport_label(destination)
+                    attrs["destination_speech"] = airport_speech(destination, direction="to")
+                    if attrs["origin_iata"] and attrs["destination_iata"]:
+                        attrs["route_summary"] = (
+                            f"{attrs['origin_iata']} → {attrs['destination_iata']}"
+                        )
                 attrs["spoken_flight"] = spoken_flight(
                     flight,
                     airline_icao=str(airline.get("icao") or ""),
@@ -1148,6 +1200,18 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             ).strip()
             if attrs["aircraft_model"] or attrs["registration"]:
                 self._add_enrichment_source(attrs, "hexdb")
+
+        if hex_id and (not attrs["aircraft_model"] or not attrs["registration"]):
+            airplanes_live_payload = await self._async_get_json(
+                session,
+                f"{AIRPLANES_LIVE_BASE_URL}/hex/{quote(hex_id)}",
+                cache_key=f"airplanes-live-aircraft:{hex_id}",
+                ttl_seconds=AIRCRAFT_CACHE_SECONDS,
+                timeout=timeout,
+                cache_only=cache_only,
+                deadline=deadline,
+            )
+            self._apply_airplanes_live_aircraft(attrs, airplanes_live_payload)
 
         attrs["aircraft_model_speech"] = spoken_model(
             attrs["aircraft_model"],

@@ -157,7 +157,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
             source="test",
             enrich=lambda _aircraft: {
                 "airline_name": "Israir",
-                "origin_speech": "Тель-Авива",
+                "origin_speech": "Бен Гуриона",
                 "destination_speech": "Батуми",
                 "aircraft_model_speech": "Аэробус триста двадцать",
                 "spoken_flight": "восемь девять ноль",
@@ -170,7 +170,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertGreaterEqual(candidate.confidence, 0.55)
         self.assertIn("Заходит на посадку пассажирский рейс", candidate.announcement)
         self.assertIn("Исра Эйр", candidate.announcement)
-        self.assertIn("Из Тель-Авива", candidate.announcement)
+        self.assertIn("Из Бен Гуриона", candidate.announcement)
 
     def test_approach_uses_geometric_window_view(self) -> None:
         visible = logic.pick_candidate(
@@ -526,7 +526,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
             flight="ISR890",
             airline_name="Israir",
             spoken_flight="восемь девять ноль",
-            destination_speech="Тель-Авив",
+            destination_speech="Бен Гурион",
             aircraft_model="Airbus A320",
             aircraft_model_speech="Аэробус триста двадцать",
             built_year=2016,
@@ -537,7 +537,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertEqual(
             text,
-            "Дополнение: это Исра Эйр, в Тель-Авив.",
+            "Дополнение: это Исра Эйр, в Бен Гурион.",
         )
         self.assertNotIn("Вылетает", text)
         self.assertNotIn("Аэробус", text)
@@ -877,12 +877,42 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "Ереван, Звартноц",
         )
         self.assertEqual(
+            logic.airport_speech(
+                {
+                    "iata_code": "TLV",
+                    "municipality": "Tel Aviv",
+                    "name": "Ben Gurion International Airport",
+                },
+                direction="from",
+            ),
+            "Бен Гуриона",
+        )
+        self.assertEqual(
+            logic.airport_speech(
+                {
+                    "iata_code": "TLV",
+                    "municipality": "Tel Aviv",
+                    "name": "Ben Gurion International Airport",
+                },
+                direction="to",
+            ),
+            "Бен Гурион",
+        )
+        self.assertEqual(
             logic.spoken_model("L-410 UVP-E4", "L410"),
             "Лет четыреста десять Турболет, небольшой двухмоторный турбовинтовой",
         )
         self.assertEqual(
             logic.spoken_model("Airbus A320-232", "A320"),
             "Аэробус триста двадцать",
+        )
+        self.assertEqual(
+            logic.spoken_model("BOEING 737-800", "B738"),
+            "Боинг семьсот тридцать семь",
+        )
+        self.assertEqual(
+            logic.spoken_model("Boeing 737 MAX 8", "B38M"),
+            "Боинг семьсот тридцать семь MAX восемь",
         )
         self.assertEqual(
             logic.extract_airport_data_year("<b>Year built:</b></td><td>2012</td>"),

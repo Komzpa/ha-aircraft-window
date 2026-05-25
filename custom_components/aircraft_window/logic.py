@@ -66,6 +66,14 @@ CITY_TO_RU = {
     "Zhukovsky": "Жуковский",
 }
 
+AIRPORT_CODE_FROM_RU = {
+    "TLV": "Бен Гуриона",
+}
+
+AIRPORT_CODE_TO_RU = {
+    "TLV": "Бен Гурион",
+}
+
 AIRPORT_DETAIL_SPEECH_RU = {
     "DME": "Домодедово",
     "EVN": "Звартноц",
@@ -101,6 +109,8 @@ AIRLINE_SPEECH_RU = {
     "Belavia": "Белавиа",
     "Centrum Air": "Центрум Эйр",
     "EL AL": "Эль Аль",
+    "EL-AL ISRAEL AIRLINES": "Эль Аль",
+    "El Al Israel Airlines": "Эль Аль",
     "El-Al Israel Airlines": "Эль Аль",
     "El Al": "Эль Аль",
     "FlyArystan": "Флай Арыстан",
@@ -1212,9 +1222,9 @@ def spoken_model(model: str, aircraft_type: str = "") -> str:
         return "Аэробус триста двадцать один"
     if "A332" in text or "A330" in text:
         return "Аэробус триста тридцать"
-    if "B38M" in text or "737 MAX 8" in text or "737-8" in text:
+    if "B38M" in text or "737 MAX 8" in text or re.search(r"\b737-8(?!00)\b", text):
         return "Боинг семьсот тридцать семь MAX восемь"
-    if "B39M" in text or "737 MAX 9" in text or "737-9" in text:
+    if "B39M" in text or "737 MAX 9" in text or re.search(r"\b737-9(?!00)\b", text):
         return "Боинг семьсот тридцать семь MAX девять"
     if "B737" in text or "B738" in text or "B739" in text or "737" in text:
         return "Боинг семьсот тридцать семь"
@@ -1277,6 +1287,12 @@ def airport_speech(airport: dict[str, Any] | None, *, direction: str) -> str:
     """Return a TTS-friendly city name for origin/destination."""
     if not isinstance(airport, dict):
         return ""
+    code = str(airport.get("iata_code") or airport.get("icao_code") or "").strip().upper()
+    code_speech = (
+        AIRPORT_CODE_TO_RU if direction == "to" else AIRPORT_CODE_FROM_RU
+    ).get(code)
+    if code_speech:
+        return code_speech
     municipality = normalized_airport_city(str(airport.get("municipality") or ""))
     name = normalized_airport_city(str(airport.get("name") or ""))
     city_map = CITY_TO_RU if direction == "to" else CITY_FROM_RU
@@ -1287,7 +1303,6 @@ def airport_speech(airport: dict[str, Any] | None, *, direction: str) -> str:
             if airport_detail and airport_detail != city:
                 return f"{city}, {airport_detail}"
             return city
-    code = str(airport.get("iata_code") or airport.get("icao_code") or "").strip()
     if airport_detail:
         return airport_detail
     return municipality or name or code
