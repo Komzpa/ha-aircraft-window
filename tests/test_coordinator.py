@@ -696,6 +696,73 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             )
         )
 
+    async def test_adsbdb_callsign_route_marks_source_and_uses_iata_speech(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake.entry = types.SimpleNamespace(data={}, options={})
+        fake.hass = types.SimpleNamespace()
+
+        async def board(
+            _session: object,
+            *,
+            cache_only: bool = False,
+            deadline: float | None = None,
+        ) -> dict[str, Any]:
+            return {}
+
+        async def get_json(
+            _session: object,
+            url: str,
+            **_kwargs: Any,
+        ) -> dict[str, Any]:
+            if "/callsign/PGT458N" not in url:
+                return {}
+            return {
+                "response": {
+                    "flightroute": {
+                        "airline": {
+                            "name": "Pegasus Airlines",
+                            "icao": "PGT",
+                            "iata": "H9",
+                        },
+                        "origin": {
+                            "iata_code": "SAW",
+                            "icao_code": "LTFJ",
+                            "municipality": "Pendik, Istanbul",
+                            "name": "Istanbul Sabiha Gökçen International Airport",
+                        },
+                        "destination": {
+                            "iata_code": "BUS",
+                            "icao_code": "UGSB",
+                            "municipality": "Batumi",
+                            "name": "Batumi International Airport",
+                        },
+                    }
+                }
+            }
+
+        async def built_year(
+            _session: object,
+            _registration: str,
+            _timeout: object,
+            **_kwargs: Any,
+        ) -> None:
+            return None
+
+        fake._async_batumi_airport_board = board
+        fake._async_get_json = get_json
+        fake._async_airport_data_year = built_year
+
+        attrs = await fake._async_enrich_aircraft(
+            {"hex": "4bb862", "flight": "PGT458N"},
+            phase="positioned_landing",
+        )
+
+        self.assertEqual(attrs["route_summary"], "SAW → BUS")
+        self.assertEqual(attrs["route_source"], "adsbdb")
+        self.assertEqual(attrs["origin_speech"], "Стамбула, Сабиха Гёкчен")
+
     def test_parse_board_time_accepts_batumi_dot_format(self) -> None:
         parsed = coordinator.AircraftWindowCoordinator._parse_board_time(
             "25.05.2026 15:00",

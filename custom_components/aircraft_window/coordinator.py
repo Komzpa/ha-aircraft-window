@@ -1123,6 +1123,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         attrs["route_summary"] = (
                             f"{attrs['origin_iata']} → {attrs['destination_iata']}"
                         )
+                        attrs["route_source"] = "adsbdb"
                 attrs["spoken_flight"] = spoken_flight(
                     flight,
                     airline_icao=str(airline.get("icao") or ""),

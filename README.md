@@ -30,10 +30,12 @@ announcements, covers, cameras, or whatever else belongs in your house.
 The announcement text includes the phase, airline, flight number, route direction,
 aircraft model, and built year when public enrichment data is available. It also
 exposes a conservative `service_type` classification (`passenger`, `cargo`,
-`military`, `general_aviation`, or `unknown`) with confidence and reason
-attributes. Announcements say "passenger flight" only when route details match a
-known passenger airline, "cargo aircraft" only when cargo/freighter metadata is
-explicit, and otherwise keep the neutral aircraft wording.
+`military`, `business_jet`, `general_aviation`, or `unknown`) with confidence
+and reason attributes. Announcements say "passenger flight" only when route
+details match a known passenger airline, "cargo aircraft" only when
+cargo/freighter metadata is explicit, "business jet" only when public type/model
+metadata identifies a business-jet family, and otherwise keep the neutral
+aircraft wording.
 If the receiver first sees only the transponder hex and the callsign appears a
 few seconds later, Aircraft Window announces the first sighting immediately and
 then sends a short "Уточнение..." follow-up with only the newly learned details.

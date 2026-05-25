@@ -66,12 +66,60 @@ CITY_TO_RU = {
     "Zhukovsky": "Жуковский",
 }
 
+CITY_ROUTE_RU = {
+    "Almaty": "Алматы",
+    "Amman": "Амман",
+    "Astana": "Астана",
+    "Baku": "Баку",
+    "Batumi": "Батуми",
+    "Dubai": "Дубай",
+    "Erbil": "Эрбиль",
+    "Istanbul": "Стамбул",
+    "Jeddah": "Джидда",
+    "Kazan": "Казань",
+    "Kopitnari": "Кутаиси",
+    "Larnaca": "Ларнака",
+    "Minsk": "Минск",
+    "Moscow": "Москва",
+    "Moscow Zhukovsky": "Жуковский",
+    "Natakhtari": "Натахтари",
+    "Riga": "Рига",
+    "Riyadh": "Эр-Рияд",
+    "Shiraz": "Шираз",
+    "Sochi": "Сочи",
+    "Tashkent": "Ташкент",
+    "Tbilisi": "Тбилиси",
+    "Tehran": "Тегеран",
+    "Tel Aviv": "Тель-Авив",
+    "Yerevan": "Ереван",
+    "Zhukovsky": "Жуковский",
+}
+
 AIRPORT_CODE_FROM_RU = {
+    "IST": "Стамбула",
+    "SAW": "Стамбула, Сабиха Гёкчен",
     "TLV": "Бен Гуриона",
 }
 
 AIRPORT_CODE_TO_RU = {
+    "IST": "Стамбул",
+    "SAW": "Стамбул, Сабиха Гёкчен",
     "TLV": "Бен Гурион",
+}
+
+AIRPORT_CODE_ROUTE_RU = {
+    "BUS": "Батуми",
+    "DME": "Москва, Домодедово",
+    "EVN": "Ереван, Звартноц",
+    "IST": "Стамбул",
+    "KUT": "Кутаиси",
+    "LCA": "Ларнака",
+    "RIX": "Рига",
+    "SAW": "Стамбул, Сабиха Гёкчен",
+    "SVO": "Москва, Шереметьево",
+    "TLV": "Бен Гурион",
+    "VKO": "Москва, Внуково",
+    "ZIA": "Жуковский",
 }
 
 AIRPORT_DETAIL_SPEECH_RU = {
@@ -233,6 +281,65 @@ CARGO_TYPE_TOKENS = (
     "pcf",
     "-sf",
     " sf ",
+)
+
+BUSINESS_JET_TYPE_CODES = {
+    "BE40",
+    "C25A",
+    "C25B",
+    "C25C",
+    "C510",
+    "C525",
+    "C550",
+    "C560",
+    "C56X",
+    "C650",
+    "C680",
+    "C700",
+    "CL30",
+    "CL35",
+    "CL60",
+    "E50P",
+    "E545",
+    "E55P",
+    "F2TH",
+    "F900",
+    "FA10",
+    "FA20",
+    "FA50",
+    "G150",
+    "G200",
+    "G280",
+    "GL5T",
+    "GL7T",
+    "GLF2",
+    "GLF3",
+    "GLF4",
+    "GLF5",
+    "GLF6",
+    "GLEX",
+    "H25A",
+    "H25B",
+    "H25C",
+    "LJ31",
+    "LJ35",
+    "LJ45",
+    "LJ55",
+    "LJ60",
+    "PRM1",
+}
+
+BUSINESS_JET_MODEL_TOKENS = (
+    "125 850XP",
+    "800XP",
+    "850XP",
+    "CHALLENGER",
+    "CITATION",
+    "FALCON",
+    "GLOBAL",
+    "GULFSTREAM",
+    "HAWKER",
+    "LEARJET",
 )
 
 MILITARY_OPERATOR_SPEECH_RU = {
@@ -953,16 +1060,11 @@ def is_non_icao_address(aircraft: dict[str, Any]) -> bool:
 
 def is_helicopter(aircraft: dict[str, Any], enrichment: dict[str, Any]) -> bool:
     """Return true when metadata suggests a helicopter or rotorcraft."""
-    aircraft_type = str(enrichment.get("aircraft_type") or "").upper()
     category = str(
         aircraft.get("category") or enrichment.get("adsb_category") or ""
     ).upper()
     text = _metadata_text(aircraft, enrichment)
-    return (
-        category == "A7"
-        or aircraft_type.startswith("H")
-        or _has_token(text, HELICOPTER_TOKENS)
-    )
+    return category == "A7" or _has_token(text, HELICOPTER_TOKENS)
 
 
 def is_military_aircraft(enrichment: dict[str, Any]) -> bool:
@@ -1015,6 +1117,15 @@ def is_cargo_aircraft(enrichment: dict[str, Any]) -> bool:
     )
 
 
+def is_business_jet(enrichment: dict[str, Any]) -> bool:
+    """Return true when model metadata points to a business jet family."""
+    aircraft_type = str(enrichment.get("aircraft_type") or "").strip().upper()
+    model = str(enrichment.get("aircraft_model") or "").strip().upper()
+    return aircraft_type in BUSINESS_JET_TYPE_CODES or any(
+        token in model for token in BUSINESS_JET_MODEL_TOKENS
+    )
+
+
 def classify_service_type(enrichment: dict[str, Any]) -> tuple[str, float, str]:
     """Classify flight service conservatively for spoken announcements."""
     if is_military_aircraft(enrichment):
@@ -1022,6 +1133,11 @@ def classify_service_type(enrichment: dict[str, Any]) -> tuple[str, float, str]:
         return "military", 0.9, f"military metadata: {operator}"
     if is_cargo_aircraft(enrichment):
         return "cargo", 0.78, "cargo operator or freighter metadata"
+    if is_business_jet(enrichment):
+        aircraft_type = str(enrichment.get("aircraft_type") or "").strip()
+        model = str(enrichment.get("aircraft_model") or "").strip()
+        detail = aircraft_type or model or "business jet metadata"
+        return "business_jet", 0.72, f"business jet metadata: {detail}"
 
     airline_name = str(enrichment.get("airline_name") or "").strip()
     if has_route_details(enrichment) and airline_name in PASSENGER_AIRLINES:
@@ -1145,6 +1261,8 @@ def service_object_word(enrichment: dict[str, Any]) -> str:
         return "пассажирский рейс"
     if service_type == "cargo" and confidence >= 0.7:
         return "грузовой самолёт"
+    if service_type == "business_jet" and confidence >= 0.65:
+        return "бизнес-джет"
     if service_type == "general_aviation" and confidence >= 0.5:
         return "частный самолёт"
     return "рейс" if has_route_details(enrichment) else "самолёт"
@@ -1240,6 +1358,8 @@ def spoken_model(model: str, aircraft_type: str = "") -> str:
         return "Эмбраер сто семьдесят"
     if "CRJ" in text:
         return "Си-ар-джей"
+    if "H25B" in text or "850XP" in text:
+        return "Хокер восемьсот пятьдесят XP"
     if "SU95" in text or "SSJ" in text:
         return "Суперджет"
     if "C208" in text or "CARAVAN" in text:
@@ -1306,6 +1426,49 @@ def airport_speech(airport: dict[str, Any] | None, *, direction: str) -> str:
     if airport_detail:
         return airport_detail
     return municipality or name or code
+
+
+def airport_route_speech(airport: dict[str, Any] | None) -> str:
+    """Return a neutral TTS-friendly airport label for route pairs."""
+    if not isinstance(airport, dict):
+        return ""
+    code = str(airport.get("iata_code") or airport.get("icao_code") or "").strip().upper()
+    if code in AIRPORT_CODE_ROUTE_RU:
+        return AIRPORT_CODE_ROUTE_RU[code]
+    municipality = normalized_airport_city(str(airport.get("municipality") or ""))
+    name = normalized_airport_city(str(airport.get("name") or ""))
+    city_map = CITY_ROUTE_RU
+    airport_detail = airport_detail_speech(airport)
+    for label in (municipality, name):
+        if label in city_map:
+            city = city_map[label]
+            if airport_detail and airport_detail != city:
+                return f"{city}, {airport_detail}"
+            return city
+    if airport_detail:
+        return airport_detail
+    return municipality or name or code
+
+
+def route_endpoint_speech(enrichment: dict[str, Any], direction: str) -> str:
+    """Return a neutral route endpoint label."""
+    name = str(enrichment.get(f"{direction}_name") or "").strip()
+    iata = str(enrichment.get(f"{direction}_iata") or "").strip()
+    airport = {
+        "iata_code": iata,
+        "municipality": name,
+        "name": name,
+    }
+    return airport_route_speech(airport) or str(
+        enrichment.get(f"{direction}_speech") or name
+    ).strip()
+
+
+def route_pair_speech(enrichment: dict[str, Any]) -> str:
+    """Return a neutral route pair such as 'Ларнака - Кутаиси'."""
+    origin = route_endpoint_speech(enrichment, "origin")
+    destination = route_endpoint_speech(enrichment, "destination")
+    return f"{origin} - {destination}" if origin and destination else ""
 
 
 def novelty_reason(enrichment: dict[str, Any], phase: str) -> str:
@@ -1411,6 +1574,7 @@ def build_announcement(
     destination = str(
         enrichment.get("destination_speech") or enrichment.get("destination_name") or ""
     ).strip()
+    route_pair = route_pair_speech(enrichment)
     flight_number = str(enrichment.get("spoken_flight") or label).strip()
     if routine_phase and _is_hex_token(flight_number):
         flight_number = ""
@@ -1477,14 +1641,14 @@ def build_announcement(
             ("нештатная ситуация", ""),
         )[0]
         extra.append(meaning)
-        if origin and destination:
-            extra.append(f"{origin} - {destination}")
+        if route_pair:
+            extra.append(route_pair)
     elif phase == "special_interest":
         interest_label = str(enrichment.get("interest_label") or "").strip()
         if interest_label:
             extra.append(interest_label)
-        if origin and destination:
-            extra.append(f"{origin} - {destination}")
+        if route_pair:
+            extra.append(route_pair)
     elif phase == "military_visible":
         interest_label = str(enrichment.get("interest_label") or "").strip()
         if interest_label:
@@ -1493,11 +1657,11 @@ def build_announcement(
         if route:
             extra.append(route)
     elif phase == "kutaisi_route":
-        if origin and destination:
-            extra.append(f"{origin} - {destination}")
+        if route_pair:
+            extra.append(route_pair)
     elif phase == "no_position_nearby":
-        if origin and destination:
-            extra.append(f"{origin} - {destination}")
+        if route_pair:
+            extra.append(route_pair)
     elif phase in {"positioned_approach", "positioned_landing"}:
         if origin:
             extra.append(f"Из {origin}")
@@ -1508,8 +1672,8 @@ def build_announcement(
             extra.append(f"В {destination}")
         elif origin:
             extra.append(f"Из {origin}, куда летит, пока не определено")
-    elif origin and destination:
-        extra.append(f"{origin} - {destination}")
+    elif route_pair:
+        extra.append(route_pair)
     if model:
         extra.append(model)
     if built_year:
@@ -1556,13 +1720,10 @@ def build_followup_announcement(
         if route and route != (previous.destination_speech or previous.destination_name):
             details.append(f"в {route}")
     else:
-        origin = current.origin_speech or current.origin_name
-        destination = current.destination_speech or current.destination_name
-        if origin and destination and (
-            origin != (previous.origin_speech or previous.origin_name)
-            or destination != (previous.destination_speech or previous.destination_name)
-        ):
-            details.append(f"{origin} - {destination}")
+        current_route = route_pair_speech(current.as_dict())
+        previous_route = route_pair_speech(previous.as_dict())
+        if current_route and current_route != previous_route:
+            details.append(current_route)
 
     model = current.aircraft_model_speech or current.aircraft_model or current.aircraft_type
     previous_model = (

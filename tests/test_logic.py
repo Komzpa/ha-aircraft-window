@@ -461,6 +461,17 @@ class AircraftWindowLogicTest(unittest.TestCase):
         cargo["service_type_confidence"] = 0.78
         self.assertEqual(logic.service_object_word(cargo), "грузовой самолёт")
 
+        business_jet = {
+            "registered_owner": "Bonair Havacilik",
+            "aircraft_model": "125 850XP",
+            "aircraft_type": "H25B",
+        }
+        service_type, confidence, _reason = logic.classify_service_type(business_jet)
+        business_jet["service_type"] = service_type
+        business_jet["service_type_confidence"] = confidence
+        self.assertEqual(service_type, "business_jet")
+        self.assertEqual(logic.service_object_word(business_jet), "бизнес-джет")
+
         mixed = {
             "airline_name": "Van Air Europe",
             "aircraft_model": "L-410 UVP-E4",
@@ -505,6 +516,26 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
 
         self.assertEqual(logic.build_followup_announcement(previous, current), "")
+
+    def test_positioned_hawker_takeoff_says_business_jet(self) -> None:
+        text = logic.build_announcement(
+            {"hex": "4bcd05", "flight": "TCSHE"},
+            "positioned_takeoff",
+            0.92,
+            {
+                "registered_owner": "Bonair Havacilik",
+                "aircraft_model": "125 850XP",
+                "aircraft_type": "H25B",
+                "aircraft_model_speech": logic.spoken_model("125 850XP", "H25B"),
+                "spoken_flight": "TCSHE",
+                "service_type": "business_jet",
+                "service_type_confidence": 0.72,
+            },
+        )
+
+        self.assertIn("Вылетает бизнес-джет Bonair Havacilik TCSHE.", text)
+        self.assertIn("Хокер восемьсот пятьдесят XP", text)
+        self.assertNotIn("125 850XP", text)
 
     def test_followup_announcement_omits_flight_number_when_route_is_new(self) -> None:
         previous = logic.AircraftCandidate(
@@ -722,6 +753,37 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 self.assertEqual(candidate.interest_type, interest_type)
                 self.assertNotIn("борт", candidate.announcement.lower())
 
+    def test_hawker_icao_type_is_not_helicopter_interest(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "4bcd05",
+                "flight": "",
+                "seen": 1.0,
+                "category": "A0",
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={
+                "registered_owner": "Bonair Havacilik",
+                "aircraft_model": "125 850XP",
+                "aircraft_type": "H25B",
+                "aircraft_model_speech": "Хокер восемьсот пятьдесят XP",
+                "service_type": "unknown",
+            },
+        )
+
+        self.assertIsNone(candidate)
+        self.assertFalse(
+            logic.is_helicopter(
+                {"category": "A0"},
+                {"aircraft_model": "125 850XP", "aircraft_type": "H25B"},
+            )
+        )
+        self.assertEqual(
+            logic.spoken_model("125 850XP", "H25B"),
+            "Хокер восемьсот пятьдесят XP",
+        )
+
     def test_military_tanker_gets_specific_visible_label(self) -> None:
         candidate = logic.interest_candidate(
             {
@@ -794,18 +856,21 @@ class AircraftWindowLogicTest(unittest.TestCase):
             aircraft_count=1,
             enrichment={
                 "airline_name": "Wizz Air",
-                "origin_iata": "KUT",
-                "origin_speech": "Кутаиси",
-                "destination_iata": "RIX",
-                "destination_speech": "Ригу",
+                "origin_iata": "LCA",
+                "origin_name": "Larnaca (LCA)",
+                "origin_speech": "Ларнаки",
+                "destination_iata": "KUT",
+                "destination_name": "Kopitnari (KUT)",
+                "destination_speech": "Кутаиси",
                 "spoken_flight": "один два три",
             },
         )
 
         assert candidate is not None
         self.assertEqual(candidate.phase, "kutaisi_route")
-        self.assertIn("рейс из Кутаиси", candidate.announcement)
-        self.assertIn("Кутаиси - Ригу", candidate.announcement)
+        self.assertIn("рейс на Кутаиси", candidate.announcement)
+        self.assertIn("Ларнака - Кутаиси", candidate.announcement)
+        self.assertNotIn("Ларнаки - Кутаиси", candidate.announcement)
         self.assertFalse(candidate.unusual_aircraft)
 
     def test_speech_helpers(self) -> None:
@@ -835,6 +900,30 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "14:00",
         )
         self.assertEqual(logic.airline_speech("RED WINGS AIRLINES"), "Ред Вингс")
+        self.assertEqual(
+            logic.airport_speech(
+                {
+                    "iata_code": "SAW",
+                    "municipality": "Pendik, Istanbul",
+                    "name": "Istanbul Sabiha Gökçen International Airport",
+                },
+                direction="from",
+            ),
+            "Стамбула, Сабиха Гёкчен",
+        )
+        self.assertEqual(
+            logic.route_pair_speech(
+                {
+                    "origin_iata": "LCA",
+                    "origin_name": "Larnaca (LCA)",
+                    "origin_speech": "Ларнаки",
+                    "destination_iata": "KUT",
+                    "destination_name": "Kopitnari (KUT)",
+                    "destination_speech": "Кутаиси",
+                }
+            ),
+            "Ларнака - Кутаиси",
+        )
         self.assertEqual(
             logic.airport_speech({"municipality": "Moscow Zhukovsky"}, direction="to"),
             "Жуковский",
