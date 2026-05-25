@@ -784,6 +784,33 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "Хокер восемьсот пятьдесят XP",
         )
 
+    def test_helicopter_without_coordinates_omits_hex_from_announcement(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "abc123",
+                "flight": "",
+                "seen": 1.0,
+                "category": "A7",
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={
+                "registered_owner": "Example Heli Ops",
+                "aircraft_model": "Airbus H135",
+                "aircraft_type": "H135",
+                "aircraft_model_speech": "Эйрбас H135",
+                "service_type": "unknown",
+            },
+        )
+
+        assert candidate is not None
+        self.assertEqual(candidate.phase, "special_interest")
+        self.assertEqual(candidate.interest_type, "helicopter_no_callsign")
+        self.assertIn("Вертолёт без координат и без позывного", candidate.announcement)
+        self.assertNotIn("вертолёт без позывного,", candidate.announcement.lower())
+        self.assertNotIn("abc123", candidate.announcement.lower())
+        self.assertNotIn("unknown", candidate.announcement.lower())
+
     def test_military_tanker_gets_specific_visible_label(self) -> None:
         candidate = logic.interest_candidate(
             {

@@ -1550,15 +1550,8 @@ def build_announcement(
     } and not has_routine_speech_context(enrichment):
         return ""
 
-    routine_phase = phase in {
-        "positioned_approach",
-        "positioned_landing",
-        "positioned_takeoff",
-        "positioned_runway_staging",
-        "positioned_low_nearby",
-    }
     label = flight_label(aircraft)
-    fallback_label = "" if routine_phase and _is_hex_token(label) else label
+    fallback_label = "" if _is_hex_token(label) or label == "unknown" else label
     airline_name = str(
         enrichment.get("airline_name") or enrichment.get("registered_owner") or ""
     ).strip()
@@ -1576,15 +1569,27 @@ def build_announcement(
     ).strip()
     route_pair = route_pair_speech(enrichment)
     flight_number = str(enrichment.get("spoken_flight") or label).strip()
-    if routine_phase and _is_hex_token(flight_number):
+    if _is_hex_token(flight_number):
         flight_number = ""
+    interest_type = str(enrichment.get("interest_type") or "").strip()
+    has_position = (
+        parse_float(aircraft.get("lat")) is not None
+        and parse_float(aircraft.get("lon")) is not None
+    )
 
     if phase == "military_visible":
         base = "Военный самолёт в зоне видимости"
     elif phase == "emergency_squawk":
         base = "Нештатная ситуация у самолёта"
     elif phase == "special_interest":
-        base = "Интересный самолёт в зоне видимости"
+        if interest_type == "helicopter_no_callsign":
+            base = (
+                "Вертолёт в зоне видимости без позывного"
+                if has_position
+                else "Вертолёт без координат и без позывного"
+            )
+        else:
+            base = "Интересный самолёт в зоне видимости"
     elif phase == "kutaisi_route":
         if str(enrichment.get("destination_iata") or "").upper() == "KUT":
             base = "Информация для наблюдения: рейс на Кутаиси"
@@ -1629,7 +1634,8 @@ def build_announcement(
         identity = subject or fallback_label
         sentence = f"{base} {object_word} {identity}." if identity else f"{base} {object_word}."
     else:
-        sentence = f"{base}: {subject or fallback_label or label}."
+        identity = subject or fallback_label
+        sentence = f"{base}: {identity}." if identity else f"{base}."
     reason = novelty_reason(enrichment, phase)
     if reason:
         sentence = f"Особое объявление. {sentence}"
@@ -1645,7 +1651,7 @@ def build_announcement(
             extra.append(route_pair)
     elif phase == "special_interest":
         interest_label = str(enrichment.get("interest_label") or "").strip()
-        if interest_label:
+        if interest_label and interest_type != "helicopter_no_callsign":
             extra.append(interest_label)
         if route_pair:
             extra.append(route_pair)
