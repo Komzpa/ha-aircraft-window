@@ -74,7 +74,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("две тысячи девятнадцатого года", candidate.announcement)
         self.assert_tts_has_no_latin(candidate.announcement)
 
-    def test_no_position_candidate_uses_enrichment_and_mentions_missing_coordinates(self) -> None:
+    def test_no_position_candidate_with_route_context_is_silent(self) -> None:
         candidate = logic.pick_candidate(
             [
                 {
@@ -107,12 +107,41 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
 
         self.assertEqual(candidate.phase, "no_position_nearby")
-        self.assertIn("без координат", candidate.announcement)
-        self.assertIn("Ред Вингс", candidate.announcement)
-        self.assertIn("Сочи - Батуми", candidate.announcement)
-        self.assertIn("Ту-двести четырнадцать", candidate.announcement)
-        self.assertIn("две тысячи восьмого года", candidate.announcement)
-        self.assertNotIn("локальный приём", candidate.announcement)
+        self.assertEqual(candidate.announcement, "")
+        self.assertTrue(candidate.announcement_suppressed)
+        self.assertIn("receiver-only", candidate.announcement_suppression_reason)
+
+    def test_high_altitude_no_position_aircraft_is_not_candidate(self) -> None:
+        candidate = logic.pick_candidate(
+            [
+                {
+                    "hex": "151d89",
+                    "flight": "AFL426",
+                    "alt_baro": 36000,
+                    "seen": 0.3,
+                    "rssi": -5.2,
+                    "messages": 268,
+                }
+            ],
+            home_latitude=41.62,
+            home_longitude=41.62,
+            max_positioned_distance_km=8,
+            max_approach_distance_km=60,
+            max_approach_altitude_ft=10000,
+            max_no_position_seen_seconds=4,
+            source="test",
+            enrich=lambda _aircraft: {
+                "airline_name": "Aeroflot Russian Airlines",
+                "origin_iata": "SVO",
+                "origin_name": "Moscow (SVO)",
+                "destination_name": "Sharm El Sheikh",
+                "aircraft_model": "Boeing 737-800",
+                "aircraft_type": "B738",
+            },
+        )
+
+        self.assertEqual(candidate.phase, "idle")
+        self.assertEqual(candidate.announcement, "")
 
     def test_no_position_candidate_without_route_context_is_silent(self) -> None:
         candidate = logic.pick_candidate(
@@ -139,7 +168,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(candidate.phase, "no_position_nearby")
         self.assertEqual(candidate.announcement, "")
         self.assertTrue(candidate.announcement_suppressed)
-        self.assertIn("no route context", candidate.announcement_suppression_reason)
+        self.assertIn("receiver-only", candidate.announcement_suppression_reason)
 
     def test_far_descending_aircraft_is_approach_watch_candidate(self) -> None:
         candidate = logic.pick_candidate(
@@ -1029,6 +1058,11 @@ class AircraftWindowLogicTest(unittest.TestCase):
             logic.known_route_for_callsign("VAA021")["scheduled_departure_local"],
             "14:00",
         )
+        self.assertEqual(logic.airline_speech("Aeroflot Russian Airlines"), "Аэрофлот")
+        self.assertEqual(logic.airline_speech("Rossiya - Russian Airlines"), "Россия")
+        self.assertEqual(logic.airline_speech("Belavia Belarusian Airlines"), "Белавиа")
+        self.assertEqual(logic.airline_speech("KLM Royal Dutch Airlines"), "Кей-Эл-Эм")
+        self.assertEqual(logic.airline_speech("S7 Airlines (Siberia Airlines)"), "Эс-семь")
         self.assertEqual(logic.airline_speech("RED WINGS AIRLINES"), "Ред Вингс")
         self.assertEqual(
             logic.airport_speech(
@@ -1053,6 +1087,28 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 }
             ),
             "Ларнака - Кутаиси",
+        )
+        self.assertEqual(
+            logic.route_pair_speech(
+                {
+                    "origin_iata": "SVO",
+                    "origin_name": "Moscow (SVO)",
+                    "destination_iata": "",
+                    "destination_name": "Sharm El Sheikh",
+                }
+            ),
+            "Москва, Шереметьево - Шарм-эш-Шейх",
+        )
+        self.assertEqual(
+            logic.route_pair_speech(
+                {
+                    "origin_iata": "",
+                    "origin_name": "Sok Son, Hanoi",
+                    "destination_iata": "IST",
+                    "destination_name": "Istanbul (IST)",
+                }
+            ),
+            "Ханой - Стамбул",
         )
         self.assertEqual(
             logic.airport_speech({"municipality": "Moscow Zhukovsky"}, direction="to"),
@@ -1129,6 +1185,15 @@ class AircraftWindowLogicTest(unittest.TestCase):
             logic.spoken_model("BOEING 737-800", "B738"),
             "Боинг семьсот тридцать семь",
         )
+        self.assertEqual(
+            logic.spoken_model("BOEING 777-200LR", "B77L"),
+            "Боинг семьсот семьдесят семь",
+        )
+        self.assertEqual(
+            logic.spoken_model("Boeing 787-10", "B78X"),
+            "Боинг семьсот восемьдесят семь",
+        )
+        self.assertEqual(logic.spoken_model("IL-76TD", "IL76"), "Ил-семьдесят шесть")
         self.assertEqual(
             logic.spoken_model("Boeing 737 MAX 8", "B38M"),
             "Боинг семьсот тридцать семь Макс восемь",

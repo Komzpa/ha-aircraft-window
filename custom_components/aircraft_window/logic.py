@@ -12,24 +12,44 @@ from typing import Any
 CITY_FROM_RU = {
     "Almaty": "Алматы",
     "Amman": "Аммана",
+    "Amsterdam": "Амстердама",
+    "Antalya": "Антальи",
     "Astana": "Астаны",
+    "Atyrau": "Атырау",
     "Baku": "Баку",
+    "Bangkok": "Бангкока",
+    "Barcelona": "Барселоны",
     "Batumi": "Батуми",
+    "Berlin": "Берлина",
+    "Chelyabinsk": "Челябинска",
     "Dubai": "Дубая",
+    "Ekaterinburg": "Екатеринбурга",
     "Erbil": "Эрбиля",
+    "Frankfurt Am Main": "Франкфурта-на-Майне",
+    "Hanoi": "Ханоя",
+    "Hurghada": "Хургады",
     "Istanbul": "Стамбула",
     "Jeddah": "Джидды",
     "Kazan": "Казани",
+    "Konya": "Коньи",
     "Kopitnari": "Кутаиси",
     "Larnaca": "Ларнаки",
     "Minsk": "Минска",
     "Moscow": "Москвы",
     "Moscow Zhukovsky": "Жуковского",
     "Natakhtari": "Натахтари",
+    "New Delhi": "Нью-Дели",
+    "Nur Sultan": "Нур-Султана",
+    "Pendik, Istanbul": "Стамбула, Сабиха Гёкчен",
+    "Perm": "Перми",
     "Riga": "Риги",
     "Riyadh": "Эр-Рияда",
+    "Saint Petersburg": "Санкт-Петербурга",
+    "Samara": "Самары",
+    "Sharm El Sheikh": "Шарм-эш-Шейха",
     "Shiraz": "Шираза",
     "Sochi": "Сочи",
+    "Sok Son, Hanoi": "Ханоя",
     "Tashkent": "Ташкента",
     "Tbilisi": "Тбилиси",
     "Tehran": "Тегерана",
@@ -41,24 +61,44 @@ CITY_FROM_RU = {
 CITY_TO_RU = {
     "Almaty": "Алматы",
     "Amman": "Амман",
+    "Amsterdam": "Амстердам",
+    "Antalya": "Анталью",
     "Astana": "Астану",
+    "Atyrau": "Атырау",
     "Baku": "Баку",
+    "Bangkok": "Бангкок",
+    "Barcelona": "Барселону",
     "Batumi": "Батуми",
+    "Berlin": "Берлин",
+    "Chelyabinsk": "Челябинск",
     "Dubai": "Дубай",
+    "Ekaterinburg": "Екатеринбург",
     "Erbil": "Эрбиль",
+    "Frankfurt Am Main": "Франкфурт-на-Майне",
+    "Hanoi": "Ханой",
+    "Hurghada": "Хургаду",
     "Istanbul": "Стамбул",
     "Jeddah": "Джидду",
     "Kazan": "Казань",
+    "Konya": "Конью",
     "Kopitnari": "Кутаиси",
     "Larnaca": "Ларнаку",
     "Minsk": "Минск",
     "Moscow": "Москву",
     "Moscow Zhukovsky": "Жуковский",
     "Natakhtari": "Натахтари",
+    "New Delhi": "Нью-Дели",
+    "Nur Sultan": "Нур-Султан",
+    "Pendik, Istanbul": "Стамбул, Сабиха Гёкчен",
+    "Perm": "Пермь",
     "Riga": "Ригу",
     "Riyadh": "Эр-Рияд",
+    "Saint Petersburg": "Санкт-Петербург",
+    "Samara": "Самару",
+    "Sharm El Sheikh": "Шарм-эш-Шейх",
     "Shiraz": "Шираз",
     "Sochi": "Сочи",
+    "Sok Son, Hanoi": "Ханой",
     "Tashkent": "Ташкент",
     "Tbilisi": "Тбилиси",
     "Tehran": "Тегеран",
@@ -70,24 +110,44 @@ CITY_TO_RU = {
 CITY_ROUTE_RU = {
     "Almaty": "Алматы",
     "Amman": "Амман",
+    "Amsterdam": "Амстердам",
+    "Antalya": "Анталья",
     "Astana": "Астана",
+    "Atyrau": "Атырау",
     "Baku": "Баку",
+    "Bangkok": "Бангкок",
+    "Barcelona": "Барселона",
     "Batumi": "Батуми",
+    "Berlin": "Берлин",
+    "Chelyabinsk": "Челябинск",
     "Dubai": "Дубай",
+    "Ekaterinburg": "Екатеринбург",
     "Erbil": "Эрбиль",
+    "Frankfurt Am Main": "Франкфурт-на-Майне",
+    "Hanoi": "Ханой",
+    "Hurghada": "Хургада",
     "Istanbul": "Стамбул",
     "Jeddah": "Джидда",
     "Kazan": "Казань",
+    "Konya": "Конья",
     "Kopitnari": "Кутаиси",
     "Larnaca": "Ларнака",
     "Minsk": "Минск",
     "Moscow": "Москва",
     "Moscow Zhukovsky": "Жуковский",
     "Natakhtari": "Натахтари",
+    "New Delhi": "Нью-Дели",
+    "Nur Sultan": "Нур-Султан",
+    "Pendik, Istanbul": "Стамбул, Сабиха Гёкчен",
+    "Perm": "Пермь",
     "Riga": "Рига",
     "Riyadh": "Эр-Рияд",
+    "Saint Petersburg": "Санкт-Петербург",
+    "Samara": "Самара",
+    "Sharm El Sheikh": "Шарм-эш-Шейх",
     "Shiraz": "Шираз",
     "Sochi": "Сочи",
+    "Sok Son, Hanoi": "Ханой",
     "Tashkent": "Ташкент",
     "Tbilisi": "Тбилиси",
     "Tehran": "Тегеран",
@@ -284,9 +344,14 @@ AIRPORT_NAME_DETAIL_SPEECH_RU = {
 AIRLINE_SPEECH_RU = {
     "Air Astana": "Эйр Астана",
     "Air Baltic": "Эйр Балтик",
+    "Aeroflot": "Аэрофлот",
+    "Aeroflot Russian Airlines": "Аэрофлот",
+    "AnadoluJet": "АнадолуДжет",
     "Arkia Israel Airlines": "Аркия",
     "Arkia Israeli Airlines": "Аркия",
+    "ARKIA ISRAEL AIRLINES": "Аркия",
     "Armenian Airlines": "Армениан Эйрлайнс",
+    "Azov Avia Airlines": "Азов Авиа",
     "Azerbaijan Airlines": "Азербайджанские авиалинии",
     "Azerbaijan Airlines (Buta Airways)": "Азербайджанские авиалинии",
     "AZAL": "Азал",
@@ -294,6 +359,7 @@ AIRLINE_SPEECH_RU = {
     "Azimuth Airlines": "Азимут",
     "Air Samarkand": "Эйр Самарканд",
     "Belavia": "Белавиа",
+    "Belavia Belarusian Airlines": "Белавиа",
     "Centrum Air": "Центрум Эйр",
     "EL AL": "Эль Аль",
     "EL-AL ISRAEL AIRLINES": "Эль Аль",
@@ -316,13 +382,20 @@ AIRLINE_SPEECH_RU = {
     "Jazeera Airways": "Джазира",
     "Jordan Aviation": "Джордан Авиейшен",
     "Kish Air": "Киш Эйр",
+    "KLM Royal Dutch Airlines": "Кей-Эл-Эм",
+    "Nas Air": "Флай Нас",
     "Pars Air": "Парс Эйр",
     "Pegasus Airlines": "Пегасус",
     "Qeshm Air": "Кешм Эйр",
     "Red Wings": "Ред Вингс",
     "Red Wings Airlines": "Ред Вингс",
+    "Rossiya - Russian Airlines": "Россия",
+    "S7 Airlines": "Эс-семь",
+    "S7 Airlines (Siberia Airlines)": "Эс-семь",
     "SCAT Airlines": "Скат",
     "Scat": "Скат",
+    "Southwind Air Corporation": "Саутвинд",
+    "Thai Airways International": "Тайские авиалинии",
     "Turkish Airlines": "Туркиш",
     "Uzbekistan Airways": "Узбекистон",
     "Varesh Airlines": "Вареш",
@@ -339,7 +412,12 @@ AIRLINE_SPEECH_RU = {
 }
 
 AIRLINE_SPEECH_ALIASES_RU = {
+    "aeroflot russian airlines": "Аэрофлот",
+    "arkia israel  airlines": "Аркия",
+    "klm royal dutch airlines": "Кей-Эл-Эм",
     "red wings airlines": "Ред Вингс",
+    "rossiya - russian airlines": "Россия",
+    "s7 airlines (siberia airlines)": "Эс-семь",
 }
 
 KNOWN_AIRLINE_BY_CALLSIGN_PREFIX = {
@@ -384,6 +462,7 @@ PASSENGER_AIRLINES = {
     "Azerbaijan Airlines (Buta Airways)",
     "AZAL",
     "Belavia",
+    "Belavia Belarusian Airlines",
     "Centrum Air",
     "EL AL",
     "El-Al Israel Airlines",
@@ -396,10 +475,16 @@ PASSENGER_AIRLINES = {
     "Israir",
     "Israir Airlines",
     "Jazeera Airways",
+    "KLM Royal Dutch Airlines",
+    "Nas Air",
     "Pegasus Airlines",
     "Red Wings",
+    "Rossiya - Russian Airlines",
+    "S7 Airlines",
+    "S7 Airlines (Siberia Airlines)",
     "SCAT Airlines",
     "Scat",
+    "Thai Airways International",
     "Turkish Airlines",
     "Uzbekistan Airways",
     "Varesh Airlines",
@@ -1555,6 +1640,12 @@ def spoken_model(model: str, aircraft_type: str = "") -> str:
         return "Боинг семьсот пятьдесят семь"
     if "B763" in text or "767" in text:
         return "Боинг семьсот шестьдесят семь"
+    if "B77" in text or "777" in text:
+        return "Боинг семьсот семьдесят семь"
+    if "B78" in text or "787" in text:
+        return "Боинг семьсот восемьдесят семь"
+    if "IL76" in text or "IL-76" in text:
+        return "Ил-семьдесят шесть"
     if "E190" in text:
         return "Эмбраер сто девяносто"
     if "E195" in text:
@@ -1768,7 +1859,7 @@ def build_announcement(
     enrichment: dict[str, Any],
 ) -> str:
     """Build the short spoken announcement."""
-    if phase == "no_position_nearby" and not has_route_details(enrichment):
+    if phase == "no_position_nearby":
         return ""
     if phase in {
         "positioned_approach",
@@ -2115,6 +2206,8 @@ def no_position_candidate(
     messages = parse_float_or(aircraft.get("messages"), 0.0)
     altitude = altitude_ft(aircraft)
     flight = str(aircraft.get("flight") or "").strip()
+    if altitude is not None and altitude > 5000:
+        return None
 
     confidence = 0.0
     reason_parts = ["no coordinates from transponder"]
@@ -2240,7 +2333,7 @@ def candidate_from_aircraft(
     if not announcement:
         announcement_suppressed = True
         announcement_suppression_reason = (
-            "no-position aircraft has no route context worth speech"
+            "no-position aircraft is receiver-only and not visually actionable"
             if phase == "no_position_nearby"
             else "routine aircraft has no airline, route, or aircraft context worth speech"
             if phase

@@ -90,9 +90,10 @@ receiver feed.
 Near conflict zones or over water, aircraft may sometimes appear without usable
 coordinates. Aircraft Window does not fake coordinates. It treats a fresh,
 strong, low-altitude local receiver hit as a lower-confidence `no_position_nearby`
-candidate. That receiver-only evidence is exposed in attributes for debugging,
-but it stays silent unless route-like context makes the interruption useful; the
-announcement should not read out "strong local reception" chatter.
+candidate only when the altitude is still plausibly local. That receiver-only
+evidence is exposed in attributes for debugging, but routine no-position
+candidates stay silent because there is no reliable bearing, window geometry, or
+visual action to offer.
 
 When the current receiver row has no coordinates, Aircraft Window also checks
 the local SkyAware/dump1090 history snapshots for the same hex. If a recent
