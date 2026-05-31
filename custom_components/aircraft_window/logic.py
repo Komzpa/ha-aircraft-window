@@ -2003,12 +2003,23 @@ def build_announcement(
     return tts_cyrillic_text(sentence)
 
 
+def movement_family(phase: str) -> str:
+    """Return the broad local movement family for follow-up boundaries."""
+    if phase in {"positioned_approach", "positioned_landing"}:
+        return "arrival"
+    if phase in {"positioned_takeoff", "positioned_runway_staging"}:
+        return "departure"
+    return phase
+
+
 def build_followup_announcement(
     previous: AircraftCandidate,
     current: AircraftCandidate,
 ) -> str:
     """Build a short update when more details arrive after the first sighting."""
     if candidate_airframe_key(previous) != candidate_airframe_key(current):
+        return ""
+    if movement_family(previous.phase) != movement_family(current.phase):
         return ""
 
     details: list[str] = []

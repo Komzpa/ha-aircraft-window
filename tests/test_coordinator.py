@@ -87,6 +87,127 @@ coordinator = _load_component_module("coordinator")
 class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
     """Verify Batumi Airport board matching and aggregation."""
 
+    def test_airport_board_match_does_not_fallback_to_opposite_leg(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        board = {
+            "data": {
+                "flights": [
+                    {
+                        "airlineIata": "WZ",
+                        "airlineIcao": "WZ",
+                        "flightNumber": "550",
+                        "flightLeg": "DEPARTURE",
+                    }
+                ]
+            }
+        }
+
+        self.assertEqual(
+            fake._airport_board_match(
+                board,
+                "RWZ550",
+                preferred_leg="ARRIVAL",
+            ),
+            {},
+        )
+
+    def test_airport_board_route_rejects_wrong_local_direction(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        attrs = {
+            "airline_name": "",
+            "origin_iata": "",
+            "origin_name": "",
+            "origin_speech": "",
+            "destination_iata": "",
+            "destination_name": "",
+            "destination_speech": "",
+            "route_summary": "",
+            "route_source": "",
+            "scheduled_departure_local": "",
+            "airport_board_remark": "",
+            "airport_board_estimated_local": "",
+            "enrichment_source": "",
+        }
+        malformed_arrival = {
+            "airlineName": "RED WINGS AIRLINES",
+            "flightLeg": "ARRIVAL",
+            "stad": "31.05.2026 21:05",
+            "etad": "31.05.2026 21:05",
+            "remark": {"remarkEn": ""},
+            "path": {
+                "origin": {
+                    "originIata": "ZIA",
+                    "originEn": "MOSCOW-ZHUKOVSKY",
+                },
+                "destination": {
+                    "destinationIata": "ZIA",
+                    "destinationEn": "MOSCOW-ZHUKOVSKY",
+                },
+            },
+        }
+
+        fake._apply_airport_board_route(
+            attrs,
+            malformed_arrival,
+            phase="positioned_approach",
+        )
+
+        self.assertEqual(attrs["route_source"], "")
+        self.assertEqual(attrs["origin_iata"], "")
+        self.assertEqual(attrs["destination_iata"], "")
+
+    def test_airport_board_route_applies_valid_local_arrival(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        attrs = {
+            "airline_name": "",
+            "origin_iata": "",
+            "origin_name": "",
+            "origin_speech": "",
+            "destination_iata": "",
+            "destination_name": "",
+            "destination_speech": "",
+            "route_summary": "",
+            "route_source": "",
+            "scheduled_departure_local": "",
+            "airport_board_remark": "",
+            "airport_board_estimated_local": "",
+            "enrichment_source": "",
+        }
+        arrival = {
+            "airlineName": "RED WINGS AIRLINES",
+            "flightLeg": "ARRIVAL",
+            "stad": "31.05.2026 21:05",
+            "etad": "31.05.2026 21:05",
+            "remark": {"remarkEn": ""},
+            "path": {
+                "origin": {
+                    "originIata": "ZIA",
+                    "originEn": "MOSCOW-ZHUKOVSKY",
+                },
+                "destination": {
+                    "destinationIata": "BUS",
+                    "destinationEn": "BATUMI",
+                },
+            },
+        }
+
+        fake._apply_airport_board_route(
+            attrs,
+            arrival,
+            phase="positioned_approach",
+        )
+
+        self.assertEqual(attrs["route_source"], "batumi_airport_board")
+        self.assertEqual(attrs["route_summary"], "ZIA \u2192 BUS")
+        self.assertEqual(attrs["origin_speech"], "Жуковского, Жуковский")
+        self.assertEqual(attrs["destination_speech"], "Батуми")
+
     def test_handle_candidate_event_suppresses_callsign_only_followup(self) -> None:
         events: list[tuple[str, dict[str, Any]]] = []
 
@@ -315,6 +436,53 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             "Дополнение: это Азимут, из Москвы, Внуково, Суперджет.",
         )
         self.assertEqual(events[1][1]["announcement_kind"], "followup")
+
+    def test_handle_candidate_event_announces_departure_after_same_airframe_arrival(
+        self,
+    ) -> None:
+        events: list[tuple[str, dict[str, Any]]] = []
+
+        class FakeBus:
+            def async_fire(self, event_type: str, data: dict[str, Any]) -> None:
+                events.append((event_type, data))
+
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake.hass = types.SimpleNamespace(bus=FakeBus())
+        fake._last_event_key = ""
+        fake._announced_event_keys_by_airframe = {}
+        fake._last_announced_by_airframe = {}
+
+        arrival = coordinator.AircraftCandidate(
+            state="positioned_landing:155c66:RWZ567",
+            phase="positioned_landing",
+            event_key="positioned_landing:155c66:RWZ567",
+            hex="155c66",
+            flight="RWZ567",
+            airline_name="RED WINGS AIRLINES",
+            origin_speech="Сочи",
+            destination_speech="Батуми",
+            announcement="Заходит на посадку пассажирский рейс Ред Вингс. Из Сочи.",
+        )
+        departure = coordinator.AircraftCandidate(
+            state="positioned_takeoff:155c66:RWZ568",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:155c66:RWZ568",
+            hex="155c66",
+            flight="RWZ568",
+            airline_name="RED WINGS AIRLINES",
+            origin_speech="Батуми",
+            destination_speech="Сочи",
+            announcement="Вылетает пассажирский рейс Ред Вингс. В Сочи.",
+        )
+
+        self.assertTrue(fake._handle_candidate_event(arrival))
+        self.assertTrue(fake._handle_candidate_event(departure))
+
+        self.assertEqual(len(events), 2)
+        self.assertEqual(events[1][1]["announcement"], departure.announcement)
+        self.assertEqual(events[1][1]["announcement_kind"], "initial")
 
     def test_handle_candidate_event_holds_hex_only_routine_briefly(self) -> None:
         events: list[tuple[str, dict[str, Any]]] = []

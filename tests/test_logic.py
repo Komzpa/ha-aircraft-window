@@ -692,6 +692,31 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertNotIn("Аэробус", text)
         self.assertNotIn("шестнадцатого", text)
 
+    def test_followup_announcement_rejects_arrival_to_departure_churn(self) -> None:
+        previous = logic.AircraftCandidate(
+            state="positioned_landing:155c66:RWZ567",
+            phase="positioned_landing",
+            event_key="positioned_landing:155c66:RWZ567",
+            hex="155c66",
+            flight="RWZ567",
+            airline_name="RED WINGS AIRLINES",
+            origin_speech="Сочи",
+            destination_speech="Батуми",
+        )
+        current = logic.AircraftCandidate(
+            state="positioned_takeoff:155c66:RWZ568",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:155c66:RWZ568",
+            hex="155c66",
+            flight="RWZ568",
+            airline_name="RED WINGS AIRLINES",
+            spoken_flight="пять шесть восемь",
+            origin_speech="Батуми",
+            destination_speech="Сочи",
+        )
+
+        self.assertEqual(logic.build_followup_announcement(previous, current), "")
+
     def test_visible_military_aircraft_is_special_interest_candidate(self) -> None:
         candidate = logic.interest_candidate(
             {

@@ -66,6 +66,7 @@ from .logic import (
     known_airline_for_callsign,
     known_route_for_callsign,
     make_key,
+    movement_family,
     normalized_airport_city,
     pick_candidate,
     spoken_flight,
@@ -389,12 +390,13 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         should_fire = True
         previous = self._last_announced_by_airframe.get(airframe_key)
         if previous is not None:
-            followup = build_followup_announcement(previous, base_candidate)
-            if followup:
-                base_candidate.announcement = followup
-                base_candidate.announcement_kind = "followup"
-            else:
-                should_fire = False
+            if movement_family(previous.phase) == movement_family(base_candidate.phase):
+                followup = build_followup_announcement(previous, base_candidate)
+                if followup:
+                    base_candidate.announcement = followup
+                    base_candidate.announcement_kind = "followup"
+                else:
+                    should_fire = False
 
         if should_fire:
             announced_keys.add(base_candidate.event_key)
@@ -765,6 +767,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             for row in matches:
                 if str(row.get("flightLeg") or "").strip().upper() == preferred_leg:
                     return row
+            return {}
         for row in matches:
             if str(row.get("flightLeg") or "").strip().upper() == "DEPARTURE":
                 return row
@@ -800,15 +803,29 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         iata = str(data.get(f"{key}Iata") or "").strip()
         return f"{city} ({iata})" if iata and iata not in city else city
 
-    def _apply_airport_board_route(self, attrs: dict[str, Any], row: dict[str, Any]) -> None:
+    def _apply_airport_board_route(
+        self,
+        attrs: dict[str, Any],
+        row: dict[str, Any],
+        *,
+        phase: str = "",
+    ) -> None:
         """Apply route fields from a matched Batumi Airport board row."""
         path = row.get("path") if isinstance(row.get("path"), dict) else {}
         origin = path.get("origin") if isinstance(path.get("origin"), dict) else {}
         destination = path.get("destination") if isinstance(path.get("destination"), dict) else {}
         if not origin or not destination:
             return
+        origin_iata = str(origin.get("originIata") or "").strip()
+        destination_iata = str(destination.get("destinationIata") or "").strip()
+        if phase and not self._route_matches_local_phase(
+            phase,
+            origin_iata,
+            destination_iata,
+        ):
+            return
         attrs["airline_name"] = str(row.get("airlineName") or attrs["airline_name"]).strip()
-        attrs["origin_iata"] = str(origin.get("originIata") or "").strip()
+        attrs["origin_iata"] = origin_iata
         attrs["origin_name"] = self._airport_board_city(origin, "origin", "from")
         attrs["origin_speech"] = airport_speech(
             {
@@ -817,7 +834,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             },
             direction="from",
         )
-        attrs["destination_iata"] = str(destination.get("destinationIata") or "").strip()
+        attrs["destination_iata"] = destination_iata
         attrs["destination_name"] = self._airport_board_city(destination, "destination", "to")
         attrs["destination_speech"] = airport_speech(
             {
@@ -1090,7 +1107,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 preferred_leg=self._airport_board_leg_for_phase(phase),
             )
             if board_row:
-                self._apply_airport_board_route(attrs, board_row)
+                self._apply_airport_board_route(attrs, board_row, phase=phase)
 
         if flight and flight != "UNKNOWN" and not flight.lower().startswith(hex_id.lower()):
             route_payload = await self._async_get_json(
