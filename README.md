@@ -44,7 +44,7 @@ descending aircraft below 10,000 ft are tracked out to 60 km, matching the commo
 landing-light-on operating band before the close runway-window phases take over.
 It also watches special-interest traffic already visible to the local receiver:
 routes to or from Kutaisi (`KUT`) and likely military aircraft identified from
-public owner, operator, or airframe metadata can produce `kutaisi_route` and
+public owner or operator metadata can produce `kutaisi_route` and
 `military_visible` events even when they are not landing at the home airport.
 Aircraft transmitting emergency transponder codes `7500`, `7600`, or `7700`
 produce an `emergency_squawk` event with cautious wording for unlawful
@@ -162,9 +162,10 @@ not stored as real network errors.
 
 The same enrichment is used for special-interest matching and service
 classification. Military detection is best-effort and conservative: it uses
-public operator prefixes, registered owner text, and known transport/surveillance
-type codes instead of trying to infer mission intent. ADS-B emitter categories
-are treated as size/type hints, not proof that a flight is passenger or cargo.
+public operator prefixes and registered owner text instead of trying to infer
+mission intent from dual-use airframes. ADS-B emitter categories and aircraft
+type codes are treated as size/type hints, not proof that a flight is passenger,
+cargo, or military.
 
 ## Development
 

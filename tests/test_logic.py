@@ -722,6 +722,50 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("си два девять пять эм", candidate.announcement)
         self.assert_tts_has_no_latin(candidate.announcement)
 
+    def test_civil_silk_way_il76_is_cargo_not_military(self) -> None:
+        enrichment = {
+            "airline_name": "Silk Way Airlines",
+            "aircraft_model": "IL-76 TD-90SW",
+            "aircraft_model_speech": "Ил-семьдесят шесть",
+            "aircraft_type": "IL76",
+            "registration": "4K-AZ100",
+            "registered_owner": "Silk Way Airlines",
+            "operator_flag_code": "AZQ",
+            "spoken_flight": "четыре три три один",
+        }
+        service_type, confidence, _reason = logic.classify_service_type(enrichment)
+        enrichment["service_type"] = service_type
+        enrichment["service_type_confidence"] = confidence
+
+        self.assertEqual(service_type, "cargo")
+        self.assertFalse(logic.is_military_aircraft(enrichment))
+        self.assertEqual(logic.airline_speech("Silk Way Airlines"), "Силк Вей")
+
+        candidate = logic.interest_candidate(
+            {
+                "hex": "600864",
+                "flight": "AZQ4331",
+                "alt_baro": 15000,
+                "seen": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment=enrichment,
+        )
+
+        self.assertIsNone(candidate)
+        announcement = logic.build_announcement(
+            {"hex": "600864", "flight": "AZQ4331"},
+            "positioned_low_nearby",
+            0.7,
+            enrichment,
+        )
+        self.assertIn("грузовой самолёт Силк Вей", announcement)
+        self.assertNotIn("Военный", announcement)
+        self.assertNotIn("Силк Ваи", announcement)
+        self.assert_tts_has_no_latin(announcement)
+
     def test_emergency_squawk_is_special_interest_candidate(self) -> None:
         candidate = logic.interest_candidate(
             {
@@ -1064,6 +1108,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(logic.airline_speech("KLM Royal Dutch Airlines"), "Кей-Эл-Эм")
         self.assertEqual(logic.airline_speech("S7 Airlines (Siberia Airlines)"), "Эс-семь")
         self.assertEqual(logic.airline_speech("RED WINGS AIRLINES"), "Ред Вингс")
+        self.assertEqual(logic.airline_speech("Silk Way Airlines"), "Силк Вей")
         self.assertEqual(
             logic.airport_speech(
                 {

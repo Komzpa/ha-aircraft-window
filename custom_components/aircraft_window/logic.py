@@ -394,6 +394,8 @@ AIRLINE_SPEECH_RU = {
     "S7 Airlines (Siberia Airlines)": "Эс-семь",
     "SCAT Airlines": "Скат",
     "Scat": "Скат",
+    "Silk Way Airlines": "Силк Вей",
+    "Silk Way West Airlines": "Силк Вей",
     "Southwind Air Corporation": "Саутвинд",
     "Thai Airways International": "Тайские авиалинии",
     "Turkish Airlines": "Туркиш",
@@ -497,6 +499,8 @@ CARGO_OPERATOR_TOKENS = (
     "dhl",
     "fedex",
     "freight",
+    "silk way",
+    "silk way airlines",
     "silk way west",
     "sky cargo",
     "skycargo",
@@ -598,22 +602,6 @@ MILITARY_OWNER_TOKENS = (
     "ministerio de defensa",
     "nato",
 )
-
-MILITARY_TYPE_CODES = {
-    "A124",
-    "A225",
-    "A400",
-    "C130",
-    "C160",
-    "C17",
-    "C295",
-    "E3CF",
-    "IL76",
-    "K35R",
-    "K35A",
-    "P8",
-    "T154",
-}
 
 DEFAULT_WINDOW_VIEW_LEAD_SECONDS = 240.0
 DEFAULT_WINDOW_VIEW_PROJECTION_STEP_SECONDS = 15.0
@@ -1288,20 +1276,14 @@ def is_helicopter(aircraft: dict[str, Any], enrichment: dict[str, Any]) -> bool:
 
 
 def is_military_aircraft(enrichment: dict[str, Any]) -> bool:
-    """Return true when public owner/type metadata suggests a military aircraft."""
+    """Return true when public owner/operator metadata identifies military traffic."""
     owner = str(
         enrichment.get("registered_owner") or enrichment.get("airline_name") or ""
     ).lower()
     operator = str(enrichment.get("operator_flag_code") or "").upper()
-    aircraft_type = str(enrichment.get("aircraft_type") or "").upper()
-    model = str(enrichment.get("aircraft_model") or "").upper()
     if operator in MILITARY_OPERATOR_SPEECH_RU:
         return True
-    if any(token in owner for token in MILITARY_OWNER_TOKENS):
-        return True
-    return aircraft_type in MILITARY_TYPE_CODES or any(
-        code in model for code in MILITARY_TYPE_CODES
-    )
+    return any(token in owner for token in MILITARY_OWNER_TOKENS)
 
 
 def is_military_tanker(enrichment: dict[str, Any]) -> bool:
@@ -1949,10 +1931,22 @@ def build_announcement(
         "positioned_landing",
         "positioned_takeoff",
         "positioned_runway_staging",
+        "positioned_low_nearby",
     }:
         object_word = service_object_word(enrichment)
         identity = subject or fallback_label
-        sentence = f"{base} {object_word} {identity}." if identity else f"{base} {object_word}."
+        if phase == "positioned_low_nearby":
+            sentence = (
+                f"{base}: {object_word} {identity}."
+                if identity
+                else f"{base}: {object_word}."
+            )
+        else:
+            sentence = (
+                f"{base} {object_word} {identity}."
+                if identity
+                else f"{base} {object_word}."
+            )
     else:
         identity = subject or fallback_label
         sentence = f"{base}: {identity}." if identity else f"{base}."
