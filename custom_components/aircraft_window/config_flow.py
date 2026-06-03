@@ -10,6 +10,7 @@ from homeassistant.core import callback
 
 from .const import (
     CONF_BACKGROUND_INTERVAL_SECONDS,
+    CONF_COLLECT_MAPPING_REVIEW,
     CONF_DUMP1090_URL,
     CONF_ENABLE_ENRICHMENT,
     CONF_ENRICHMENT_TIMEOUT_SECONDS,
@@ -23,6 +24,7 @@ from .const import (
     CONF_PREFETCH_LIMIT,
     CONF_SCAN_INTERVAL_SECONDS,
     DEFAULT_BACKGROUND_INTERVAL_SECONDS,
+    DEFAULT_COLLECT_MAPPING_REVIEW,
     DEFAULT_DUMP1090_URL,
     DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
     DEFAULT_MAX_APPROACH_ALTITUDE_FT,
@@ -84,6 +86,10 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
         vol.Required(
             CONF_ENABLE_ENRICHMENT,
             default=defaults.get(CONF_ENABLE_ENRICHMENT, True),
+        ): bool,
+        vol.Required(
+            CONF_COLLECT_MAPPING_REVIEW,
+            default=defaults.get(CONF_COLLECT_MAPPING_REVIEW, DEFAULT_COLLECT_MAPPING_REVIEW),
         ): bool,
         vol.Required(
             CONF_ENRICHMENT_TIMEOUT_SECONDS,

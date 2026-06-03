@@ -1083,6 +1083,54 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(attrs["aircraft_model"], "BOEING 737-800")
         self.assertEqual(attrs["enrichment_source"], "airport_board+airplanes_live")
 
+    def test_visible_mapping_review_collects_unmapped_speech_values(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake.entry = types.SimpleNamespace(data={}, options={})
+        fake.hass = types.SimpleNamespace(
+            config=types.SimpleNamespace(latitude=41.62, longitude=41.62)
+        )
+        items = fake._mapping_review_items_for_visible_aircraft(
+            {
+                "hex": "abc123",
+                "flight": "ABCD89",
+                "lat": 41.61,
+                "lon": 41.60,
+                "seen": 1.0,
+                "seen_pos": 1.0,
+                "alt_baro": 1800,
+                "baro_rate": -500,
+                "gs": 160,
+                "track": 290,
+            },
+            {
+                "airline_name": "New Visible Air",
+                "origin_iata": "XYZ",
+                "origin_name": "New Place (XYZ)",
+                "destination_iata": "ATH",
+                "destination_name": "Athens (ATH)",
+                "route_summary": "XYZ → ATH",
+                "aircraft_model": "Mystery Jet 9000",
+                "aircraft_type": "MJ90",
+            },
+        )
+
+        kinds = {item["kind"] for item in items}
+        self.assertIn("airline", kinds)
+        self.assertIn("origin_airport", kinds)
+        self.assertIn("route_airport", kinds)
+        self.assertIn("aircraft_model", kinds)
+        self.assertIn("callsign_prefix", kinds)
+        self.assertNotIn(
+            ("destination_airport", "Athens (ATH)"),
+            {(item["kind"], item["value"]) for item in items},
+        )
+        self.assertIn(
+            ("origin_airport", "New Place (XYZ)"),
+            {(item["kind"], item["value"]) for item in items},
+        )
+
     def test_scheduled_preopen_result_turns_on_inside_departure_window(self) -> None:
         fake = coordinator.AircraftWindowCoordinator.__new__(
             coordinator.AircraftWindowCoordinator

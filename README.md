@@ -14,6 +14,9 @@ announcements, covers, cameras, or whatever else belongs in your house.
 - `sensor.aircraft_window_schedule_preopen`: scheduled Batumi departure preopen
   state from the airport board.
 - `sensor.aircraft_window_enrichment_prefetch`: background enrichment cache status.
+  Its attributes include a persistent `mapping_review_items` queue for visible
+  aircraft whose airline, airport, callsign, or model fell back to generic TTS
+  speech instead of an explicit mapping.
 - `binary_sensor.aircraft_visible_outside_window`: on when the candidate is
   currently in the configured window view geometry.
 - `binary_sensor.aircraft_window_curtain_preopen_needed`: on when the current
@@ -166,6 +169,14 @@ public operator prefixes and registered owner text instead of trying to infer
 mission intent from dual-use airframes. ADS-B emitter categories and aircraft
 type codes are treated as size/type hints, not proof that a flight is passenger,
 cargo, or military.
+
+The background prefetch can also collect visible unmapped speech values for
+maintenance. When enabled, `sensor.aircraft_window_enrichment_prefetch` records
+recent visible/projected/runway-staging aircraft whose operator, airport/city,
+callsign prefix, or aircraft model used fallback speech. This queue is meant for
+proactively filling `AIRLINE_SPEECH_RU`, airport speech tables,
+`CALLSIGN_PREFIX_SPEECH_RU`, `spoken_model()`, and the shared TTS stress
+lexicon before the next spoken announcement sounds wrong.
 
 ## Development
 

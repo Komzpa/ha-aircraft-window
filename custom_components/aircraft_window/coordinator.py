@@ -21,6 +21,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
     CONF_BACKGROUND_INTERVAL_SECONDS,
+    CONF_COLLECT_MAPPING_REVIEW,
     CONF_DUMP1090_URL,
     CONF_ENABLE_ENRICHMENT,
     CONF_ENRICHMENT_TIMEOUT_SECONDS,
@@ -34,6 +35,7 @@ from .const import (
     CONF_PREFETCH_LIMIT,
     CONF_SCAN_INTERVAL_SECONDS,
     DEFAULT_BACKGROUND_INTERVAL_SECONDS,
+    DEFAULT_COLLECT_MAPPING_REVIEW,
     DEFAULT_DUMP1090_URL,
     DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
     DEFAULT_MAX_APPROACH_ALTITUDE_FT,
@@ -51,6 +53,7 @@ from .const import (
 from .logic import (
     KNOWN_BUILT_YEAR_BY_REGISTRATION,
     AircraftCandidate,
+    airline_speech,
     airport_label,
     airport_speech,
     backfill_position_from_history,
@@ -60,6 +63,10 @@ from .logic import (
     classify_service_type,
     extract_airport_data_year,
     flight_label,
+    has_aircraft_model_speech_mapping,
+    has_airline_speech_mapping,
+    has_airport_speech_mapping,
+    has_callsign_prefix_speech_mapping,
     has_route_details,
     idle_candidate,
     interest_candidate,
@@ -72,6 +79,8 @@ from .logic import (
     spoken_flight,
     spoken_model,
     spoken_year,
+    tts_cyrillic_text,
+    window_view_attrs,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -94,6 +103,17 @@ BATUMI_AIRPORT_BOARD_LEGS = {
 }
 EXTERNAL_LOOKUP_ERROR_CACHE_SECONDS = 10 * 60
 MIN_EXTERNAL_LOOKUP_TIMEOUT_SECONDS = 0.25
+MAPPING_REVIEW_CACHE_KEY = "mapping_review:v1"
+MAPPING_REVIEW_MAX_ITEMS = 80
+MAPPING_REVIEW_VISIBLE_LIMIT = 24
+
+
+def _mapping_review_airport_value(name: str, code: str) -> str:
+    """Return a compact airport review label without duplicating the IATA code."""
+    if code and name and f"({code})" not in name.upper():
+        return f"{name} ({code})"
+    return name or code
+
 
 CALLSIGN_PREFIX_TO_BOARD_AIRLINE = {
     "AIZ": "IZ",
@@ -587,6 +607,163 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         """Save persistent enrichment cache."""
         if self._cache is not None:
             await self._store.async_save(self._cache)
+
+    async def _async_mapping_review_items(self) -> list[dict[str, Any]]:
+        """Return persisted missing speech-mapping review items."""
+        cache = await self._async_cache()
+        items = cache.get(MAPPING_REVIEW_CACHE_KEY)
+        return list(items) if isinstance(items, list) else []
+
+    async def _async_record_mapping_review_items(
+        self,
+        items: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Merge newly seen speech-mapping review items into the persistent queue."""
+        if not items:
+            return await self._async_mapping_review_items()
+        cache = await self._async_cache()
+        existing = cache.get(MAPPING_REVIEW_CACHE_KEY)
+        merged: dict[str, dict[str, Any]] = {}
+        if isinstance(existing, list):
+            for item in existing:
+                if isinstance(item, dict) and str(item.get("key") or ""):
+                    merged[str(item["key"])] = dict(item)
+        now = int(time.time())
+        for item in items:
+            key = str(item.get("key") or "")
+            if not key:
+                continue
+            stored = merged.get(key, {})
+            count = int(stored.get("count") or 0) + 1
+            merged[key] = {
+                **stored,
+                **item,
+                "count": count,
+                "first_seen": int(stored.get("first_seen") or now),
+                "last_seen": now,
+            }
+        sorted_items = sorted(
+            merged.values(),
+            key=lambda item: (int(item.get("last_seen") or 0), int(item.get("count") or 0)),
+            reverse=True,
+        )[:MAPPING_REVIEW_MAX_ITEMS]
+        cache[MAPPING_REVIEW_CACHE_KEY] = sorted_items
+        await self._async_save_cache()
+        return sorted_items
+
+    def _mapping_review_items_for_visible_aircraft(
+        self,
+        aircraft: dict[str, Any],
+        attrs: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Return missing speech mappings for one currently visible aircraft row."""
+        view = window_view_attrs(
+            aircraft,
+            home_latitude=float(
+                self.options.get(CONF_HOME_LATITUDE, self.hass.config.latitude)
+            ),
+            home_longitude=float(
+                self.options.get(CONF_HOME_LONGITUDE, self.hass.config.longitude)
+            ),
+        )
+        if not (
+            view.get("window_visible")
+            or view.get("window_preopen_needed")
+            or view.get("window_runway_staging")
+        ):
+            return []
+
+        flight = flight_label(aircraft).replace(" ", "").upper()
+        hex_id = str(aircraft.get("hex") or "").strip().upper()
+        context = {
+            "flight": flight,
+            "hex": hex_id,
+            "route_summary": str(attrs.get("route_summary") or ""),
+            "window_view_reason": str(view.get("window_view_reason") or ""),
+        }
+        items: list[dict[str, Any]] = []
+
+        airline_name = str(attrs.get("airline_name") or "").strip()
+        if airline_name and not has_airline_speech_mapping(airline_name):
+            items.append(
+                {
+                    "key": f"airline:{airline_name.casefold()}",
+                    "kind": "airline",
+                    "value": airline_name,
+                    "fallback_speech": airline_speech(airline_name),
+                    "suggested_table": "AIRLINE_SPEECH_RU",
+                    **context,
+                }
+            )
+
+        for direction, speech_direction in (("origin", "from"), ("destination", "to")):
+            name = str(attrs.get(f"{direction}_name") or "").strip()
+            code = str(attrs.get(f"{direction}_iata") or "").strip().upper()
+            if not name and not code:
+                continue
+            airport = {"iata_code": code, "municipality": name, "name": name}
+            if not has_airport_speech_mapping(airport, direction=speech_direction):
+                value = _mapping_review_airport_value(name, code)
+                review_key = code or normalized_airport_city(name)
+                items.append(
+                    {
+                        "key": f"airport:{speech_direction}:{review_key}",
+                        "kind": f"{direction}_airport",
+                        "value": value,
+                        "fallback_speech": airport_speech(
+                            airport,
+                            direction=speech_direction,
+                        ),
+                        "suggested_table": (
+                            "AIRPORT_CODE_FROM_RU/CITY_FROM_RU"
+                            if speech_direction == "from"
+                            else "AIRPORT_CODE_TO_RU/CITY_TO_RU"
+                        ),
+                        **context,
+                    }
+                )
+            if not has_airport_speech_mapping(airport, direction="route"):
+                value = _mapping_review_airport_value(name, code)
+                items.append(
+                    {
+                        "key": f"airport:route:{code or normalized_airport_city(name)}",
+                        "kind": "route_airport",
+                        "value": value,
+                        "fallback_speech": tts_cyrillic_text(name or code),
+                        "suggested_table": "AIRPORT_CODE_ROUTE_RU/CITY_ROUTE_RU",
+                        **context,
+                    }
+                )
+
+        model = str(attrs.get("aircraft_model") or "").strip()
+        aircraft_type = str(attrs.get("aircraft_type") or "").strip()
+        if model and not has_aircraft_model_speech_mapping(model, aircraft_type):
+            items.append(
+                {
+                    "key": f"model:{aircraft_type or model}".casefold(),
+                    "kind": "aircraft_model",
+                    "value": " ".join(part for part in (model, aircraft_type) if part),
+                    "fallback_speech": spoken_model(model, aircraft_type),
+                    "suggested_table": "spoken_model",
+                    **context,
+                }
+            )
+
+        if flight and re.fullmatch(r"[A-Z]{4,}\d+", flight):
+            spoken = spoken_flight(flight)
+            if not has_callsign_prefix_speech_mapping(flight):
+                items.append(
+                    {
+                        "key": f"callsign:{re.match(r'[A-Z]+', flight).group(0)}",
+                        "kind": "callsign_prefix",
+                        "value": flight,
+                        "fallback_speech": spoken,
+                        "suggested_table": "CALLSIGN_PREFIX_SPEECH_RU",
+                        **context,
+                    }
+                )
+
+        return items
 
     async def _async_get_json(
         self,
@@ -1325,6 +1502,10 @@ class EnrichmentPrefetchCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         warmed: list[str] = []
         failed = 0
         skipped = 0
+        mapping_review_new: list[dict[str, Any]] = []
+        collect_mapping_review = bool(
+            options.get(CONF_COLLECT_MAPPING_REVIEW, DEFAULT_COLLECT_MAPPING_REVIEW)
+        )
 
         async def prefetch_one(row: dict[str, Any]) -> None:
             nonlocal failed, skipped
@@ -1350,6 +1531,10 @@ class EnrichmentPrefetchCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 except Exception:
                     failed += 1
                     return
+                if collect_mapping_review:
+                    mapping_review_new.extend(
+                        self.aircraft._mapping_review_items_for_visible_aircraft(row, attrs)
+                    )
                 label = flight_label(row).replace(" ", "").upper()
                 source = str(attrs.get("enrichment_source") or "").strip()
                 if label and source:
@@ -1358,6 +1543,11 @@ class EnrichmentPrefetchCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     warmed.append(label)
 
         await asyncio.gather(*(prefetch_one(row) for row in selected))
+        mapping_review = (
+            await self.aircraft._async_record_mapping_review_items(mapping_review_new)
+            if collect_mapping_review
+            else await self.aircraft._async_mapping_review_items()
+        )
         elapsed_ms = round((time.monotonic() - started) * 1000)
         board = await self.aircraft._async_batumi_airport_board(
             session,
@@ -1375,6 +1565,10 @@ class EnrichmentPrefetchCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "prefetch_budget_seconds": budget_seconds,
             "prefetch_elapsed_ms": elapsed_ms,
             "prefetch_items": ", ".join(warmed[:20]),
+            "mapping_review_enabled": collect_mapping_review,
+            "mapping_review_count": len(mapping_review),
+            "mapping_review_new": len(mapping_review_new),
+            "mapping_review_items": mapping_review[:20],
             "updated_at": int(time.time()),
         }
         return {

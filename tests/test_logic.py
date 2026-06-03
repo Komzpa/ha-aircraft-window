@@ -1233,6 +1233,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "ти си эс эйч и",
         )
         self.assertEqual(logic.spoken_flight("SPAR89"), "Спар восемь девять")
+        self.assertTrue(logic.has_callsign_prefix_speech_mapping("SPAR89"))
+        self.assertFalse(logic.has_callsign_prefix_speech_mapping("ABCD89"))
         cyrillic = logic.tts_cyrillic_text(
             "Кутаиси - Wrocław, Gökçen, Arnavutköy, Istanbul."
         )
@@ -1266,6 +1268,58 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(logic.airline_speech("RED WINGS AIRLINES"), "Ред Вингс")
         self.assertEqual(logic.airline_speech("Silk Way Airlines"), "Силк Вей")
         self.assertEqual(logic.airline_speech("Carpatair"), "Карпатэйр")
+        self.assertEqual(
+            logic.airport_speech(
+                {
+                    "iata_code": "ATH",
+                    "municipality": "Athens",
+                    "name": "Athens International Airport",
+                },
+                direction="from",
+            ),
+            "Афин",
+        )
+        self.assertEqual(
+            logic.airport_speech(
+                {
+                    "iata_code": "ATH",
+                    "municipality": "Athens",
+                    "name": "Athens International Airport",
+                },
+                direction="to",
+            ),
+            "Афины",
+        )
+        self.assertEqual(
+            logic.airport_route_speech(
+                {
+                    "iata_code": "ATH",
+                    "municipality": "Athens",
+                    "name": "Athens International Airport",
+                },
+            ),
+            "Афины",
+        )
+        self.assertTrue(
+            logic.has_airport_speech_mapping(
+                {
+                    "iata_code": "ATH",
+                    "municipality": "Athens",
+                    "name": "Athens International Airport",
+                },
+                direction="from",
+            )
+        )
+        self.assertFalse(
+            logic.has_airport_speech_mapping(
+                {
+                    "iata_code": "XYZ",
+                    "municipality": "New Place",
+                    "name": "New Place International Airport",
+                },
+                direction="to",
+            )
+        )
         self.assertEqual(
             logic.airport_speech(
                 {

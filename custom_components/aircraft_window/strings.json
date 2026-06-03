@@ -12,6 +12,7 @@
           "max_no_position_seen_seconds": "Maximum no-position age, seconds",
           "scan_interval_seconds": "Polling interval, seconds",
           "enable_enrichment": "Enrich route, airline, model, and built year",
+          "collect_mapping_review": "Collect visible unmapped speech values",
           "enrichment_timeout_seconds": "Enrichment request timeout, seconds"
         }
       }
@@ -31,6 +32,7 @@
           "max_no_position_seen_seconds": "Maximum no-position age, seconds",
           "scan_interval_seconds": "Polling interval, seconds",
           "enable_enrichment": "Enrich route, airline, model, and built year",
+          "collect_mapping_review": "Collect visible unmapped speech values",
           "enrichment_timeout_seconds": "Enrichment request timeout, seconds"
         }
       }

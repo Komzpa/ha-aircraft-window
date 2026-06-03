@@ -14,6 +14,7 @@ CITY_FROM_RU = {
     "Amman": "Аммана",
     "Amsterdam": "Амстердама",
     "Antalya": "Антальи",
+    "Athens": "Афин",
     "Astana": "Астаны",
     "Atyrau": "Атырау",
     "Baku": "Баку",
@@ -63,6 +64,7 @@ CITY_TO_RU = {
     "Amman": "Амман",
     "Amsterdam": "Амстердам",
     "Antalya": "Анталью",
+    "Athens": "Афины",
     "Astana": "Астану",
     "Atyrau": "Атырау",
     "Baku": "Баку",
@@ -112,6 +114,7 @@ CITY_ROUTE_RU = {
     "Amman": "Амман",
     "Amsterdam": "Амстердам",
     "Antalya": "Анталья",
+    "Athens": "Афины",
     "Astana": "Астана",
     "Atyrau": "Атырау",
     "Baku": "Баку",
@@ -295,18 +298,21 @@ LATIN_SPECIAL_BASE_CHARS = str.maketrans(
 )
 
 AIRPORT_CODE_FROM_RU = {
+    "ATH": "Афин",
     "IST": "Стамбула",
     "SAW": "Стамбула, Сабиха Гёкчен",
     "TLV": "Бен Гуриона",
 }
 
 AIRPORT_CODE_TO_RU = {
+    "ATH": "Афины",
     "IST": "Стамбул",
     "SAW": "Стамбул, Сабиха Гёкчен",
     "TLV": "Бен Гурион",
 }
 
 AIRPORT_CODE_ROUTE_RU = {
+    "ATH": "Афины",
     "BUS": "Батуми",
     "DME": "Москва, Домодедово",
     "EVN": "Ереван, Звартноц",
@@ -1615,6 +1621,13 @@ def spoken_flight(flight: str, airline_icao: str = "", airline_iata: str = "") -
     return tts_cyrillic_text(flight.strip())
 
 
+def has_callsign_prefix_speech_mapping(flight: str) -> bool:
+    """Return true when a long callsign prefix has explicit speech mapping."""
+    token = flight.strip().replace(" ", "").upper()
+    match = re.fullmatch(r"([A-Z]{4,})\d+", token)
+    return not match or match.group(1) in CALLSIGN_PREFIX_SPEECH_RU
+
+
 def known_airline_for_callsign(flight: str) -> tuple[str, str]:
     """Return known airline name and callsign prefix for route API gaps."""
     token = flight.strip().replace(" ", "").upper()
@@ -1759,6 +1772,41 @@ def airport_detail_speech(airport: dict[str, Any]) -> str:
     return AIRPORT_NAME_DETAIL_SPEECH_RU.get(name, "")
 
 
+def has_airline_speech_mapping(airline_name: str) -> bool:
+    """Return true when an airline/operator has an explicit speech mapping."""
+    name = " ".join(airline_name.strip().split())
+    if not name:
+        return True
+    folded = name.casefold()
+    if name in AIRLINE_SPEECH_RU or folded in AIRLINE_SPEECH_ALIASES_RU:
+        return True
+    return any(known_name.casefold() == folded for known_name in AIRLINE_SPEECH_RU)
+
+
+def has_airport_speech_mapping(airport: dict[str, Any] | None, *, direction: str) -> bool:
+    """Return true when an airport/city has an explicit Russian speech mapping."""
+    if not isinstance(airport, dict):
+        return True
+    code = str(airport.get("iata_code") or airport.get("icao_code") or "").strip().upper()
+    if direction == "route":
+        if code in AIRPORT_CODE_ROUTE_RU:
+            return True
+    elif code in (AIRPORT_CODE_TO_RU if direction == "to" else AIRPORT_CODE_FROM_RU):
+        return True
+    municipality = normalized_airport_city(str(airport.get("municipality") or ""))
+    name = normalized_airport_city(str(airport.get("name") or ""))
+    city_map = (
+        CITY_ROUTE_RU
+        if direction == "route"
+        else CITY_TO_RU
+        if direction == "to"
+        else CITY_FROM_RU
+    )
+    return any(label in city_map for label in (municipality, name)) or bool(
+        airport_detail_speech(airport)
+    )
+
+
 def airport_speech(airport: dict[str, Any] | None, *, direction: str) -> str:
     """Return a TTS-friendly city name for origin/destination."""
     if not isinstance(airport, dict):
@@ -1804,6 +1852,14 @@ def airport_route_speech(airport: dict[str, Any] | None) -> str:
     if airport_detail:
         return airport_detail
     return municipality or name or code
+
+
+def has_aircraft_model_speech_mapping(model: str, aircraft_type: str = "") -> bool:
+    """Return true when model/type speech is not only generic Latin fallback."""
+    raw = model.strip()
+    if not raw:
+        return True
+    return spoken_model(raw, aircraft_type) != tts_cyrillic_text(raw)
 
 
 def route_endpoint_speech(enrichment: dict[str, Any], direction: str) -> str:
