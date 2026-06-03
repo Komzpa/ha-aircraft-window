@@ -675,6 +675,15 @@ DRONE_TOKENS = (
     "unmanned",
 )
 
+TRANSPORT_AIRCRAFT_MODEL_RE = re.compile(
+    r"\b(?:"
+    r"A(?:19N|20N|21N|220|319|320|321|330|332)|"
+    r"B(?:38M|39M|737|738|739|752|763|77[0-9]?|78[0-9]?)|"
+    r"E(?:170|190|195)|E75[0-9]?|CRJ[0-9]*|"
+    r"SU95|SSJ|T204|T214|IL-?76|C208|L410"
+    r")\b"
+)
+
 TANKER_TOKENS = (
     "a330 mrtt",
     "kc-10",
@@ -1250,6 +1259,14 @@ def _has_token(text: str, tokens: tuple[str, ...]) -> bool:
     return any(token in text for token in tokens)
 
 
+def _has_standalone_token(text: str, tokens: tuple[str, ...]) -> bool:
+    """Return true when any configured token appears as a separate metadata token."""
+    return any(
+        re.search(rf"(?<![a-z0-9]){re.escape(token)}(?![a-z0-9])", text)
+        for token in tokens
+    )
+
+
 def ident_active(aircraft: dict[str, Any]) -> bool:
     """Return true when the aircraft is pressing IDENT/SPI."""
     for key in ("spi", "ident", "special_position_identification"):
@@ -1326,6 +1343,15 @@ def is_business_jet(enrichment: dict[str, Any]) -> bool:
     return aircraft_type in BUSINESS_JET_TYPE_CODES or any(
         token in model for token in BUSINESS_JET_MODEL_TOKENS
     )
+
+
+def has_transport_aircraft_model(enrichment: dict[str, Any]) -> bool:
+    """Return true when model/type metadata identifies a crewed transport aircraft."""
+    text = " ".join(
+        str(enrichment.get(key) or "")
+        for key in ("aircraft_model", "aircraft_type", "aircraft_model_speech")
+    ).upper()
+    return bool(TRANSPORT_AIRCRAFT_MODEL_RE.search(text))
 
 
 def classify_service_type(enrichment: dict[str, Any]) -> tuple[str, float, str]:
@@ -1450,7 +1476,9 @@ def classify_special_interest(
             "helicopter metadata without callsign",
             0.72,
         )
-    if _has_token(text, DRONE_TOKENS):
+    if _has_standalone_token(text, DRONE_TOKENS) and not has_transport_aircraft_model(
+        enrichment
+    ):
         return ("drone", "похоже на беспилотник", "drone metadata", 0.82)
     return None
 

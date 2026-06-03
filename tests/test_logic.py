@@ -941,6 +941,46 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 self.assertEqual(candidate.interest_type, interest_type)
                 self.assertNotIn("борт", candidate.announcement.lower())
 
+    def test_drone_metadata_does_not_override_airbus_model(self) -> None:
+        candidate = logic.interest_candidate(
+            {"hex": "abc319", "flight": "AW319", "seen": 1.0},
+            source="test",
+            aircraft_count=1,
+            enrichment={
+                "registered_owner": "Example UAV Leasing",
+                "aircraft_model": "Airbus A319",
+                "aircraft_type": "A319",
+                "aircraft_model_speech": logic.spoken_model("Airbus A319", "A319"),
+                "service_type": "unknown",
+            },
+        )
+
+        self.assertIsNone(candidate)
+
+    def test_drone_metadata_requires_standalone_token(self) -> None:
+        self.assertIsNone(
+            logic.classify_special_interest(
+                {"hex": "4a0442", "flight": "KRP459", "seen": 1.0},
+                {
+                    "airline_name": "Carpatair",
+                    "registered_owner": "Carpatair",
+                    "service_type": "unknown",
+                },
+            )
+        )
+
+        self.assertEqual(
+            logic.classify_special_interest(
+                {"hex": "abc123", "flight": "DRN001", "seen": 1.0},
+                {
+                    "registered_owner": "Bayraktar TB2 UAV",
+                    "aircraft_model": "Bayraktar TB2",
+                    "service_type": "unknown",
+                },
+            )[0],
+            "drone",
+        )
+
     def test_hawker_icao_type_is_not_helicopter_interest(self) -> None:
         candidate = logic.interest_candidate(
             {
