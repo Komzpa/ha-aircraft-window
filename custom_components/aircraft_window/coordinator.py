@@ -619,14 +619,16 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         items: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         """Merge newly seen speech-mapping review items into the persistent queue."""
-        if not items:
-            return await self._async_mapping_review_items()
         cache = await self._async_cache()
         existing = cache.get(MAPPING_REVIEW_CACHE_KEY)
         merged: dict[str, dict[str, Any]] = {}
         if isinstance(existing, list):
             for item in existing:
-                if isinstance(item, dict) and str(item.get("key") or ""):
+                if (
+                    isinstance(item, dict)
+                    and str(item.get("key") or "")
+                    and self._mapping_review_item_still_unmapped(item)
+                ):
                     merged[str(item["key"])] = dict(item)
         now = int(time.time())
         for item in items:
@@ -650,6 +652,30 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         cache[MAPPING_REVIEW_CACHE_KEY] = sorted_items
         await self._async_save_cache()
         return sorted_items
+
+    @staticmethod
+    def _mapping_review_item_still_unmapped(item: dict[str, Any]) -> bool:
+        """Return true if a persisted review item still needs a speech mapping."""
+        kind = str(item.get("kind") or "")
+        value = str(item.get("value") or "").strip()
+        key = str(item.get("key") or "")
+        if kind == "airline":
+            return bool(value) and not has_airline_speech_mapping(value)
+        if kind in {"origin_airport", "destination_airport", "route_airport"}:
+            parts = key.split(":", 2)
+            direction = parts[1] if len(parts) == 3 else "route"
+            if direction not in {"from", "to", "route"}:
+                direction = "route"
+            lookup = parts[2] if len(parts) == 3 else ""
+            code = lookup.upper() if re.fullmatch(r"[A-Za-z]{3,4}", lookup) else ""
+            name = value.split("(")[0].strip()
+            airport = {"iata_code": code, "municipality": name, "name": name}
+            return not has_airport_speech_mapping(airport, direction=direction)
+        if kind == "aircraft_model":
+            return bool(value) and not has_aircraft_model_speech_mapping(value)
+        if kind == "callsign_prefix":
+            return bool(value) and not has_callsign_prefix_speech_mapping(value)
+        return True
 
     def _mapping_review_items_for_visible_aircraft(
         self,

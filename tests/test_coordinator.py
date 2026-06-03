@@ -1131,6 +1131,46 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             {(item["kind"], item["value"]) for item in items},
         )
 
+    async def test_mapping_review_record_prunes_resolved_items(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake._cache = {
+            coordinator.MAPPING_REVIEW_CACHE_KEY: [
+                {
+                    "key": "airport:to:KTW",
+                    "kind": "destination_airport",
+                    "value": "Katowice (KTW)",
+                    "count": 3,
+                    "first_seen": 1,
+                    "last_seen": 2,
+                },
+                {
+                    "key": "airline:new visible air",
+                    "kind": "airline",
+                    "value": "New Visible Air",
+                    "count": 1,
+                    "first_seen": 1,
+                    "last_seen": 2,
+                },
+            ]
+        }
+        saved: list[dict[str, Any]] = []
+
+        async def load_cache() -> dict[str, Any]:
+            return fake._cache
+
+        async def save_cache() -> None:
+            saved.append(dict(fake._cache))
+
+        fake._async_cache = load_cache
+        fake._async_save_cache = save_cache
+
+        items = await fake._async_record_mapping_review_items([])
+
+        self.assertEqual([item["key"] for item in items], ["airline:new visible air"])
+        self.assertEqual(saved[-1][coordinator.MAPPING_REVIEW_CACHE_KEY], items)
+
     def test_scheduled_preopen_result_turns_on_inside_departure_window(self) -> None:
         fake = coordinator.AircraftWindowCoordinator.__new__(
             coordinator.AircraftWindowCoordinator

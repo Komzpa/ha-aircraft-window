@@ -1269,6 +1269,20 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(logic.airline_speech("Silk Way Airlines"), "Силк Вей")
         self.assertEqual(logic.airline_speech("Carpatair"), "Карпатэйр")
         self.assertEqual(
+            logic.airline_speech("Turkmenistan Airlines"),
+            "Туркменистанские авиалинии",
+        )
+        self.assertEqual(logic.airline_speech("Tarkim Havacilik"), "Тарким Хаваджылык")
+        self.assertEqual(logic.airline_speech("Iraqi Airways"), "Иракские авиалинии")
+        self.assertEqual(
+            logic.airline_speech("Speedwings Executive Jet Gmbh"),
+            "Спидвингс Экзекьютив Джет",
+        )
+        self.assertEqual(
+            logic.military_operator_speech({"registered_owner": "Romanian Air Force"}),
+            "ВВС Румынии",
+        )
+        self.assertEqual(
             logic.airport_speech(
                 {
                     "iata_code": "ATH",
@@ -1299,6 +1313,38 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 },
             ),
             "Афины",
+        )
+        self.assertEqual(
+            logic.airport_speech(
+                {"iata_code": "KTW", "municipality": "Katowice", "name": "Katowice"},
+                direction="to",
+            ),
+            "Катовице",
+        )
+        self.assertEqual(
+            logic.airport_speech(
+                {"iata_code": "SKX", "municipality": "Saransk", "name": "Saransk"},
+                direction="from",
+            ),
+            "Саранска",
+        )
+        self.assertEqual(
+            logic.airport_route_speech(
+                {"iata_code": "BJV", "municipality": "Bodrum", "name": "Bodrum"}
+            ),
+            "Бодрум",
+        )
+        self.assertEqual(
+            logic.airport_route_speech(
+                {"iata_code": "ASB", "municipality": "Ashgabat", "name": "Ashgabat"}
+            ),
+            "Ашхабад",
+        )
+        self.assertEqual(
+            logic.airport_route_speech(
+                {"iata_code": "BRQ", "municipality": "Brno", "name": "Brno"}
+            ),
+            "Брно",
         )
         self.assertTrue(
             logic.has_airport_speech_mapping(
@@ -1365,6 +1411,39 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 }
             ),
             "Ханой - Стамбул",
+        )
+        self.assertEqual(
+            logic.route_pair_speech(
+                {
+                    "origin_iata": "WRO",
+                    "origin_name": "Wrocław",
+                    "destination_iata": "KUT",
+                    "destination_name": "Kopitnari (KUT)",
+                }
+            ),
+            "Вроцлав - Кутаиси",
+        )
+        self.assertEqual(
+            logic.route_pair_speech(
+                {
+                    "origin_iata": "KUT",
+                    "origin_name": "Kopitnari (KUT)",
+                    "destination_iata": "FCO",
+                    "destination_name": "Rome",
+                }
+            ),
+            "Кутаиси - Рим",
+        )
+        self.assertEqual(
+            logic.route_pair_speech(
+                {
+                    "origin_iata": "SVX",
+                    "origin_name": "Yekaterinburg",
+                    "destination_iata": "BUS",
+                    "destination_name": "Batumi (BUS)",
+                }
+            ),
+            "Екатеринбург - Батуми",
         )
         self.assertEqual(
             logic.airport_speech({"municipality": "Moscow Zhukovsky"}, direction="to"),
@@ -1448,6 +1527,12 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(
             logic.spoken_model("C-12C Huron", "C12C"),
             "Си-двенадцать Хьюрон",
+        )
+        self.assertEqual(logic.spoken_model("PA-46-500TP M500", ""), "Пайпер M500")
+        self.assertEqual(logic.spoken_model("1125 Astra SPX", ""), "Астра эс-пи-икс")
+        self.assertEqual(
+            logic.spoken_model("Falcon 2000EX EASy", "F2TH"),
+            "Дассо Фалькон две тысячи",
         )
         self.assertEqual(
             logic.spoken_model("Boeing 787-10", "B78X"),
