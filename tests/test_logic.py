@@ -768,6 +768,35 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("си два девять пять эм", candidate.announcement)
         self.assert_tts_has_no_latin(candidate.announcement)
 
+    def test_usaf_spar_huron_military_announcement_is_readable(self) -> None:
+        enrichment = {
+            "aircraft_model": "C-12C Huron",
+            "aircraft_type": "C12C",
+            "aircraft_model_speech": logic.spoken_model("C-12C Huron", "C12C"),
+            "registered_owner": "United States Air Force",
+            "spoken_flight": logic.spoken_flight("SPAR89"),
+        }
+        candidate = logic.interest_candidate(
+            {
+                "hex": "ae10e6",
+                "flight": "SPAR89",
+                "alt_baro": 15000,
+                "seen": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment=enrichment,
+        )
+
+        assert candidate is not None
+        self.assertEqual(candidate.phase, "military_visible")
+        self.assertIn("ВВС США Спар восемь девять", candidate.announcement)
+        self.assertIn("Си-двенадцать Хьюрон", candidate.announcement)
+        self.assertNotIn("Унитед", candidate.announcement)
+        self.assertNotIn("эс пи эй ар", candidate.announcement)
+        self.assert_tts_has_no_latin(candidate.announcement)
+
     def test_civil_silk_way_il76_is_cargo_not_military(self) -> None:
         enrichment = {
             "airline_name": "Silk Way Airlines",
@@ -1203,6 +1232,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
             logic.spoken_flight("TCSHE"),
             "ти си эс эйч и",
         )
+        self.assertEqual(logic.spoken_flight("SPAR89"), "Спар восемь девять")
         cyrillic = logic.tts_cyrillic_text(
             "Кутаиси - Wrocław, Gökçen, Arnavutköy, Istanbul."
         )
@@ -1360,6 +1390,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(
             logic.spoken_model("BOEING 777-200LR", "B77L"),
             "Боинг семьсот семьдесят семь",
+        )
+        self.assertEqual(
+            logic.spoken_model("C-12C Huron", "C12C"),
+            "Си-двенадцать Хьюрон",
         )
         self.assertEqual(
             logic.spoken_model("Boeing 787-10", "B78X"),

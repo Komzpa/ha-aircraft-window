@@ -592,6 +592,20 @@ MILITARY_OPERATOR_SPEECH_RU = {
     "THK": "турецкие ВВС",
 }
 
+MILITARY_OWNER_SPEECH_RU = {
+    "united states air force": "ВВС США",
+    "us air force": "ВВС США",
+    "u.s. air force": "ВВС США",
+    "united states army": "Армия США",
+    "us army": "Армия США",
+    "united states navy": "ВМС США",
+    "us navy": "ВМС США",
+}
+
+CALLSIGN_PREFIX_SPEECH_RU = {
+    "SPAR": "Спар",
+}
+
 MILITARY_OWNER_TOKENS = (
     "air force",
     "airforce",
@@ -1507,6 +1521,9 @@ def military_operator_speech(enrichment: dict[str, Any]) -> str:
     if operator in MILITARY_OPERATOR_SPEECH_RU:
         return MILITARY_OPERATOR_SPEECH_RU[operator]
     owner = str(enrichment.get("registered_owner") or "").strip()
+    owner_speech = MILITARY_OWNER_SPEECH_RU.get(owner.casefold())
+    if owner_speech:
+        return owner_speech
     return tts_cyrillic_text(owner)
 
 
@@ -1581,6 +1598,10 @@ def spoken_flight(flight: str, airline_icao: str = "", airline_iata: str = "") -
     token = flight.strip().replace(" ", "").upper()
     if token in {"", "UNKNOWN"}:
         return ""
+    for prefix, prefix_speech in CALLSIGN_PREFIX_SPEECH_RU.items():
+        if token.startswith(prefix) and token[len(prefix) :].isdigit():
+            number = " ".join(DIGIT_RU.get(char, char) for char in token[len(prefix) :])
+            return f"{prefix_speech} {number}".strip()
     for prefix in (airline_icao.strip().upper(), airline_iata.strip().upper()):
         if prefix and token.startswith(prefix):
             token = token[len(prefix):]
@@ -1629,6 +1650,8 @@ def airline_speech(airline_name: str) -> str:
 def spoken_model(model: str, aircraft_type: str = "") -> str:
     """Turn common aircraft model strings into Russian TTS-friendly text."""
     text = f"{model} {aircraft_type}".upper()
+    if "C-12" in text or "C12" in text or "HURON" in text:
+        return "Си-двенадцать Хьюрон"
     if "TU-204" in text or "T204" in text:
         return "Ту-двести четыре"
     if "TU-214" in text or "T214" in text:
