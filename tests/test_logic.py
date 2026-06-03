@@ -529,6 +529,27 @@ class AircraftWindowLogicTest(unittest.TestCase):
         }
         self.assertEqual(logic.classify_service_type(express_passenger)[0], "unknown")
 
+    def test_service_type_metadata_tokens_require_boundaries(self) -> None:
+        self.assertEqual(
+            logic.classify_service_type(
+                {"airline_name": "Upsilon Air", "aircraft_type": "A320"}
+            )[0],
+            "unknown",
+        )
+        self.assertFalse(logic.is_military_aircraft({"registered_owner": "Pharmacy Air"}))
+        self.assertFalse(
+            logic.is_business_jet(
+                {"registered_owner": "Globalair", "aircraft_model": "Globalair 900"}
+            )
+        )
+
+        self.assertEqual(
+            logic.classify_service_type({"airline_name": "UPS Airlines"})[0],
+            "cargo",
+        )
+        self.assertTrue(logic.is_military_aircraft({"registered_owner": "Example Army"}))
+        self.assertTrue(logic.is_business_jet({"aircraft_model": "Global 6000"}))
+
     def test_followup_announcement_suppresses_callsign_only_update(self) -> None:
         previous = logic.AircraftCandidate(
             state="positioned_takeoff:738286:738286",
@@ -981,6 +1002,46 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "drone",
         )
 
+    def test_special_interest_metadata_tokens_require_boundaries(self) -> None:
+        false_positive_cases = [
+            ("medevac", "BiomedEvacuation Tours"),
+            ("police", "Policeair Charter"),
+            ("calibration", "Calibrationist Research Flights"),
+            ("helicopter", "Helicopterium Air"),
+        ]
+        for interest_type, owner in false_positive_cases:
+            with self.subTest(interest_type=interest_type):
+                self.assertIsNone(
+                    logic.classify_special_interest(
+                        {"hex": "abc123", "flight": "ABC123", "seen": 1.0},
+                        {
+                            "registered_owner": owner,
+                            "aircraft_model": owner,
+                            "service_type": "unknown",
+                        },
+                    )
+                )
+
+        positive_cases = [
+            ("medevac", "medical rescue"),
+            ("police", "state police"),
+            ("calibration", "flight check calibration"),
+            ("helicopter_no_callsign", "Airbus Helicopters"),
+        ]
+        for interest_type, owner in positive_cases:
+            with self.subTest(interest_type=interest_type):
+                aircraft = {"hex": "abc123", "flight": "", "seen": 1.0}
+                candidate = logic.classify_special_interest(
+                    aircraft,
+                    {
+                        "registered_owner": owner,
+                        "aircraft_model": owner,
+                        "service_type": "unknown",
+                    },
+                )
+                assert candidate is not None
+                self.assertEqual(candidate[0], interest_type)
+
     def test_hawker_icao_type_is_not_helicopter_interest(self) -> None:
         candidate = logic.interest_candidate(
             {
@@ -1174,6 +1235,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(logic.airline_speech("S7 Airlines (Siberia Airlines)"), "Эс-семь")
         self.assertEqual(logic.airline_speech("RED WINGS AIRLINES"), "Ред Вингс")
         self.assertEqual(logic.airline_speech("Silk Way Airlines"), "Силк Вей")
+        self.assertEqual(logic.airline_speech("Carpatair"), "Карпатэйр")
         self.assertEqual(
             logic.airport_speech(
                 {

@@ -360,6 +360,7 @@ AIRLINE_SPEECH_RU = {
     "Air Samarkand": "Эйр Самарканд",
     "Belavia": "Белавиа",
     "Belavia Belarusian Airlines": "Белавиа",
+    "Carpatair": "Карпатэйр",
     "Centrum Air": "Центрум Эйр",
     "EL AL": "Эль Аль",
     "EL-AL ISRAEL AIRLINES": "Эль Аль",
@@ -1262,7 +1263,7 @@ def _has_token(text: str, tokens: tuple[str, ...]) -> bool:
 def _has_standalone_token(text: str, tokens: tuple[str, ...]) -> bool:
     """Return true when any configured token appears as a separate metadata token."""
     return any(
-        re.search(rf"(?<![a-z0-9]){re.escape(token)}(?![a-z0-9])", text)
+        re.search(rf"(?<![A-Za-z0-9]){re.escape(token)}(?![A-Za-z0-9])", text)
         for token in tokens
     )
 
@@ -1289,7 +1290,7 @@ def is_helicopter(aircraft: dict[str, Any], enrichment: dict[str, Any]) -> bool:
         aircraft.get("category") or enrichment.get("adsb_category") or ""
     ).upper()
     text = _metadata_text(aircraft, enrichment)
-    return category == "A7" or _has_token(text, HELICOPTER_TOKENS)
+    return category == "A7" or _has_standalone_token(text, HELICOPTER_TOKENS)
 
 
 def is_military_aircraft(enrichment: dict[str, Any]) -> bool:
@@ -1300,7 +1301,7 @@ def is_military_aircraft(enrichment: dict[str, Any]) -> bool:
     operator = str(enrichment.get("operator_flag_code") or "").upper()
     if operator in MILITARY_OPERATOR_SPEECH_RU:
         return True
-    return any(token in owner for token in MILITARY_OWNER_TOKENS)
+    return _has_standalone_token(owner, MILITARY_OWNER_TOKENS)
 
 
 def is_military_tanker(enrichment: dict[str, Any]) -> bool:
@@ -1315,7 +1316,9 @@ def is_military_tanker(enrichment: dict[str, Any]) -> bool:
             "operator_flag_code",
         )
     ).lower()
-    return is_military_aircraft(enrichment) and _has_token(text, TANKER_TOKENS)
+    return is_military_aircraft(enrichment) and _has_standalone_token(
+        text, TANKER_TOKENS
+    )
 
 
 def is_cargo_aircraft(enrichment: dict[str, Any]) -> bool:
@@ -1331,7 +1334,7 @@ def is_cargo_aircraft(enrichment: dict[str, Any]) -> bool:
         )
     ).lower()
     padded = f" {haystack} "
-    return any(token in padded for token in CARGO_OPERATOR_TOKENS) or any(
+    return _has_standalone_token(haystack, CARGO_OPERATOR_TOKENS) or any(
         token in padded for token in CARGO_TYPE_TOKENS
     )
 
@@ -1340,8 +1343,8 @@ def is_business_jet(enrichment: dict[str, Any]) -> bool:
     """Return true when model metadata points to a business jet family."""
     aircraft_type = str(enrichment.get("aircraft_type") or "").strip().upper()
     model = str(enrichment.get("aircraft_model") or "").strip().upper()
-    return aircraft_type in BUSINESS_JET_TYPE_CODES or any(
-        token in model for token in BUSINESS_JET_MODEL_TOKENS
+    return aircraft_type in BUSINESS_JET_TYPE_CODES or _has_standalone_token(
+        model, BUSINESS_JET_MODEL_TOKENS
     )
 
 
@@ -1458,11 +1461,11 @@ def classify_special_interest(
             "military tanker metadata",
             0.9,
         )
-    if _has_token(text, MEDEVAC_TOKENS):
+    if _has_standalone_token(text, MEDEVAC_TOKENS):
         return ("medevac", "медицинская или спасательная авиация", "medevac metadata", 0.82)
-    if _has_token(text, POLICE_TOKENS):
+    if _has_standalone_token(text, POLICE_TOKENS):
         return ("police", "полицейский самолёт или вертолёт", "police metadata", 0.82)
-    if _has_token(text, CALIBRATION_TOKENS):
+    if _has_standalone_token(text, CALIBRATION_TOKENS):
         return (
             "calibration",
             "похоже на проверочный или калибровочный полёт",
