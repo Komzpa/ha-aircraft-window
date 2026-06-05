@@ -120,8 +120,11 @@ use_blueprint:
     minimum_confidence: 0.45
 ```
 
-For curtains, keep your house policy in Home Assistant automations. A typical
-pattern is:
+For curtains, keep your house policy in Home Assistant automations. If you use
+a central cover dispatcher, have the Aircraft Window automation publish a helper
+state that the dispatcher watches; do not call `automation.trigger` on the
+dispatcher itself, because Home Assistant can run a disabled automation's action
+body when it is triggered manually. A typical pattern is:
 
 ```yaml
 trigger:
@@ -137,14 +140,15 @@ condition:
   - condition: template
     value_template: "{{ trigger.event.data.phase != 'no_position_nearby' }}"
 action:
-  - service: cover.open_cover
+  - service: input_boolean.turn_on
     target:
-      entity_id: cover.living_room_curtains
+      entity_id: input_boolean.aircraft_window_viewing_requested
 ```
 
 Use your own sleep, darkness, sun-glare, and privacy helpers as conditions. This
 integration deliberately only detects the aircraft and emits the event; it does
-not try to own your cover policy.
+not try to own your cover policy. Your cover automation can then decide whether
+that helper should open covers, keep them closed, or restore the previous scene.
 
 ## Enrichment
 
