@@ -797,6 +797,43 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertNotIn("эс пи эй ар", candidate.announcement)
         self.assert_tts_has_no_latin(candidate.announcement)
 
+    def test_french_air_force_hercules_announcement_is_readable(self) -> None:
+        enrichment = {
+            "aircraft_model": "C-130J-30 Hercules",
+            "aircraft_type": "C30J",
+            "aircraft_model_speech": logic.spoken_model("C-130J-30 Hercules", "C30J"),
+            "registration": "5847",
+            "registered_owner": "French Air Force",
+            "operator_flag_code": "CTM",
+            "spoken_flight": logic.spoken_flight("CTM2085", airline_icao="CTM"),
+        }
+        service_type, confidence, reason = logic.classify_service_type(enrichment)
+        enrichment["service_type"] = service_type
+        enrichment["service_type_confidence"] = confidence
+        enrichment["service_type_reason"] = reason
+
+        candidate = logic.interest_candidate(
+            {
+                "hex": "3b77e6",
+                "flight": "CTM2085",
+                "alt_baro": 15000,
+                "seen": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment=enrichment,
+        )
+
+        assert candidate is not None
+        self.assertEqual(service_type, "military")
+        self.assertEqual(candidate.phase, "military_visible")
+        self.assertIn("французские ВВС два ноль восемь пять", candidate.announcement)
+        self.assertIn("Си-сто тридцать Геркулес", candidate.announcement)
+        self.assertNotIn("Френч", candidate.announcement)
+        self.assertNotIn("Форке", candidate.announcement)
+        self.assert_tts_has_no_latin(candidate.announcement)
+
     def test_civil_silk_way_il76_is_cargo_not_military(self) -> None:
         enrichment = {
             "airline_name": "Silk Way Airlines",

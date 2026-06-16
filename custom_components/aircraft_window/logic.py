@@ -716,11 +716,13 @@ MILITARY_OPERATOR_SPEECH_RU = {
     "IAM": "итальянские ВВС",
     "GAF": "немецкие ВВС",
     "FAF": "французские ВВС",
+    "CTM": "французские ВВС",
     "AME": "испанские ВВС",
     "THK": "турецкие ВВС",
 }
 
 MILITARY_OWNER_SPEECH_RU = {
+    "french air force": "французские ВВС",
     "united states air force": "ВВС США",
     "us air force": "ВВС США",
     "u.s. air force": "ВВС США",
@@ -1786,6 +1788,13 @@ def airline_speech(airline_name: str) -> str:
 def spoken_model(model: str, aircraft_type: str = "") -> str:
     """Turn common aircraft model strings into Russian TTS-friendly text."""
     text = f"{model} {aircraft_type}".upper()
+    if (
+        "C-130" in text
+        or "C130" in text
+        or "C30J" in text
+        or "HERCULES" in text
+    ):
+        return "Си-сто тридцать Геркулес"
     if "C-12" in text or "C12" in text or "HURON" in text:
         return "Си-двенадцать Хьюрон"
     if "TU-204" in text or "T204" in text:
