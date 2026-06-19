@@ -75,6 +75,7 @@ from .logic import (
     make_key,
     movement_family,
     normalized_airport_city,
+    parse_float,
     pick_candidate,
     spoken_flight,
     spoken_model,
@@ -153,6 +154,10 @@ class AircraftWindowRuntimeData:
 class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
     """Fetch and classify aircraft data."""
 
+    _EMERGENCY_SQUAWK_CONFIRM_SECONDS = 30.0
+    _EMERGENCY_SQUAWK_CONFIRM_SNAPSHOTS = 2
+    _EMERGENCY_SQUAWK_CONFIRM_MESSAGE_DELTA = 1.0
+
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
         self.entry = entry
@@ -162,6 +167,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         self._last_announced_by_airframe: dict[str, AircraftCandidate] = {}
         self._announced_event_keys_by_airframe: dict[str, set[str]] = {}
         self._held_routine_hex_candidates: dict[str, float] = {}
+        self._emergency_squawk_observations: dict[str, dict[str, float]] = {}
         options = self.options
         super().__init__(
             hass,
@@ -558,6 +564,12 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 source=source,
                 aircraft_count=len(aircraft_rows),
             )
+            if (
+                candidate is not None
+                and candidate.phase == "emergency_squawk"
+                and not self._emergency_squawk_confirmed(aircraft)
+            ):
+                continue
             if candidate is not None and (
                 best is None or candidate.confidence > best.confidence
             ):
@@ -596,6 +608,46 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             ):
                 best = candidate
         return best
+
+    def _emergency_squawk_confirmed(self, aircraft: dict[str, Any]) -> bool:
+        """Return true after an emergency squawk persists across fresh snapshots."""
+        squawk = str(aircraft.get("squawk") or "").strip().zfill(4)
+        hex_id = str(aircraft.get("hex") or "").strip().lower()
+        if not hex_id or squawk not in {"7500", "7600", "7700"}:
+            return False
+
+        now = time.monotonic()
+        key = f"{hex_id}:{squawk}"
+        messages = parse_float(aircraft.get("messages")) or 0.0
+        observations = getattr(self, "_emergency_squawk_observations", None)
+        if observations is None:
+            observations = self._emergency_squawk_observations = {}
+
+        stale_before = now - self._EMERGENCY_SQUAWK_CONFIRM_SECONDS
+        for observed_key, observed in list(observations.items()):
+            if observed.get("last_seen", 0.0) < stale_before:
+                observations.pop(observed_key, None)
+
+        observed = observations.get(key)
+        if observed is None:
+            observed = {
+                "first_seen": now,
+                "last_seen": now,
+                "snapshots": 1.0,
+                "first_messages": messages,
+                "last_messages": messages,
+            }
+            observations[key] = observed
+            return False
+
+        observed["last_seen"] = now
+        observed["snapshots"] = observed.get("snapshots", 0.0) + 1.0
+        observed["last_messages"] = max(messages, observed.get("last_messages", 0.0))
+        message_delta = observed["last_messages"] - observed.get("first_messages", messages)
+        return (
+            observed["snapshots"] >= self._EMERGENCY_SQUAWK_CONFIRM_SNAPSHOTS
+            and message_delta >= self._EMERGENCY_SQUAWK_CONFIRM_MESSAGE_DELTA
+        )
 
     async def _async_cache(self) -> dict[str, Any]:
         """Load persistent enrichment cache."""

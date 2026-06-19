@@ -113,6 +113,46 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             {},
         )
 
+    def test_emergency_squawk_requires_repeated_fresh_observation(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake._emergency_squawk_observations = {}
+        row = {"hex": "151ff4", "squawk": "7700", "messages": 381}
+
+        self.assertFalse(fake._emergency_squawk_confirmed(row))
+        self.assertFalse(fake._emergency_squawk_confirmed(row))
+        self.assertTrue(
+            fake._emergency_squawk_confirmed({**row, "messages": 382})
+        )
+
+    async def test_emergency_squawk_single_decoded_impulse_does_not_become_candidate(
+        self,
+    ) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake._emergency_squawk_observations = {}
+        aircraft_rows = [
+            {
+                "hex": "151ff4",
+                "flight": "AFL2145",
+                "squawk": "7700",
+                "alt_baro": 35000,
+                "seen": 0.1,
+                "messages": 381,
+            }
+        ]
+
+        with patch.object(fake, "_async_enrich_aircraft", return_value={}):
+            candidate = await fake._async_pick_interest_candidate(
+                aircraft_rows,
+                source="test",
+                enable_enrichment=True,
+            )
+
+        self.assertIsNone(candidate)
+
     def test_airport_board_route_rejects_wrong_local_direction(self) -> None:
         fake = coordinator.AircraftWindowCoordinator.__new__(
             coordinator.AircraftWindowCoordinator
