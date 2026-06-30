@@ -109,6 +109,44 @@ MAPPING_REVIEW_MAX_ITEMS = 80
 MAPPING_REVIEW_VISIBLE_LIMIT = 24
 
 
+def _cache_entry_ttl_seconds(key: str, entry: dict[str, Any]) -> int | None:
+    """Return the effective TTL for a persistent cache entry."""
+    if key == MAPPING_REVIEW_CACHE_KEY:
+        return None
+    if key.startswith("batumi-airport-board:"):
+        return AIRPORT_BOARD_CACHE_SECONDS
+    if key.startswith("airport-data-year:"):
+        return BUILT_YEAR_CACHE_SECONDS
+    if entry.get("error") is True:
+        return EXTERNAL_LOOKUP_ERROR_CACHE_SECONDS
+    if key.startswith("callsign:"):
+        return ROUTE_CACHE_SECONDS
+    if key.startswith(("aircraft:", "hexdb-aircraft:", "airplanes-live-aircraft:")):
+        return AIRCRAFT_CACHE_SECONDS
+    return None
+
+
+def _prune_expired_cache_entries(cache: dict[str, Any], *, now: int | None = None) -> int:
+    """Remove expired known cache entries in-place and return the removal count."""
+    current_time = int(time.time()) if now is None else now
+    expired: list[str] = []
+    for key, entry in cache.items():
+        if not isinstance(entry, dict):
+            continue
+        ttl_seconds = _cache_entry_ttl_seconds(key, entry)
+        if ttl_seconds is None:
+            continue
+        try:
+            fetched_at = int(entry.get("fetched_at", 0))
+        except (TypeError, ValueError):
+            fetched_at = 0
+        if fetched_at <= 0 or current_time - fetched_at >= ttl_seconds:
+            expired.append(key)
+    for key in expired:
+        cache.pop(key, None)
+    return len(expired)
+
+
 def _prefetch_score(row: dict[str, Any]) -> tuple[int, float, float, str]:
     """Return a priority score for receiver-wide background enrichment."""
     flight = flight_label(row).replace(" ", "").upper()
@@ -705,6 +743,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
     async def _async_save_cache(self) -> None:
         """Save persistent enrichment cache."""
         if self._cache is not None:
+            _prune_expired_cache_entries(self._cache)
             await self._store.async_save(self._cache)
 
     async def _async_mapping_review_items(self) -> list[dict[str, Any]]:
@@ -1707,6 +1746,10 @@ class EnrichmentPrefetchCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             deadline=deadline,
         )
         schedule_preopen = self.aircraft._scheduled_preopen_result(board)
+        cache = await self.aircraft._async_cache()
+        cache_pruned = _prune_expired_cache_entries(cache)
+        if cache_pruned:
+            await self.aircraft._async_save_cache()
         prefetch_status = {
             "state": "ok",
             "prefetch_candidates": len(rows),
@@ -1722,6 +1765,8 @@ class EnrichmentPrefetchCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "mapping_review_count": len(mapping_review),
             "mapping_review_new": len(mapping_review_new),
             "mapping_review_items": mapping_review[:20],
+            "cache_entries": len(cache),
+            "cache_pruned": cache_pruned,
             "updated_at": int(time.time()),
         }
         return {

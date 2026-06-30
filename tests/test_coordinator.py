@@ -121,6 +121,64 @@ class PrefetchSelectionTest(unittest.TestCase):
         self.assertEqual(selected[0]["hex"], "222222")
 
 
+class CachePruneTest(unittest.TestCase):
+    """Verify persistent cache TTLs also clean old entries from disk."""
+
+    def test_prune_expired_known_cache_entries(self) -> None:
+        now = 10_000_000
+        cache: dict[str, Any] = {
+            "batumi-airport-board:01.01.2026:departure": {
+                "fetched_at": now - coordinator.AIRPORT_BOARD_CACHE_SECONDS - 1,
+                "payload": {},
+            },
+            "callsign:PGT48DK": {
+                "fetched_at": now - coordinator.ROUTE_CACHE_SECONDS + 1,
+                "payload": {"ok": True},
+            },
+            "aircraft:4BB875": {
+                "fetched_at": now - coordinator.AIRCRAFT_CACHE_SECONDS - 1,
+                "payload": {"ok": True},
+            },
+            "airport-data-year:TC-NCU": {
+                "fetched_at": now - coordinator.BUILT_YEAR_CACHE_SECONDS + 1,
+                "year": 2021,
+            },
+            coordinator.MAPPING_REVIEW_CACHE_KEY: [{"key": "keep"}],
+            "unknown-old-shape": {"fetched_at": 1, "payload": {"keep": True}},
+        }
+
+        pruned = coordinator._prune_expired_cache_entries(cache, now=now)
+
+        self.assertEqual(pruned, 2)
+        self.assertNotIn("batumi-airport-board:01.01.2026:departure", cache)
+        self.assertNotIn("aircraft:4BB875", cache)
+        self.assertIn("callsign:PGT48DK", cache)
+        self.assertIn("airport-data-year:TC-NCU", cache)
+        self.assertIn(coordinator.MAPPING_REVIEW_CACHE_KEY, cache)
+        self.assertIn("unknown-old-shape", cache)
+
+    def test_prune_error_entries_with_short_ttl(self) -> None:
+        now = 10_000_000
+        cache: dict[str, Any] = {
+            "callsign:PGT48DK": {
+                "fetched_at": now - coordinator.EXTERNAL_LOOKUP_ERROR_CACHE_SECONDS - 1,
+                "payload": {},
+                "error": True,
+            },
+            "callsign:VRH6823": {
+                "fetched_at": now - coordinator.EXTERNAL_LOOKUP_ERROR_CACHE_SECONDS + 1,
+                "payload": {},
+                "error": True,
+            },
+        }
+
+        pruned = coordinator._prune_expired_cache_entries(cache, now=now)
+
+        self.assertEqual(pruned, 1)
+        self.assertNotIn("callsign:PGT48DK", cache)
+        self.assertIn("callsign:VRH6823", cache)
+
+
 class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
     """Verify Batumi Airport board matching and aggregation."""
 
