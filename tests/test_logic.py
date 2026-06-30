@@ -377,7 +377,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
             {
                 "airline_name": "RED WINGS AIRLINES",
                 "destination_iata": "ZIA",
-                "destination_speech": "Жуковский",
+                "destination_speech": "подмосковный Жуковский",
                 "spoken_flight": "пять пять ноль",
                 "service_type": "passenger",
                 "service_type_confidence": 0.74,
@@ -385,7 +385,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
 
         self.assertIn("Вылетает пассажирский рейс Ред Вингс.", text)
-        self.assertIn("В Жуковский", text)
+        self.assertIn("В подмосковный Жуковский", text)
         self.assertNotIn("пять пять ноль", text)
 
     def test_routine_aircraft_without_context_is_silent(self) -> None:
@@ -1608,11 +1608,32 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
         self.assertEqual(
             logic.airport_speech({"municipality": "Moscow Zhukovsky"}, direction="to"),
-            "Жуковский",
+            "подмосковный Жуковский",
         )
         self.assertEqual(
             logic.airport_speech({"municipality": "Moscow-Zhukovsky"}, direction="from"),
-            "Жуковского",
+            "подмосковного Жуковского",
+        )
+        self.assertEqual(
+            logic.airport_speech(
+                {
+                    "iata_code": "ZIA",
+                    "municipality": "Moscow Zhukovsky",
+                    "name": "Zhukovsky International Airport",
+                },
+                direction="from",
+            ),
+            "подмосковного Жуковского",
+        )
+        self.assertEqual(
+            logic.airport_route_speech(
+                {
+                    "iata_code": "ZIA",
+                    "municipality": "Moscow Zhukovsky",
+                    "name": "Zhukovsky International Airport",
+                },
+            ),
+            "подмосковный Жуковский",
         )
         self.assertEqual(
             logic.airport_speech(

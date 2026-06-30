@@ -48,7 +48,7 @@ CITY_FROM_RU = {
     "Milan": "Милана",
     "Minsk": "Минска",
     "Moscow": "Москвы",
-    "Moscow Zhukovsky": "Жуковского",
+    "Moscow Zhukovsky": "подмосковного Жуковского",
     "Mumbai": "Мумбаи",
     "Natakhtari": "Натахтари",
     "New Delhi": "Нью-Дели",
@@ -79,7 +79,7 @@ CITY_FROM_RU = {
     "Wroclaw": "Вроцлава",
     "Yekaterinburg": "Екатеринбурга",
     "Yerevan": "Еревана",
-    "Zhukovsky": "Жуковского",
+    "Zhukovsky": "подмосковного Жуковского",
 }
 
 CITY_TO_RU = {
@@ -121,7 +121,7 @@ CITY_TO_RU = {
     "Milan": "Милан",
     "Minsk": "Минск",
     "Moscow": "Москву",
-    "Moscow Zhukovsky": "Жуковский",
+    "Moscow Zhukovsky": "подмосковный Жуковский",
     "Mumbai": "Мумбаи",
     "Natakhtari": "Натахтари",
     "New Delhi": "Нью-Дели",
@@ -152,7 +152,7 @@ CITY_TO_RU = {
     "Wroclaw": "Вроцлав",
     "Yekaterinburg": "Екатеринбург",
     "Yerevan": "Ереван",
-    "Zhukovsky": "Жуковский",
+    "Zhukovsky": "подмосковный Жуковский",
 }
 
 CITY_ROUTE_RU = {
@@ -194,7 +194,7 @@ CITY_ROUTE_RU = {
     "Milan": "Милан",
     "Minsk": "Минск",
     "Moscow": "Москва",
-    "Moscow Zhukovsky": "Жуковский",
+    "Moscow Zhukovsky": "подмосковный Жуковский",
     "Mumbai": "Мумбаи",
     "Natakhtari": "Натахтари",
     "New Delhi": "Нью-Дели",
@@ -225,7 +225,7 @@ CITY_ROUTE_RU = {
     "Wroclaw": "Вроцлав",
     "Yekaterinburg": "Екатеринбург",
     "Yerevan": "Ереван",
-    "Zhukovsky": "Жуковский",
+    "Zhukovsky": "подмосковный Жуковский",
 }
 
 DIGIT_RU = {
@@ -382,6 +382,7 @@ AIRPORT_CODE_FROM_RU = {
     "TLV": "Бен Гуриона",
     "WAW": "Варшавы",
     "WRO": "Вроцлава",
+    "ZIA": "подмосковного Жуковского",
 }
 
 AIRPORT_CODE_TO_RU = {
@@ -400,6 +401,7 @@ AIRPORT_CODE_TO_RU = {
     "TLV": "Бен Гурион",
     "WAW": "Варшаву",
     "WRO": "Вроцлав",
+    "ZIA": "подмосковный Жуковский",
 }
 
 AIRPORT_CODE_ROUTE_RU = {
@@ -436,7 +438,7 @@ AIRPORT_CODE_ROUTE_RU = {
     "VKO": "Москва, Внуково",
     "WAW": "Варшава",
     "WRO": "Вроцлав",
-    "ZIA": "Жуковский",
+    "ZIA": "подмосковный Жуковский",
 }
 
 AIRPORT_DETAIL_SPEECH_RU = {
@@ -444,7 +446,6 @@ AIRPORT_DETAIL_SPEECH_RU = {
     "EVN": "Звартноц",
     "SVO": "Шереметьево",
     "VKO": "Внуково",
-    "ZIA": "Жуковский",
 }
 
 AIRPORT_NAME_DETAIL_SPEECH_RU = {
@@ -452,11 +453,9 @@ AIRPORT_NAME_DETAIL_SPEECH_RU = {
     "Moscow Domodedovo Airport": "Домодедово",
     "Moscow Sheremetyevo Airport": "Шереметьево",
     "Moscow Vnukovo Airport": "Внуково",
-    "Moscow Zhukovsky Airport": "Жуковский",
     "Sheremetyevo International Airport": "Шереметьево",
     "Vnukovo International Airport": "Внуково",
     "Zvartnots International Airport": "Звартноц",
-    "Zhukovsky International Airport": "Жуковский",
 }
 
 AIRLINE_SPEECH_RU = {

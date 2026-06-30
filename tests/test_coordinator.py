@@ -340,7 +340,7 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(attrs["route_source"], "batumi_airport_board")
         self.assertEqual(attrs["route_summary"], "ZIA \u2192 BUS")
-        self.assertEqual(attrs["origin_speech"], "Жуковского, Жуковский")
+        self.assertEqual(attrs["origin_speech"], "подмосковного Жуковского")
         self.assertEqual(attrs["destination_speech"], "Батуми")
 
     def test_handle_candidate_event_suppresses_callsign_only_followup(self) -> None:
@@ -1217,7 +1217,7 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(attrs["airline_name"], "RED WINGS AIRLINES")
         self.assertEqual(attrs["origin_speech"], "Батуми")
-        self.assertEqual(attrs["destination_speech"], "Жуковский")
+        self.assertEqual(attrs["destination_speech"], "подмосковный Жуковский")
         self.assertEqual(attrs["route_summary"], "BUS → ZIA")
 
     def test_airport_board_route_uses_tlv_airport_pronunciation(self) -> None:
