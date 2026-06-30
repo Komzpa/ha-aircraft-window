@@ -1717,6 +1717,23 @@ class AircraftWindowLogicTest(unittest.TestCase):
             logic.extract_airport_data_year("<b>Year built:</b></td><td>2012</td>"),
             2012,
         )
+        self.assertEqual(
+            logic.extract_airport_data_year(
+                "Year built</td>\n                            <td>2021"
+            ),
+            2021,
+        )
+        self.assertEqual(
+            logic.extract_airport_data_year(
+                "<title>Aircraft Data TC-NCU, 2021 Airbus A320-251N</title>"
+            ),
+            2021,
+        )
+        self.assertEqual(logic.KNOWN_BUILT_YEAR_BY_REGISTRATION["EP-VAI"], 1997)
+        self.assertEqual(
+            logic.spoken_year(logic.KNOWN_BUILT_YEAR_BY_REGISTRATION["EP-VAI"]),
+            "тысяча девятьсот девяносто седьмого года",
+        )
         self.assertEqual(logic.spoken_year(1990), "тысяча девятьсот девяностого года")
 
 

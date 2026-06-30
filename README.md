@@ -156,7 +156,7 @@ When enabled, Aircraft Window uses short cached requests to public data sources:
 
 - `api.adsbdb.com` for route, airline, model, and registration.
 - `hexdb.io` as a fallback aircraft lookup.
-- `airport-data.com` for built year by registration.
+- `airport-data.com` and curated local registration fallbacks for built year.
 
 If those sources are slow or unavailable, the local aircraft candidate still
 works; the announcement just contains less detail.

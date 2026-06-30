@@ -861,6 +861,7 @@ HELICOPTER_TOKENS = (
 
 YEAR_RU = {
     1990: "тысяча девятьсот девяностого года",
+    1997: "тысяча девятьсот девяносто седьмого года",
     2000: "двухтысячного года",
     2001: "две тысячи первого года",
     2002: "две тысячи второго года",
@@ -891,6 +892,7 @@ YEAR_RU = {
 }
 
 KNOWN_BUILT_YEAR_BY_REGISTRATION: dict[str, int] = {
+    "EP-VAI": 1997,
     "OK-VAA": 1990,
 }
 
@@ -2766,5 +2768,16 @@ def pick_candidate(
 
 def extract_airport_data_year(html: str) -> int | None:
     """Extract airport-data.com built year from an aircraft HTML page."""
-    match = re.search(r"<b>Year built:</b></td><td>(\d{4})</td>", html)
+    match = re.search(
+        r"(?:>|^)\s*(?:<b>\s*)?Year built:?\s*(?:</b>\s*)?</td>\s*<td>\s*(\d{4})\b",
+        html,
+        re.IGNORECASE,
+    )
+    if match:
+        return int(match.group(1))
+    match = re.search(
+        r"<title>\s*Aircraft Data [^,<]+,\s*(\d{4})\b",
+        html,
+        re.IGNORECASE,
+    )
     return int(match.group(1)) if match else None
