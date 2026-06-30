@@ -2134,7 +2134,9 @@ def build_announcement(
     enrichment: dict[str, Any],
 ) -> str:
     """Build the short spoken announcement."""
-    if phase == "no_position_nearby":
+    if phase == "no_position_nearby" and (
+        not has_route_details(enrichment) or confidence < 0.68
+    ):
         return ""
     if phase in {
         "positioned_approach",
@@ -2193,7 +2195,14 @@ def build_announcement(
         else:
             base = "Информация для наблюдения: рейс через Кутаиси"
     elif phase == "no_position_nearby":
-        base = "Рядом самолёт без координат"
+        origin_iata = str(enrichment.get("origin_iata") or "").strip().upper()
+        destination_iata = str(enrichment.get("destination_iata") or "").strip().upper()
+        if origin_iata == "BUS":
+            base = "Приёмник видит вылет без координат"
+        elif destination_iata == "BUS":
+            base = "Приёмник видит прилёт без координат"
+        else:
+            base = "Приёмник видит самолёт без координат"
     elif phase == "positioned_approach":
         base = "Заходит на посадку"
     elif phase == "positioned_landing":

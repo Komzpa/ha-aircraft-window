@@ -74,7 +74,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("две тысячи девятнадцатого года", candidate.announcement)
         self.assert_tts_has_no_latin(candidate.announcement)
 
-    def test_no_position_candidate_with_route_context_is_silent(self) -> None:
+    def test_no_position_candidate_with_route_context_can_announce(self) -> None:
         candidate = logic.pick_candidate(
             [
                 {
@@ -96,7 +96,13 @@ class AircraftWindowLogicTest(unittest.TestCase):
             enrich=lambda _aircraft: {
                 "airline_name": "Red Wings",
                 "origin_speech": "Сочи",
+                "origin_name": "Sochi",
                 "destination_speech": "Батуми",
+                "destination_name": "Batumi (BUS)",
+                "origin_iata": "AER",
+                "destination_iata": "BUS",
+                "route_summary": "AER → BUS",
+                "route_source": "test",
                 "aircraft_model": "Tupolev Tu-214",
                 "aircraft_type": "T214",
                 "aircraft_model_speech": "Ту-двести четырнадцать",
@@ -107,9 +113,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
 
         self.assertEqual(candidate.phase, "no_position_nearby")
-        self.assertEqual(candidate.announcement, "")
-        self.assertTrue(candidate.announcement_suppressed)
-        self.assertIn("receiver-only", candidate.announcement_suppression_reason)
+        self.assertIn("Приёмник видит прилёт без координат", candidate.announcement)
+        self.assertIn("Ред Вингс", candidate.announcement)
+        self.assertIn("Сочи - Батуми", candidate.announcement)
+        self.assertFalse(candidate.announcement_suppressed)
 
     def test_high_altitude_no_position_aircraft_is_not_candidate(self) -> None:
         candidate = logic.pick_candidate(

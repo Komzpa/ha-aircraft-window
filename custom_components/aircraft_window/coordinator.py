@@ -1022,11 +1022,38 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             for row in matches:
                 if str(row.get("flightLeg") or "").strip().upper() == preferred_leg:
                     return row
-            return {}
-        for row in matches:
-            if str(row.get("flightLeg") or "").strip().upper() == "DEPARTURE":
-                return row
-        return matches[0] if matches else {}
+        if matches:
+            if preferred_leg:
+                return {}
+            for row in matches:
+                if str(row.get("flightLeg") or "").strip().upper() == "DEPARTURE":
+                    return row
+            return matches[0]
+
+        suffix_has_digits = any(char.isdigit() for char in number)
+        suffix_is_numeric = number.isdigit()
+        if suffix_has_digits and not suffix_is_numeric and preferred_leg:
+            airline_leg_matches = [
+                row
+                for row in rows
+                if isinstance(row, dict)
+                and str(row.get("flightLeg") or "").strip().upper() == preferred_leg
+                and (
+                    board_airline
+                    in {
+                        str(row.get("airlineIata") or "").strip().upper(),
+                        str(row.get("airlineIcao") or "").strip().upper(),
+                    }
+                    or prefix
+                    in {
+                        str(row.get("airlineIata") or "").strip().upper(),
+                        str(row.get("airlineIcao") or "").strip().upper(),
+                    }
+                )
+            ]
+            if len(airline_leg_matches) == 1:
+                return airline_leg_matches[0]
+        return {}
 
     @staticmethod
     def _airport_board_leg_for_phase(phase: str) -> str:

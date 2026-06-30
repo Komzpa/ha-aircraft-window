@@ -973,6 +973,62 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(attrs["spoken_flight"], "четыре пять восемь эн")
         self.assertNotRegex(attrs["spoken_flight"], r"[A-Za-z]")
 
+    def test_batumi_board_match_falls_back_to_single_airline_departure(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        payload = {
+            "data": {
+                "flights": [
+                    {
+                        "flightNumber": "311",
+                        "flightLeg": "DEPARTURE",
+                        "airlineIata": "PC",
+                        "airlineIcao": "PGT",
+                    }
+                ]
+            }
+        }
+
+        row = fake._airport_board_match(
+            payload,
+            "PGT48DK",
+            preferred_leg="DEPARTURE",
+        )
+
+        self.assertEqual(row["flightNumber"], "311")
+
+    def test_batumi_board_match_keeps_ambiguous_airline_fallback_empty(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        payload = {
+            "data": {
+                "flights": [
+                    {
+                        "flightNumber": "311",
+                        "flightLeg": "DEPARTURE",
+                        "airlineIata": "PC",
+                        "airlineIcao": "PGT",
+                    },
+                    {
+                        "flightNumber": "313",
+                        "flightLeg": "DEPARTURE",
+                        "airlineIata": "PC",
+                        "airlineIcao": "PGT",
+                    },
+                ]
+            }
+        }
+
+        row = fake._airport_board_match(
+            payload,
+            "PGT48DK",
+            preferred_leg="DEPARTURE",
+        )
+
+        self.assertEqual(row, {})
+
     def test_parse_board_time_accepts_batumi_dot_format(self) -> None:
         parsed = coordinator.AircraftWindowCoordinator._parse_board_time(
             "25.05.2026 15:00",
