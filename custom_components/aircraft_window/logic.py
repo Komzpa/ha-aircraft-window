@@ -494,6 +494,7 @@ AIRLINE_SPEECH_RU = {
     "Flynas": "Флай Нас",
     "FlyOne Armenia": "Флай Уан Армения",
     "Emirates": "Эмирейтс",
+    "Genel Havacilik": "Генел Хаваджылык",
     "Georgian Airways": "Джорджиан Эйрвейз",
     "Georgian Wings": "Джорджиан Вингс",
     "Iran Aseman Airlines": "Иран Асеман",
@@ -503,6 +504,7 @@ AIRLINE_SPEECH_RU = {
     "Israir Airlines": "Исра Эйр",
     "Jazeera Airways": "Джазира",
     "Jordan Aviation": "Джордан Авиейшен",
+    "Jordanian Aviation": "Джорданиан Авиейшен",
     "Kish Air": "Киш Эйр",
     "KLM Royal Dutch Airlines": "Кей-Эл-Эм",
     "Nas Air": "Флай Нас",
@@ -514,6 +516,7 @@ AIRLINE_SPEECH_RU = {
     "Rossiya - Russian Airlines": "Россия",
     "S7 Airlines": "Эс-семь",
     "S7 Airlines (Siberia Airlines)": "Эс-семь",
+    "SCAT Air Company": "Скат",
     "SCAT Airlines": "Скат",
     "Scat": "Скат",
     "Silk Way Airlines": "Силк Вей",
@@ -550,6 +553,7 @@ AIRLINE_SPEECH_ALIASES_RU = {
     "red wings airlines": "Ред Вингс",
     "rossiya - russian airlines": "Россия",
     "s7 airlines (siberia airlines)": "Эс-семь",
+    "scat air company": "Скат",
     "speedwings executive jet gmbh": "Спидвингс Экзекьютив Джет",
 }
 
@@ -729,6 +733,7 @@ MILITARY_OWNER_SPEECH_RU = {
     "united states air force": "ВВС США",
     "us air force": "ВВС США",
     "u.s. air force": "ВВС США",
+    "turkish air force": "ВВС Турции",
     "romanian air force": "ВВС Румынии",
     "united states army": "Армия США",
     "us army": "Армия США",
@@ -1800,6 +1805,10 @@ def spoken_model(model: str, aircraft_type: str = "") -> str:
         return "Си-сто тридцать Геркулес"
     if "C-12" in text or "C12" in text or "HURON" in text:
         return "Си-двенадцать Хьюрон"
+    if "C-146" in text or "C146" in text:
+        return "Си-сто сорок шесть"
+    if "A400" in text:
+        return "Аэробус А-четыреста"
     if "TU-204" in text or "T204" in text:
         return "Ту-двести четыре"
     if "TU-214" in text or "T214" in text:
@@ -1874,6 +1883,8 @@ def spoken_model(model: str, aircraft_type: str = "") -> str:
         return "Суперджет"
     if "C208" in text or "CARAVAN" in text:
         return "Цессна Караван"
+    if "EUROFOX" in text or "AEROPRO" in text:
+        return "Еврофокс"
     if "L410" in text or "LET" in text:
         return "Лет четыреста десять Турболет, небольшой двухмоторный турбовинтовой"
     return tts_cyrillic_text(model.strip())
@@ -2064,15 +2075,46 @@ def has_routine_speech_context(enrichment: dict[str, Any]) -> bool:
     return any(str(enrichment.get(field) or "").strip() for field in context_fields)
 
 
+def suppress_unhelpful_flight_label(
+    flight: str,
+    *,
+    airline: str,
+    enrichment: dict[str, Any],
+) -> bool:
+    """Return true when the flight label is likely just receiver noise or a tail."""
+    if not airline:
+        return False
+    token = flight.strip().replace(" ", "").replace("-", "").upper()
+    if not token:
+        return False
+    if _is_hex_token(token):
+        return True
+    if re.fullmatch(r"[A-Z]{4,}", token):
+        return True
+    prefix_match = re.fullmatch(r"([A-Z]{4,})[0-9A-Z]+", token)
+    return bool(
+        prefix_match
+        and prefix_match.group(1) not in CALLSIGN_PREFIX_SPEECH_RU
+        and is_military_aircraft(enrichment)
+    )
+
+
 def include_flight_number_in_speech(
     *,
     phase: str,
     airline: str,
     enrichment: dict[str, Any],
+    flight: str = "",
 ) -> bool:
     """Return true when the flight number adds useful spoken identity."""
     if not airline:
         return True
+    if suppress_unhelpful_flight_label(
+        flight,
+        airline=airline,
+        enrichment=enrichment,
+    ):
+        return False
     if phase in {
         "positioned_approach",
         "positioned_landing",
@@ -2167,6 +2209,12 @@ def build_announcement(
 
     if phase == "military_visible":
         operator = military_operator_speech(enrichment)
+        if suppress_unhelpful_flight_label(
+            label,
+            airline=operator,
+            enrichment=enrichment,
+        ):
+            flight_number = ""
         subject = " ".join(part for part in [operator, flight_number] if part)
     else:
         subject_parts = [airline]
@@ -2174,6 +2222,7 @@ def build_announcement(
             phase=phase,
             airline=airline,
             enrichment=enrichment,
+            flight=label,
         ):
             subject_parts.append(flight_number)
         subject = " ".join(part for part in subject_parts if part)
@@ -2287,6 +2336,7 @@ def build_followup_announcement(
             phase=current.phase,
             airline=airline,
             enrichment=current.as_dict(),
+            flight=current.flight,
         ):
             identity_parts.append(flight)
         identity = " ".join(part for part in identity_parts if part)

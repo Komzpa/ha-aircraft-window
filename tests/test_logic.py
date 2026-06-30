@@ -594,7 +594,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
             },
         )
 
-        self.assertIn("Вылетает бизнес-джет Бонэйр Хаваджылык ти си эс эйч и.", text)
+        self.assertIn("Вылетает бизнес-джет Бонэйр Хаваджылык.", text)
+        self.assertNotIn("ти си эс эйч и", text)
         self.assertIn("Хокер восемьсот пятьдесят икс пи", text)
         self.assertNotIn("125 850XP", text)
         self.assert_tts_has_no_latin(text)
@@ -1304,6 +1305,9 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(logic.airline_speech("S7 Airlines (Siberia Airlines)"), "Эс-семь")
         self.assertEqual(logic.airline_speech("RED WINGS AIRLINES"), "Ред Вингс")
         self.assertEqual(logic.airline_speech("GEORGIAN AIRWAYS"), "Джорджиан Эйрвейз")
+        self.assertEqual(logic.airline_speech("SCAT AIR COMPANY"), "Скат")
+        self.assertEqual(logic.airline_speech("Jordanian Aviation"), "Джорданиан Авиейшен")
+        self.assertEqual(logic.airline_speech("Genel Havacilik"), "Генел Хаваджылык")
         self.assertEqual(logic.airline_speech("Silk Way Airlines"), "Силк Вей")
         self.assertEqual(logic.airline_speech("Carpatair"), "Карпатэйр")
         self.assertEqual(
@@ -1319,6 +1323,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(
             logic.military_operator_speech({"registered_owner": "Romanian Air Force"}),
             "ВВС Румынии",
+        )
+        self.assertEqual(
+            logic.military_operator_speech({"registered_owner": "Turkish Air Force"}),
+            "ВВС Турции",
         )
 
     def test_georgian_airways_followup_does_not_spell_airline_letters(self) -> None:
@@ -1351,6 +1359,83 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("Джорджиан Эйрвейз", announcement)
         self.assertNotIn("джи и оу", announcement)
         self.assert_tts_has_no_latin(announcement)
+
+    def test_known_airline_names_do_not_spell_company_words(self) -> None:
+        scat = logic.build_announcement(
+            {"hex": "abc123", "flight": "SCT123"},
+            "positioned_approach",
+            0.58,
+            {
+                "airline_name": "SCAT AIR COMPANY",
+                "origin_speech": "Астаны",
+                "aircraft_model_speech": "Боинг семьсот тридцать семь",
+                "spoken_flight": "один два три",
+            },
+        )
+        jordanian = logic.build_announcement(
+            {"hex": "abc124", "flight": "JAV123"},
+            "positioned_approach",
+            0.58,
+            {
+                "airline_name": "Jordanian Aviation",
+                "origin_speech": "Аммана",
+                "aircraft_model_speech": "Боинг семьсот тридцать семь",
+                "spoken_flight": "один два три",
+            },
+        )
+
+        self.assertIn("Скат", scat)
+        self.assertIn("Джорданиан Авиейшен", jordanian)
+        self.assertNotIn("эс си эй ти", scat)
+        self.assertNotIn("эй ви ай", jordanian)
+        self.assert_tts_has_no_latin(scat)
+        self.assert_tts_has_no_latin(jordanian)
+
+    def test_unhelpful_registration_like_flight_label_is_not_spoken(self) -> None:
+        business = logic.build_announcement(
+            {"hex": "4b1818", "flight": "TCNYK"},
+            "positioned_approach",
+            0.58,
+            {
+                "airline_name": "Genel Havacilik",
+                "service_type": "business_jet",
+                "service_type_confidence": 0.9,
+                "aircraft_model_speech": "Хокер восемьсот пятьдесят икс пи",
+                "spoken_flight": logic.spoken_flight("TCNYK"),
+            },
+        )
+        hex_like = logic.build_announcement(
+            {"hex": "4caebb", "flight": "4CAEBB"},
+            "positioned_takeoff",
+            0.92,
+            {
+                "airline_name": "FlyArystan",
+                "aircraft_model_speech": "Аэробус триста двадцать",
+                "spoken_flight": logic.spoken_flight("4CAEBB"),
+            },
+        )
+        military = logic.build_announcement(
+            {"hex": "ae146a", "flight": "PAID16"},
+            "military_visible",
+            0.9,
+            {
+                "registered_owner": "United States Air Force",
+                "aircraft_model": "C-146A",
+                "aircraft_model_speech": logic.spoken_model("C-146A", "C146"),
+                "spoken_flight": logic.spoken_flight("PAID16"),
+            },
+        )
+
+        self.assertIn("Генел Хаваджылык", business)
+        self.assertNotIn("ти си эн уай кей", business)
+        self.assertIn("Флай Арыстан", hex_like)
+        self.assertNotIn("четыре си эй", hex_like)
+        self.assertIn("ВВС США", military)
+        self.assertNotIn("пи эй ай ди", military)
+        self.assertIn("Си-сто сорок шесть", military)
+        self.assert_tts_has_no_latin(business)
+        self.assert_tts_has_no_latin(hex_like)
+        self.assert_tts_has_no_latin(military)
         self.assertEqual(
             logic.airport_speech(
                 {
@@ -1607,6 +1692,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
             logic.spoken_model("Boeing 787-10", "B78X"),
             "Боинг семьсот восемьдесят семь",
         )
+        self.assertEqual(logic.spoken_model("AEROPRO Eurofox", ""), "Еврофокс")
         self.assertEqual(logic.spoken_model("IL-76TD", "IL76"), "Ил-семьдесят шесть")
         self.assertEqual(
             logic.spoken_model("Boeing 737 MAX 8", "B38M"),
