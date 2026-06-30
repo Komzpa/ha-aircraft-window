@@ -494,6 +494,7 @@ AIRLINE_SPEECH_RU = {
     "Flynas": "Флай Нас",
     "FlyOne Armenia": "Флай Уан Армения",
     "Emirates": "Эмирейтс",
+    "Georgian Airways": "Джорджиан Эйрвейз",
     "Georgian Wings": "Джорджиан Вингс",
     "Iran Aseman Airlines": "Иран Асеман",
     "Iraq Airways": "Иракские авиалинии",
@@ -544,6 +545,7 @@ AIRLINE_SPEECH_RU = {
 AIRLINE_SPEECH_ALIASES_RU = {
     "aeroflot russian airlines": "Аэрофлот",
     "arkia israel  airlines": "Аркия",
+    "georgian airways": "Джорджиан Эйрвейз",
     "klm royal dutch airlines": "Кей-Эл-Эм",
     "red wings airlines": "Ред Вингс",
     "rossiya - russian airlines": "Россия",
@@ -552,6 +554,7 @@ AIRLINE_SPEECH_ALIASES_RU = {
 }
 
 KNOWN_AIRLINE_BY_CALLSIGN_PREFIX = {
+    "TGZ": "Georgian Airways",
     "VAA": "Van Air Europe",
 }
 

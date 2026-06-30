@@ -1303,6 +1303,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(logic.airline_speech("KLM Royal Dutch Airlines"), "Кей-Эл-Эм")
         self.assertEqual(logic.airline_speech("S7 Airlines (Siberia Airlines)"), "Эс-семь")
         self.assertEqual(logic.airline_speech("RED WINGS AIRLINES"), "Ред Вингс")
+        self.assertEqual(logic.airline_speech("GEORGIAN AIRWAYS"), "Джорджиан Эйрвейз")
         self.assertEqual(logic.airline_speech("Silk Way Airlines"), "Силк Вей")
         self.assertEqual(logic.airline_speech("Carpatair"), "Карпатэйр")
         self.assertEqual(
@@ -1319,6 +1320,37 @@ class AircraftWindowLogicTest(unittest.TestCase):
             logic.military_operator_speech({"registered_owner": "Romanian Air Force"}),
             "ВВС Румынии",
         )
+
+    def test_georgian_airways_followup_does_not_spell_airline_letters(self) -> None:
+        previous = logic.AircraftCandidate(
+            state="no_position_nearby:51403f:TGZ506",
+            phase="no_position_nearby",
+            hex="51403f",
+            flight="TGZ506",
+            spoken_flight="пять ноль шесть",
+            event_key="no_position_nearby:51403f:TGZ506",
+        )
+        current = logic.AircraftCandidate(
+            state="no_position_nearby:51403f:TGZ506",
+            phase="no_position_nearby",
+            hex="51403f",
+            flight="TGZ506",
+            spoken_flight="пять ноль шесть",
+            airline_name="GEORGIAN AIRWAYS",
+            origin_iata="BUS",
+            origin_name="Batumi",
+            origin_speech="Батуми",
+            destination_iata="TBS",
+            destination_name="Tbilisi",
+            destination_speech="Тбилиси",
+            event_key="no_position_nearby:51403f:TGZ506",
+        )
+
+        announcement = logic.build_followup_announcement(previous, current)
+
+        self.assertIn("Джорджиан Эйрвейз", announcement)
+        self.assertNotIn("джи и оу", announcement)
+        self.assert_tts_has_no_latin(announcement)
         self.assertEqual(
             logic.airport_speech(
                 {
