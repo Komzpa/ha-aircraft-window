@@ -161,11 +161,15 @@ When enabled, Aircraft Window uses short cached requests to public data sources:
 If those sources are slow or unavailable, the local aircraft candidate still
 works; the announcement just contains less detail.
 
-The hot candidate scan uses only cached enrichment data, so slow route or
-aircraft lookups do not block the 2-second local receiver path. A background
-coordinator warms the same cache under a separate budget and also refreshes the
-Batumi airport board for scheduled curtain preopen state. Deadline misses are
-not stored as real network errors.
+The hot candidate scan prefers cached enrichment data, so slow route or aircraft
+lookups should not block the 2-second local receiver path. A background
+coordinator warms the same cache from airborne rows across the whole receiver
+feed, not only aircraft that are already near the window, and also refreshes the
+Batumi airport board for scheduled curtain preopen state. The default prefetch
+limit is `0`, meaning "all receiver rows within the time budget"; if a limit is
+configured, rows are prioritized by fresh callsign/hex/position/local-strength
+signals instead of raw dump1090 order. Deadline misses are not stored as real
+network errors.
 
 The same enrichment is used for special-interest matching and service
 classification. Military detection is best-effort and conservative: it uses

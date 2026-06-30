@@ -109,6 +109,53 @@ MAPPING_REVIEW_MAX_ITEMS = 80
 MAPPING_REVIEW_VISIBLE_LIMIT = 24
 
 
+def _prefetch_score(row: dict[str, Any]) -> tuple[int, float, float, str]:
+    """Return a priority score for receiver-wide background enrichment."""
+    flight = flight_label(row).replace(" ", "").upper()
+    hex_id = str(row.get("hex") or "").strip().upper()
+    seen = parse_float(row.get("seen"))
+    seen_pos = parse_float(row.get("seen_pos"))
+    altitude = parse_float(row.get("alt_baro"))
+    if altitude is None:
+        altitude = parse_float(row.get("alt_geom"))
+    rssi = parse_float(row.get("rssi"))
+    messages = parse_float(row.get("messages")) or 0.0
+
+    score = 0
+    if hex_id:
+        score += 20
+    if flight and flight != "UNKNOWN" and flight != hex_id:
+        score += 40
+    if row.get("lat") is not None and row.get("lon") is not None:
+        score += 10
+    if seen is not None and seen <= 10:
+        score += 8
+    if seen_pos is not None and seen_pos <= 30:
+        score += 5
+    if altitude is not None and altitude != 0 and altitude <= 12000:
+        score += 6
+    if rssi is not None and rssi >= -12:
+        score += 4
+    if messages >= 20:
+        score += 2
+    freshness = 999.0 if seen is None else seen
+    low_altitude = 999999.0 if altitude is None else altitude
+    return (score, -freshness, -messages, f"{flight}:{hex_id}:{low_altitude}")
+
+
+def _select_prefetch_rows(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    """Return receiver rows worth warming, sorted independently of dump1090 order."""
+    candidates = [
+        row
+        for row in rows
+        if str(row.get("hex") or "").strip()
+        and row.get("alt_baro") != "ground"
+        and row.get("alt_geom") != "ground"
+    ]
+    candidates.sort(key=_prefetch_score, reverse=True)
+    return candidates if limit == 0 else candidates[:limit]
+
+
 def _mapping_review_airport_value(name: str, code: str) -> str:
     """Return a compact airport review label without duplicating the IATA code."""
     if code and name and f"({code})" not in name.upper():
@@ -1602,7 +1649,7 @@ class EnrichmentPrefetchCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             rows = []
 
         limit = int(options.get(CONF_PREFETCH_LIMIT, DEFAULT_PREFETCH_LIMIT))
-        selected = rows if limit == 0 else rows[:limit]
+        selected = _select_prefetch_rows(rows, limit)
         semaphore = asyncio.Semaphore(4)
         warmed: list[str] = []
         failed = 0
@@ -1663,6 +1710,7 @@ class EnrichmentPrefetchCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         prefetch_status = {
             "state": "ok",
             "prefetch_candidates": len(rows),
+            "prefetch_selected": len(selected),
             "prefetch_limit": limit,
             "prefetch_warmed": len(warmed),
             "prefetch_failed": failed,

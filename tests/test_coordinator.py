@@ -84,6 +84,43 @@ _load_component_module("logic")
 coordinator = _load_component_module("coordinator")
 
 
+class PrefetchSelectionTest(unittest.TestCase):
+    """Verify background enrichment warms useful receiver rows first."""
+
+    def test_prefetch_limit_zero_selects_all_airborne_rows(self) -> None:
+        rows = [
+            {"hex": "aaaaaa", "flight": "AAA123", "alt_baro": 32000, "seen": 1},
+            {"hex": "bbbbbb", "flight": "BBB123", "alt_baro": "ground", "seen": 1},
+            {"hex": "", "flight": "CCC123", "alt_baro": 7000, "seen": 1},
+            {"hex": "dddddd", "flight": "", "alt_baro": 7000, "seen": 1},
+        ]
+
+        selected = coordinator._select_prefetch_rows(rows, 0)
+
+        self.assertEqual([row["hex"] for row in selected], ["aaaaaa", "dddddd"])
+
+    def test_prefetch_limited_rows_are_prioritized_not_first_n(self) -> None:
+        rows = [
+            {"hex": "111111", "flight": "", "alt_baro": 39000, "seen": 40, "messages": 1},
+            {
+                "hex": "222222",
+                "flight": "PGT48DK",
+                "alt_baro": 5200,
+                "lat": 41.6,
+                "lon": 41.4,
+                "seen": 0.2,
+                "seen_pos": 0.5,
+                "messages": 900,
+                "rssi": -8,
+            },
+            {"hex": "333333", "flight": "AFL2147", "alt_baro": 33000, "seen": 0.5},
+        ]
+
+        selected = coordinator._select_prefetch_rows(rows, 1)
+
+        self.assertEqual(selected[0]["hex"], "222222")
+
+
 class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
     """Verify Batumi Airport board matching and aggregation."""
 
