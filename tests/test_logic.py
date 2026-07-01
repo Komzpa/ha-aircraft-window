@@ -74,6 +74,49 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("две тысячи девятнадцатого года", candidate.announcement)
         self.assert_tts_has_no_latin(candidate.announcement)
 
+    def test_jazeera_kuwait_announcement_uses_speech_mappings(self) -> None:
+        aircraft = {
+            "hex": "706131",
+            "flight": "JZR615",
+            "lat": 41.62,
+            "lon": 41.60,
+            "alt_baro": 1400,
+            "baro_rate": -640,
+            "gs": 160,
+            "seen": 0.2,
+            "seen_pos": 0.2,
+        }
+
+        candidate = logic.pick_candidate(
+            [aircraft],
+            home_latitude=41.62,
+            home_longitude=41.62,
+            max_positioned_distance_km=8,
+            max_approach_distance_km=60,
+            max_approach_altitude_ft=10000,
+            max_no_position_seen_seconds=4,
+            source="test",
+            enrich=lambda _aircraft: {
+                "airline_name": "JAZEERA AİRWAYS",
+                "origin_speech": "Кувейта",
+                "origin_name": "Kuwait (KWI)",
+                "destination_speech": "Батуми",
+                "destination_name": "Batumi (BUS)",
+                "origin_iata": "KWI",
+                "destination_iata": "BUS",
+                "route_summary": "KWI → BUS",
+                "route_source": "test",
+                "aircraft_model_speech": "Аэробус триста двадцать",
+                "spoken_flight": logic.spoken_flight("JZR615", airline_icao="JZR"),
+            },
+        )
+
+        self.assertEqual(candidate.phase, "positioned_landing")
+        self.assertIn("Джазира", candidate.announcement)
+        self.assertIn("Из Кувейта", candidate.announcement)
+        self.assertNotIn("джей эй зет", candidate.announcement)
+        self.assert_tts_has_no_latin(candidate.announcement)
+
     def test_no_position_candidate_with_route_context_can_announce(self) -> None:
         candidate = logic.pick_candidate(
             [
@@ -1290,6 +1333,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
             ("Van Air Europe", "VAA"),
         )
         self.assertEqual(
+            logic.known_airline_for_callsign("JZR615"),
+            ("Jazeera Airways", "JZR"),
+        )
+        self.assertEqual(
             logic.known_route_for_callsign("VAA021")["route_summary"],
             "BUS → Natakhtari",
         )
@@ -1316,6 +1363,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(logic.airline_speech("Jordanian Aviation"), "Джорданиан Авиейшен")
         self.assertEqual(logic.airline_speech("Genel Havacilik"), "Генел Хаваджылык")
         self.assertEqual(logic.airline_speech("Silk Way Airlines"), "Силк Вей")
+        self.assertEqual(logic.airline_speech("JAZEERA AİRWAYS"), "Джазира")
+        self.assertTrue(logic.has_airline_speech_mapping("JAZEERA AİRWAYS"))
         self.assertEqual(logic.airline_speech("Carpatair"), "Карпатэйр")
         self.assertEqual(
             logic.airline_speech("Turkmenistan Airlines"),
@@ -1506,6 +1555,19 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 {"iata_code": "BRQ", "municipality": "Brno", "name": "Brno"}
             ),
             "Брно",
+        )
+        self.assertEqual(
+            logic.airport_speech(
+                {"iata_code": "KWI", "municipality": "Kuwait", "name": "Kuwait"},
+                direction="from",
+            ),
+            "Кувейта",
+        )
+        self.assertEqual(
+            logic.airport_route_speech(
+                {"iata_code": "KWI", "municipality": "Kuwait", "name": "Kuwait"}
+            ),
+            "Кувейт",
         )
         self.assertTrue(
             logic.has_airport_speech_mapping(

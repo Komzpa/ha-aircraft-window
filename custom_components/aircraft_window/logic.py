@@ -43,6 +43,7 @@ CITY_FROM_RU = {
     "Kopitnari": "Кутаиси",
     "Krasnodar International Airport": "Краснодара",
     "Krakow": "Кракова",
+    "Kuwait": "Кувейта",
     "Larnaca": "Ларнаки",
     "Madrid": "Мадрида",
     "Milan": "Милана",
@@ -116,6 +117,7 @@ CITY_TO_RU = {
     "Kopitnari": "Кутаиси",
     "Krasnodar International Airport": "Краснодар",
     "Krakow": "Краков",
+    "Kuwait": "Кувейт",
     "Larnaca": "Ларнаку",
     "Madrid": "Мадрид",
     "Milan": "Милан",
@@ -189,6 +191,7 @@ CITY_ROUTE_RU = {
     "Kopitnari": "Кутаиси",
     "Krasnodar International Airport": "Краснодар",
     "Krakow": "Краков",
+    "Kuwait": "Кувейт",
     "Larnaca": "Ларнака",
     "Madrid": "Мадрид",
     "Milan": "Милан",
@@ -375,6 +378,7 @@ AIRPORT_CODE_FROM_RU = {
     "FCO": "Рима",
     "IST": "Стамбула",
     "KTW": "Катовиц",
+    "KWI": "Кувейта",
     "KRR": "Краснодара",
     "SAW": "Стамбула, Сабиха Гёкчен",
     "SKX": "Саранска",
@@ -394,6 +398,7 @@ AIRPORT_CODE_TO_RU = {
     "FCO": "Рим",
     "IST": "Стамбул",
     "KTW": "Катовице",
+    "KWI": "Кувейт",
     "KRR": "Краснодар",
     "SAW": "Стамбул, Сабиха Гёкчен",
     "SKX": "Саранск",
@@ -423,6 +428,7 @@ AIRPORT_CODE_ROUTE_RU = {
     "KRR": "Краснодар",
     "KTW": "Катовице",
     "KUT": "Кутаиси",
+    "KWI": "Кувейт",
     "LCA": "Ларнака",
     "MAD": "Мадрид",
     "MXP": "Милан",
@@ -559,6 +565,7 @@ AIRLINE_SPEECH_ALIASES_RU = {
 KNOWN_AIRLINE_BY_CALLSIGN_PREFIX = {
     "TGZ": "Georgian Airways",
     "VAA": "Van Air Europe",
+    "JZR": "Jazeera Airways",
 }
 
 KNOWN_ROUTE_BY_CALLSIGN = {
@@ -1733,6 +1740,16 @@ def tts_cyrillic_text(text: str) -> str:
     return LATIN_TOKEN_RE.sub(_latin_token_speech_ru, text)
 
 
+def _speech_lookup_key(value: str) -> str:
+    """Return a Unicode-stable key for public aviation names."""
+    ascii_base = value.translate(LATIN_SPECIAL_BASE_CHARS)
+    decomposed = unicodedata.normalize("NFKD", ascii_base)
+    without_marks = "".join(
+        char for char in decomposed if unicodedata.category(char) != "Mn"
+    )
+    return " ".join(without_marks.casefold().split())
+
+
 def spoken_flight(flight: str, airline_icao: str = "", airline_iata: str = "") -> str:
     """Turn AIZ414/RWZ553 into a short TTS-friendly flight number."""
     token = flight.strip().replace(" ", "").upper()
@@ -1785,11 +1802,11 @@ def airline_speech(airline_name: str) -> str:
         return ""
     if name in AIRLINE_SPEECH_RU:
         return AIRLINE_SPEECH_RU[name]
-    folded = name.casefold()
+    folded = _speech_lookup_key(name)
     if folded in AIRLINE_SPEECH_ALIASES_RU:
         return AIRLINE_SPEECH_ALIASES_RU[folded]
     for known_name, speech in AIRLINE_SPEECH_RU.items():
-        if known_name.casefold() == folded:
+        if _speech_lookup_key(known_name) == folded:
             return speech
     return tts_cyrillic_text(name)
 
@@ -1930,10 +1947,10 @@ def has_airline_speech_mapping(airline_name: str) -> bool:
     name = " ".join(airline_name.strip().split())
     if not name:
         return True
-    folded = name.casefold()
+    folded = _speech_lookup_key(name)
     if name in AIRLINE_SPEECH_RU or folded in AIRLINE_SPEECH_ALIASES_RU:
         return True
-    return any(known_name.casefold() == folded for known_name in AIRLINE_SPEECH_RU)
+    return any(_speech_lookup_key(known_name) == folded for known_name in AIRLINE_SPEECH_RU)
 
 
 def has_airport_speech_mapping(airport: dict[str, Any] | None, *, direction: str) -> bool:
