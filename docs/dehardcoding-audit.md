@@ -103,7 +103,9 @@ Target shape:
 Current assumptions and status:
 
 - Kutaisi is now the default `WatchAirport` in `settings.py`, not a literal
-  branch in `interest_candidate`.
+  branch in `interest_candidate`. It is only inherited by the default Batumi
+  profile; other local-airport profiles start with no watched airports unless
+  `watch_airports` is explicitly configured.
 - Kinematic-only thresholds and terminal suppression are now in `WatchPolicy`.
 - Watched route airport codes are configurable through Home Assistant
   config/options. Kinematic thresholds and terminal suppression are also
@@ -112,8 +114,8 @@ Current assumptions and status:
 Target shape:
 
 - Add `watch_airports[]` / `watch_routes[]`, each with a reason label and phase
-  name. Default can include `KUT` for the current install, but a new user should
-  choose their own watched airports.
+  name. Default can include `KUT` for the current Batumi install, but a new
+  local airport should not inherit it silently.
 - Add a `special_interest_policy` object:
   kinematic thresholds, terminal suppression enabled/disabled, and optional
   per-airport overrides.

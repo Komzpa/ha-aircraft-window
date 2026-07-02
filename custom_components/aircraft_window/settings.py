@@ -697,11 +697,13 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
             default_polygon,
         ),
     )
+    default_watch_airports = (
+        ",".join(airport.iata for airport in defaults.watch_policy.watch_airports)
+        if local_iata == default_airport.iata.upper()
+        else ""
+    )
     watch_airports = _watch_airports_from_option(
-        options.get(
-            CONF_WATCH_AIRPORTS,
-            ",".join(airport.iata for airport in defaults.watch_policy.watch_airports),
-        )
+        options.get(CONF_WATCH_AIRPORTS, default_watch_airports)
     )
     return RuntimeSettings(
         local_airport=LocalAirportProfile(

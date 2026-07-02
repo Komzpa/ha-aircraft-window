@@ -395,6 +395,19 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(runtime_settings.local_airport.iata, "ABC")
         self.assertEqual(runtime_settings.local_airport.board_provider, "")
         self.assertEqual(runtime_settings.window_view.polygon_lon_lat, ())
+        self.assertEqual(runtime_settings.watch_policy.watch_airports, ())
+
+    def test_runtime_settings_keeps_explicit_watch_airports_for_other_local_airport(
+        self,
+    ) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {"local_airport_iata": "ABC", "watch_airports": "def"}
+        )
+
+        self.assertEqual(
+            [airport.iata for airport in runtime_settings.watch_policy.watch_airports],
+            ["DEF"],
+        )
 
     def test_runtime_settings_keeps_default_polygon_for_default_airport(self) -> None:
         runtime_settings = settings_module.runtime_settings_from_options({})
