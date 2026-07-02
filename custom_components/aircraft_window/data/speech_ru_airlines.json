@@ -107,5 +107,8 @@
     "s7 airlines (siberia airlines)": "Эс-семь",
     "scat air company": "Скат",
     "speedwings executive jet gmbh": "Спидвингс Экзекьютив Джет"
+  },
+  "callsign_prefix": {
+    "SPAR": "Спар"
   }
 }

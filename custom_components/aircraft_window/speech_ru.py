@@ -681,14 +681,29 @@ def load_airline_speech_data(
     filename: str = SPEECH_RU_AIRLINES_DATA_FILE,
 ) -> tuple[dict[str, str], dict[str, str]]:
     """Load built-in Russian airline speech tables from packaged data."""
-    raw_text = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
-    raw_data = json.loads(raw_text)
+    raw_data = _load_speech_data_file(filename)
     if not isinstance(raw_data, dict):
         return {}, {}
     return (
         _speech_string_map(raw_data.get("airline")),
         _speech_string_map(raw_data.get("airline_aliases"), fold_keys=True),
     )
+
+
+def _load_speech_data_file(filename: str) -> Any:
+    """Load one packaged speech data JSON file."""
+    raw_text = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
+    return json.loads(raw_text)
+
+
+def load_callsign_prefix_speech_data(
+    filename: str = SPEECH_RU_AIRLINES_DATA_FILE,
+) -> dict[str, str]:
+    """Load built-in Russian callsign prefix speech from packaged data."""
+    raw_data = _load_speech_data_file(filename)
+    if not isinstance(raw_data, dict):
+        return {}
+    return _speech_string_map(raw_data.get("callsign_prefix"))
 
 
 AIRLINE_SPEECH_RU, AIRLINE_SPEECH_ALIASES_RU = load_airline_speech_data()
@@ -719,9 +734,7 @@ MILITARY_OWNER_SPEECH_RU = {
     "us navy": "ВМС США",
 }
 
-CALLSIGN_PREFIX_SPEECH_RU = {
-    "SPAR": "Спар",
-}
+CALLSIGN_PREFIX_SPEECH_RU = load_callsign_prefix_speech_data()
 
 YEAR_RU = {
     1990: "тысяча девятьсот девяностого года",

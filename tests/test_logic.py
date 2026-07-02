@@ -761,6 +761,11 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(airline["Vanilla Sky"], "Ванилла Скай")
         self.assertEqual(aliases["red wings airlines"], "Ред Вингс")
 
+    def test_default_callsign_prefix_speech_loads_from_package_data(self) -> None:
+        callsign_prefix = speech_ru_module.load_callsign_prefix_speech_data()
+
+        self.assertEqual(callsign_prefix["SPAR"], "Спар")
+
     def test_runtime_settings_can_clear_default_polygon(self) -> None:
         runtime_settings = settings_module.runtime_settings_from_options(
             {"window_view_polygon_lon_lat_json": "[]"}

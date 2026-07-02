@@ -162,7 +162,7 @@ Current assumptions and status:
   `custom_components/aircraft_window/speech_ru.py`: city forms, airport forms,
   operator forms, callsign prefixes, aircraft-model phrases, military phrases,
   digits, years, and Latin transliteration. Built-in airline/operator-name
-  speech data now lives in
+  speech data and callsign-prefix speech now live in
   `custom_components/aircraft_window/data/speech_ru_airlines.json`, loaded by
   `speech_ru.py`.
 - `RussianSpeechPack` now groups the Russian lookup tables and selected helpers
@@ -196,8 +196,9 @@ Migration path:
 
 1. Partly done for speech data: move speech constants into structured in-repo
    modules without changing behavior; airline speech defaults now load from
-   packaged data. Later slices can move the remaining city/airport/callsign/
-   model/year tables from Python modules into data files.
+   packaged data, as do callsign-prefix speech defaults. Later slices can move
+   the remaining city/airport/model/year tables from Python modules into data
+   files.
 2. Done: add lookup wrappers that merge built-in Russian pack plus user
    overrides.
 3. Only then expose user-editable override options or storage.
