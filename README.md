@@ -185,9 +185,9 @@ The background prefetch can also collect visible unmapped speech values for
 maintenance. When enabled, `sensor.aircraft_window_enrichment_prefetch` records
 recent visible/projected/runway-staging aircraft whose operator, airport/city,
 callsign prefix, or aircraft model used fallback speech. This queue is meant for
-proactively filling `AIRLINE_SPEECH_RU`, airport speech tables,
-`CALLSIGN_PREFIX_SPEECH_RU`, `spoken_model()`, and the shared TTS stress
-lexicon before the next spoken announcement sounds wrong.
+proactively filling the built-in speech pack tables in
+`custom_components/aircraft_window/speech_ru.py`, `spoken_model()`, and the
+shared TTS stress lexicon before the next spoken announcement sounds wrong.
 
 ## Development
 

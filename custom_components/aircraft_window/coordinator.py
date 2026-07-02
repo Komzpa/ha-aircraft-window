@@ -868,7 +868,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     "kind": "airline",
                     "value": airline_name,
                     "fallback_speech": airline_speech(airline_name),
-                    "suggested_table": "AIRLINE_SPEECH_RU",
+                    "suggested_table": "speech_ru.AIRLINE_SPEECH_RU",
                     **context,
                 }
             )
@@ -892,9 +892,9 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                             direction=speech_direction,
                         ),
                         "suggested_table": (
-                            "AIRPORT_CODE_FROM_RU/CITY_FROM_RU"
+                            "speech_ru.AIRPORT_CODE_FROM_RU/CITY_FROM_RU"
                             if speech_direction == "from"
-                            else "AIRPORT_CODE_TO_RU/CITY_TO_RU"
+                            else "speech_ru.AIRPORT_CODE_TO_RU/CITY_TO_RU"
                         ),
                         **context,
                     }
@@ -907,7 +907,9 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         "kind": "route_airport",
                         "value": value,
                         "fallback_speech": tts_cyrillic_text(name or code),
-                        "suggested_table": "AIRPORT_CODE_ROUTE_RU/CITY_ROUTE_RU",
+                        "suggested_table": (
+                            "speech_ru.AIRPORT_CODE_ROUTE_RU/CITY_ROUTE_RU"
+                        ),
                         **context,
                     }
                 )
@@ -935,7 +937,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         "kind": "callsign_prefix",
                         "value": flight,
                         "fallback_speech": spoken,
-                        "suggested_table": "CALLSIGN_PREFIX_SPEECH_RU",
+                        "suggested_table": "speech_ru.CALLSIGN_PREFIX_SPEECH_RU",
                         **context,
                     }
                 )
