@@ -442,7 +442,7 @@ def _route_fallbacks_from_options(
         DEFAULT_ROUTE_FALLBACKS
         if include_builtin_routes
         else RouteFallbacks(
-            airline_by_callsign_prefix=DEFAULT_ROUTE_FALLBACKS.airline_by_callsign_prefix,
+            airline_by_callsign_prefix={},
             route_by_callsign={},
         )
     )

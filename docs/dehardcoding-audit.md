@@ -59,8 +59,9 @@ Current assumptions and status:
 - Built-in callsign and known-route fallbacks live in
   `custom_components/aircraft_window/route_fallbacks.py`; the current default
   data still includes Vanilla Sky `BUS <-> Natakhtari`, but those built-in
-  route-by-callsign fallbacks are only inherited by the default Batumi profile.
-  Other local-airport profiles use explicit route fallback overrides only.
+  callsign-prefix and route-by-callsign fallbacks are only inherited by the
+  default Batumi profile. Other local-airport profiles use explicit route
+  fallback overrides only.
 - Tests still group much of this under `BatumiAirportBoardTest`; canonical JSON
   provider coverage is present, but a richer provider registry/test split is
   still pending.

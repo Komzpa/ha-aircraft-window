@@ -406,6 +406,13 @@ class AircraftWindowLogicTest(unittest.TestCase):
             ),
             {},
         )
+        self.assertEqual(
+            logic.known_airline_for_callsign(
+                "VAA021",
+                route_fallbacks=runtime_settings.route_fallbacks,
+            ),
+            ("", ""),
+        )
 
     def test_runtime_settings_ignores_stored_default_airport_areas(
         self,
