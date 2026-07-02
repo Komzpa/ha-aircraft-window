@@ -754,6 +754,14 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "/en-EN/flights/arrival-flights",
         )
 
+    def test_aircraft_classification_loads_from_package_data(self) -> None:
+        classification = logic.load_aircraft_classification_data()
+
+        self.assertIn("Pegasus Airlines", classification.passenger_airlines)
+        self.assertIn("CL65", classification.business_jet_type_codes)
+        self.assertIn("medevac", classification.medevac_tokens)
+        self.assertEqual(classification.known_built_year_by_registration["EP-VAI"], 1997)
+
     def test_default_route_fallbacks_load_from_package_data(self) -> None:
         route_fallbacks = route_fallbacks_module.load_route_fallbacks_from_data_file()
 

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import math
 import re
 import time
 import unicodedata
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from .route_fallbacks import DEFAULT_ROUTE_FALLBACKS, RouteFallbacks
@@ -25,143 +27,99 @@ from .speech_ru import (
     RussianSpeechPack,
 )
 
-PASSENGER_AIRLINES = {
-    "Air Astana",
-    "Air Baltic",
-    "Air Samarkand",
-    "Arkia Israel Airlines",
-    "Arkia Israeli Airlines",
-    "Azimuth Airlines",
-    "Azerbaijan Airlines",
-    "Azerbaijan Airlines (Buta Airways)",
-    "AZAL",
-    "Belavia",
-    "Belavia Belarusian Airlines",
-    "Centrum Air",
-    "EL AL",
-    "El-Al Israel Airlines",
-    "El Al",
-    "FlyArystan",
-    "flydubai",
-    "Flydubai",
-    "Flynas",
-    "FlyOne Armenia",
-    "Israir",
-    "Israir Airlines",
-    "Jazeera Airways",
-    "KLM Royal Dutch Airlines",
-    "Nas Air",
-    "Pegasus Airlines",
-    "Red Wings",
-    "Rossiya - Russian Airlines",
-    "S7 Airlines",
-    "S7 Airlines (Siberia Airlines)",
-    "SCAT Airlines",
-    "Scat",
-    "Thai Airways International",
-    "Turkish Airlines",
-    "Uzbekistan Airways",
-    "Varesh Airlines",
-    "Wizz Air",
-}
+AIRCRAFT_CLASSIFICATION_DATA_FILE = "data/aircraft_classification.json"
 
-CARGO_OPERATOR_TOKENS = (
-    "cargo",
-    "cargolux",
-    "dhl",
-    "fedex",
-    "freight",
-    "silk way",
-    "silk way airlines",
-    "silk way west",
-    "sky cargo",
-    "skycargo",
-    "turkish cargo",
-    "ups",
-)
 
-CARGO_TYPE_TOKENS = (
-    " freighter",
-    "cargo",
-    "bdsf",
-    "bcf",
-    "pcf",
-    "-sf",
-    " sf ",
-)
+@dataclass(frozen=True, slots=True)
+class AircraftClassificationData:
+    """Built-in reference data for conservative aircraft classification."""
 
-BUSINESS_JET_TYPE_CODES = {
-    "BE40",
-    "C25A",
-    "C25B",
-    "C25C",
-    "C510",
-    "C525",
-    "C550",
-    "C560",
-    "C56X",
-    "C650",
-    "C680",
-    "C700",
-    "CL30",
-    "CL35",
-    "CL60",
-    "CL65",
-    "E50P",
-    "E545",
-    "E55P",
-    "F2TH",
-    "F900",
-    "FA10",
-    "FA20",
-    "FA50",
-    "G150",
-    "G200",
-    "G280",
-    "GL5T",
-    "GL6T",
-    "GL7T",
-    "GLF2",
-    "GLF3",
-    "GLF4",
-    "GLF5",
-    "GLF6",
-    "GLEX",
-    "H25A",
-    "H25B",
-    "H25C",
-    "LJ31",
-    "LJ35",
-    "LJ45",
-    "LJ55",
-    "LJ60",
-    "PRM1",
-}
+    passenger_airlines: frozenset[str]
+    cargo_operator_tokens: tuple[str, ...]
+    cargo_type_tokens: tuple[str, ...]
+    business_jet_type_codes: frozenset[str]
+    business_jet_model_tokens: tuple[str, ...]
+    military_owner_tokens: tuple[str, ...]
+    medevac_tokens: tuple[str, ...]
+    police_tokens: tuple[str, ...]
+    calibration_tokens: tuple[str, ...]
+    drone_tokens: tuple[str, ...]
+    tanker_tokens: tuple[str, ...]
+    helicopter_tokens: tuple[str, ...]
+    known_built_year_by_registration: dict[str, int]
 
-BUSINESS_JET_MODEL_TOKENS = (
-    "125 850XP",
-    "800XP",
-    "850XP",
-    "CHALLENGER",
-    "CITATION",
-    "FALCON",
-    "GLOBAL",
-    "GULFSTREAM",
-    "HAWKER",
-    "LEARJET",
-)
 
-MILITARY_OWNER_TOKENS = (
-    "air force",
-    "airforce",
-    "army",
-    "navy",
-    "military",
-    "defence",
-    "defense",
-    "ministerio de defensa",
-    "nato",
-)
+def _load_logic_data_file(filename: str) -> Any:
+    """Load one packaged logic data JSON file."""
+    raw_text = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
+    return json.loads(raw_text)
+
+
+def _string_tuple(raw: Any) -> tuple[str, ...]:
+    """Return non-empty strings from packaged list data."""
+    if not isinstance(raw, list):
+        return ()
+    return tuple(str(item).strip() for item in raw if str(item).strip())
+
+
+def _string_frozenset(raw: Any) -> frozenset[str]:
+    """Return a string frozenset from packaged list data."""
+    return frozenset(_string_tuple(raw))
+
+
+def _int_string_map(raw: Any) -> dict[str, int]:
+    """Return an upper-key integer map from packaged object data."""
+    if not isinstance(raw, dict):
+        return {}
+    result: dict[str, int] = {}
+    for key, value in raw.items():
+        token = str(key).strip().upper()
+        if not token:
+            continue
+        try:
+            result[token] = int(value)
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
+def load_aircraft_classification_data(
+    filename: str = AIRCRAFT_CLASSIFICATION_DATA_FILE,
+) -> AircraftClassificationData:
+    """Load built-in classification reference data from packaged JSON."""
+    raw_data = _load_logic_data_file(filename)
+    if not isinstance(raw_data, dict):
+        raw_data = {}
+    return AircraftClassificationData(
+        passenger_airlines=_string_frozenset(raw_data.get("passenger_airlines")),
+        cargo_operator_tokens=_string_tuple(raw_data.get("cargo_operator_tokens")),
+        cargo_type_tokens=_string_tuple(raw_data.get("cargo_type_tokens")),
+        business_jet_type_codes=_string_frozenset(
+            raw_data.get("business_jet_type_codes")
+        ),
+        business_jet_model_tokens=_string_tuple(
+            raw_data.get("business_jet_model_tokens")
+        ),
+        military_owner_tokens=_string_tuple(raw_data.get("military_owner_tokens")),
+        medevac_tokens=_string_tuple(raw_data.get("medevac_tokens")),
+        police_tokens=_string_tuple(raw_data.get("police_tokens")),
+        calibration_tokens=_string_tuple(raw_data.get("calibration_tokens")),
+        drone_tokens=_string_tuple(raw_data.get("drone_tokens")),
+        tanker_tokens=_string_tuple(raw_data.get("tanker_tokens")),
+        helicopter_tokens=_string_tuple(raw_data.get("helicopter_tokens")),
+        known_built_year_by_registration=_int_string_map(
+            raw_data.get("known_built_year_by_registration")
+        ),
+    )
+
+
+AIRCRAFT_CLASSIFICATION_DATA = load_aircraft_classification_data()
+PASSENGER_AIRLINES = AIRCRAFT_CLASSIFICATION_DATA.passenger_airlines
+CARGO_OPERATOR_TOKENS = AIRCRAFT_CLASSIFICATION_DATA.cargo_operator_tokens
+CARGO_TYPE_TOKENS = AIRCRAFT_CLASSIFICATION_DATA.cargo_type_tokens
+BUSINESS_JET_TYPE_CODES = AIRCRAFT_CLASSIFICATION_DATA.business_jet_type_codes
+BUSINESS_JET_MODEL_TOKENS = AIRCRAFT_CLASSIFICATION_DATA.business_jet_model_tokens
+MILITARY_OWNER_TOKENS = AIRCRAFT_CLASSIFICATION_DATA.military_owner_tokens
 
 DEFAULT_WINDOW_VIEW_LEAD_SECONDS = DEFAULT_RUNTIME_SETTINGS.window_view.lead_seconds
 DEFAULT_WINDOW_VIEW_PROJECTION_STEP_SECONDS = (
@@ -209,46 +167,10 @@ INTERESTING_SQUAWKS = {
     "7700": ("аварийная ситуация", "special squawk 7700"),
 }
 
-MEDEVAC_TOKENS = (
-    "air ambulance",
-    "ambulance",
-    "hems",
-    "lifeguard",
-    "medevac",
-    "medical",
-    "rescue",
-)
-
-POLICE_TOKENS = (
-    "gendarmerie",
-    "police",
-    "polizei",
-    "sheriff",
-    "state police",
-)
-
-CALIBRATION_TOKENS = (
-    "calibration",
-    "calibrator",
-    "flight check",
-    "flightcheck",
-    "nav check",
-    "navaid",
-    "radar calibration",
-)
-
-DRONE_TOKENS = (
-    "bayraktar",
-    "drone",
-    "orlan",
-    "rpa",
-    "shahid",
-    "shahed",
-    "tb2",
-    "uas",
-    "uav",
-    "unmanned",
-)
+MEDEVAC_TOKENS = AIRCRAFT_CLASSIFICATION_DATA.medevac_tokens
+POLICE_TOKENS = AIRCRAFT_CLASSIFICATION_DATA.police_tokens
+CALIBRATION_TOKENS = AIRCRAFT_CLASSIFICATION_DATA.calibration_tokens
+DRONE_TOKENS = AIRCRAFT_CLASSIFICATION_DATA.drone_tokens
 
 TRANSPORT_AIRCRAFT_MODEL_RE = re.compile(
     r"\b(?:"
@@ -259,31 +181,11 @@ TRANSPORT_AIRCRAFT_MODEL_RE = re.compile(
     r")\b"
 )
 
-TANKER_TOKENS = (
-    "a330 mrtt",
-    "kc-10",
-    "kc-135",
-    "kc-46",
-    "k35a",
-    "k35r",
-    "mrtt",
-    "tanker",
+TANKER_TOKENS = AIRCRAFT_CLASSIFICATION_DATA.tanker_tokens
+HELICOPTER_TOKENS = AIRCRAFT_CLASSIFICATION_DATA.helicopter_tokens
+KNOWN_BUILT_YEAR_BY_REGISTRATION = (
+    AIRCRAFT_CLASSIFICATION_DATA.known_built_year_by_registration
 )
-
-HELICOPTER_TOKENS = (
-    "helicopter",
-    "rotorcraft",
-    "robinson",
-    "airbus helicopters",
-    "bell helicopter",
-    "eurocopter",
-    "sikorsky",
-)
-
-KNOWN_BUILT_YEAR_BY_REGISTRATION: dict[str, int] = {
-    "EP-VAI": 1997,
-    "OK-VAA": 1990,
-}
 
 @dataclass(slots=True)
 class AircraftCandidate:

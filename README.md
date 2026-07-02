@@ -230,7 +230,9 @@ classification. Military detection is best-effort and conservative: it uses
 public operator prefixes and registered owner text instead of trying to infer
 mission intent from dual-use airframes. ADS-B emitter categories and aircraft
 type codes are treated as size/type hints, not proof that a flight is passenger,
-cargo, or military.
+cargo, or military. Built-in service-classification tokens, passenger-airline
+names, and known built-year overrides live in
+`custom_components/aircraft_window/data/aircraft_classification.json`.
 
 The background prefetch can also collect visible unmapped speech values for
 maintenance. When enabled, `sensor.aircraft_window_enrichment_prefetch` records
