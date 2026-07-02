@@ -103,7 +103,7 @@ def match_airport_board_row(
     payload: dict[str, Any],
     flight: str,
     *,
-    provider_id: str = BATUMI_AIRPORT_BOARD_PROVIDER,
+    provider_id: str = "",
     preferred_leg: str = "",
 ) -> dict[str, Any]:
     """Match a callsign to an airport board row."""

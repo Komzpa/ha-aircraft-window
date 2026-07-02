@@ -1178,6 +1178,30 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(arrival["path"]["destination"]["destinationIata"], "BUS")
         self.assertEqual(fallback["path"]["origin"]["originIata"], "BUS")
 
+    def test_airport_board_row_match_requires_provider(self) -> None:
+        board = {
+            "data": {
+                "flights": [
+                    {
+                        "airlineIata": "WZ",
+                        "airlineIcao": "RWZ",
+                        "flightNumber": "568",
+                        "flightLeg": "DEPARTURE",
+                    }
+                ],
+            }
+        }
+
+        self.assertEqual(coordinator.match_airport_board_row(board, "RWZ568"), {})
+        self.assertEqual(
+            coordinator.match_airport_board_row(
+                board,
+                "RWZ568",
+                provider_id="batumi_airport_board",
+            )["flightLeg"],
+            "DEPARTURE",
+        )
+
     def test_batumi_board_match_maps_flyone_callsign_prefix_to_board_code(self) -> None:
         board = {
             "data": {
