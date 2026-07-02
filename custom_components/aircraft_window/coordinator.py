@@ -1181,15 +1181,11 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         preferred_leg: str = "",
     ) -> dict[str, Any]:
         """Match a callsign to a configured airport board row."""
-        provider_id = getattr(
-            getattr(self.runtime_settings, "local_airport", None),
-            "board_provider",
-            BATUMI_AIRPORT_BOARD_PROVIDER,
-        )
+        provider_id = self.runtime_settings.local_airport.board_provider
         return match_airport_board_row(
             payload,
             flight,
-            provider_id=provider_id or BATUMI_AIRPORT_BOARD_PROVIDER,
+            provider_id=provider_id,
             preferred_leg=preferred_leg,
         )
 

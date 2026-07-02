@@ -974,6 +974,30 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(board, {})
 
+    def test_airport_board_match_disabled_for_empty_provider(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake._runtime_settings = settings.runtime_settings_from_options(
+            {"local_airport_iata": "ABC", "airport_board_provider": ""}
+        )
+        board = {
+            "data": {
+                "flights": [
+                    {
+                        "airlineIata": "WZ",
+                        "airlineIcao": "RWZ",
+                        "flightNumber": "568",
+                        "flightLeg": "DEPARTURE",
+                    }
+                ],
+            }
+        }
+
+        row = fake._airport_board_match(board, "RWZ568", preferred_leg="DEPARTURE")
+
+        self.assertEqual(row, {})
+
     async def test_json_airport_board_fetches_canonical_rows(self) -> None:
         class Response:
             async def __aenter__(self) -> Response:
