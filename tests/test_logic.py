@@ -1375,6 +1375,11 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(logic.airline_speech("China Southern Airlines"), "Чайна Саузерн")
         self.assertEqual(logic.airline_speech("Swiss International Air Lines"), "Свисс")
         self.assertEqual(logic.airline_speech("Cathay Pacific"), "Катай Пасифик")
+        self.assertEqual(
+            logic.airline_speech("Scandinavian Airlines System"),
+            "Скандинавские авиалинии",
+        )
+        self.assertEqual(logic.airline_speech("Asiana Airlines"), "Азиана")
         self.assertTrue(logic.has_airline_speech_mapping("JAZEERA AİRWAYS"))
         self.assertEqual(logic.airline_speech("Carpatair"), "Карпатэйр")
         self.assertEqual(
@@ -1581,6 +1586,15 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "Кувейт",
         )
         live_gap_airports = [
+            ("ICN", "Seoul", "Сеула", "Сеул", "Сеул"),
+            ("CPH", "Copenhagen", "Копенгагена", "Копенгаген", "Копенгаген"),
+            ("TIA", "Tirana", "Тираны", "Тирану", "Тирана"),
+            ("EIN", "Eindhoven", "Эйндховена", "Эйндховен", "Эйндховен"),
+            ("STR", "Stuttgart", "Штутгарта", "Штутгарт", "Штутгарт"),
+            ("SCO", "Aktau", "Актау", "Актау", "Актау"),
+            ("SGN", "Ho Chi Minh City", "Хошимина", "Хошимин", "Хошимин"),
+            ("MUC", "Munich", "Мюнхена", "Мюнхен", "Мюнхен"),
+            ("CGK", "Jakarta", "Джакарты", "Джакарту", "Джакарта"),
             ("BEY", "Beirut", "Бейрута", "Бейрут", "Бейрут"),
             ("PKX", "Beijing", "Пекина, Дасин", "Пекин, Дасин", "Пекин, Дасин"),
             ("ZRH", "Zurich", "Цюриха", "Цюрих", "Цюрих"),
