@@ -202,6 +202,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "adsbdb_base_url": "https://example.invalid/adsbdb/",
                 "hexdb_base_url": "https://example.invalid/hexdb/",
                 "airplanes_live_base_url": "https://example.invalid/airplanes/",
+                "airport_data_base_url": "https://example.invalid/airport-data/",
+                "built_year_cache_seconds": 99,
                 "airport_board_cache_seconds": 42,
                 "batumi_airport_board_base_url": "https://example.invalid/board/",
                 "speech_airline_overrides_json": '{"New Visible Air": "Нью Визибл"}',
@@ -282,6 +284,11 @@ class AircraftWindowLogicTest(unittest.TestCase):
             runtime_settings.providers.airplanes_live_base_url,
             "https://example.invalid/airplanes",
         )
+        self.assertEqual(
+            runtime_settings.providers.airport_data_base_url,
+            "https://example.invalid/airport-data",
+        )
+        self.assertEqual(runtime_settings.providers.built_year_cache_seconds, 99)
         self.assertEqual(runtime_settings.providers.airport_board_cache_seconds, 42)
         self.assertEqual(
             runtime_settings.providers.batumi_airport_board_base_url,

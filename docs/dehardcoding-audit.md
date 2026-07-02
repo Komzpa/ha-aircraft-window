@@ -162,11 +162,10 @@ Migration path:
 
 Current assumptions:
 
-- ADSBDB, HexDB, Airplanes.live, and Batumi airport board base URLs are
-  configurable through options. Airport-data.com is still a fixed lookup inside
-  the built-year helper.
-- Airport-board cache TTL is configurable. Other provider TTLs remain fixed per
-  helper/cache key.
+- ADSBDB, HexDB, Airplanes.live, Airport-data.com, and Batumi airport board
+  base URLs are configurable through options.
+- Built-year and airport-board cache TTLs are configurable. Route and aircraft
+  enrichment TTLs remain fixed per helper/cache key.
 
 Target shape:
 

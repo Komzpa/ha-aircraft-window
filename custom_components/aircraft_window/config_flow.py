@@ -13,8 +13,10 @@ from .const import (
     CONF_AIRPLANES_LIVE_BASE_URL,
     CONF_AIRPORT_BOARD_CACHE_SECONDS,
     CONF_AIRPORT_BOARD_PROVIDER,
+    CONF_AIRPORT_DATA_BASE_URL,
     CONF_BACKGROUND_INTERVAL_SECONDS,
     CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
+    CONF_BUILT_YEAR_CACHE_SECONDS,
     CONF_COLLECT_MAPPING_REVIEW,
     CONF_DAY_HUMAN_VISIBLE_RADIUS_KM,
     CONF_DUMP1090_URL,
@@ -339,6 +341,20 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
                 DEFAULT_RUNTIME_SETTINGS.providers.airplanes_live_base_url,
             ),
         ): str,
+        vol.Optional(
+            CONF_AIRPORT_DATA_BASE_URL,
+            default=defaults.get(
+                CONF_AIRPORT_DATA_BASE_URL,
+                DEFAULT_RUNTIME_SETTINGS.providers.airport_data_base_url,
+            ),
+        ): str,
+        vol.Optional(
+            CONF_BUILT_YEAR_CACHE_SECONDS,
+            default=defaults.get(
+                CONF_BUILT_YEAR_CACHE_SECONDS,
+                DEFAULT_RUNTIME_SETTINGS.providers.built_year_cache_seconds,
+            ),
+        ): vol.All(vol.Coerce(int), vol.Range(min=0, max=365 * 24 * 60 * 60)),
         vol.Optional(
             CONF_AIRPORT_BOARD_CACHE_SECONDS,
             default=defaults.get(

@@ -13,7 +13,9 @@ from .const import (
     CONF_AIRPLANES_LIVE_BASE_URL,
     CONF_AIRPORT_BOARD_CACHE_SECONDS,
     CONF_AIRPORT_BOARD_PROVIDER,
+    CONF_AIRPORT_DATA_BASE_URL,
     CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
+    CONF_BUILT_YEAR_CACHE_SECONDS,
     CONF_DAY_HUMAN_VISIBLE_RADIUS_KM,
     CONF_HEXDB_BASE_URL,
     CONF_LOCAL_AIRPORT_IATA,
@@ -164,6 +166,8 @@ class ProviderSettings:
     adsbdb_base_url: str
     hexdb_base_url: str
     airplanes_live_base_url: str
+    airport_data_base_url: str
+    built_year_cache_seconds: int
     airport_board_cache_seconds: int
     batumi_airport_board_base_url: str
     batumi_airport_board_legs: dict[str, str]
@@ -236,6 +240,8 @@ DEFAULT_RUNTIME_SETTINGS = RuntimeSettings(
         adsbdb_base_url="https://api.adsbdb.com/v0",
         hexdb_base_url="https://hexdb.io/api/v1",
         airplanes_live_base_url="https://api.airplanes.live/v2",
+        airport_data_base_url="https://airport-data.com",
+        built_year_cache_seconds=30 * 24 * 60 * 60,
         airport_board_cache_seconds=5 * 60,
         batumi_airport_board_base_url="https://batumiairport.com/Home/searchFlights",
         batumi_airport_board_legs={
@@ -430,6 +436,19 @@ def _provider_settings_from_options(options: dict[str, Any]) -> ProviderSettings
             options,
             CONF_AIRPLANES_LIVE_BASE_URL,
             defaults.airplanes_live_base_url,
+        ),
+        airport_data_base_url=_base_url_option(
+            options,
+            CONF_AIRPORT_DATA_BASE_URL,
+            defaults.airport_data_base_url,
+        ),
+        built_year_cache_seconds=max(
+            0,
+            _int_option(
+                options,
+                CONF_BUILT_YEAR_CACHE_SECONDS,
+                defaults.built_year_cache_seconds,
+            ),
         ),
         airport_board_cache_seconds=max(
             0,

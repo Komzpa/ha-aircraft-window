@@ -102,7 +102,7 @@ AIRPLANES_LIVE_BASE_URL = DEFAULT_RUNTIME_SETTINGS.providers.airplanes_live_base
 LOCAL_AIRPORT_IATA = DEFAULT_RUNTIME_SETTINGS.local_airport.iata
 ROUTE_CACHE_SECONDS = 6 * 60 * 60
 AIRCRAFT_CACHE_SECONDS = 24 * 60 * 60
-BUILT_YEAR_CACHE_SECONDS = 30 * 24 * 60 * 60
+BUILT_YEAR_CACHE_SECONDS = DEFAULT_RUNTIME_SETTINGS.providers.built_year_cache_seconds
 AIRPORT_BOARD_CACHE_SECONDS = DEFAULT_RUNTIME_SETTINGS.providers.airport_board_cache_seconds
 ROUTINE_HEX_HOLD_SECONDS = 10.0
 ROUTINE_HEX_HOLD_SUPPRESSION_REASON = "waiting briefly for callsign"
@@ -1373,10 +1373,12 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         cache = await self._async_cache()
         now = int(time.time())
         cache_key = f"airport-data-year:{registration}"
+        providers = self.runtime_settings.providers
         cached = cache.get(cache_key)
         if (
             isinstance(cached, dict)
-            and now - int(cached.get("fetched_at", 0)) < BUILT_YEAR_CACHE_SECONDS
+            and now - int(cached.get("fetched_at", 0))
+            < providers.built_year_cache_seconds
         ):
             year = cached.get("year")
             return int(year) if isinstance(year, int) else None
@@ -1384,7 +1386,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             return None
 
         year = None
-        url = f"https://airport-data.com/aircraft/{quote(registration)}.html"
+        url = f"{providers.airport_data_base_url}/aircraft/{quote(registration)}.html"
         request_timeout = timeout
         if deadline is not None:
             remaining = deadline - time.monotonic()

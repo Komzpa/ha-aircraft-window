@@ -1657,6 +1657,65 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, {})
         self.assertEqual(fake._cache, {})
 
+    async def test_airport_data_year_uses_configured_provider_settings(self) -> None:
+        class Response:
+            status = 200
+
+            async def __aenter__(self) -> Response:
+                return self
+
+            async def __aexit__(self, *_args: Any) -> None:
+                return None
+
+            def raise_for_status(self) -> None:
+                return None
+
+            async def text(self) -> str:
+                return "<td><b>Year built:</b></td><td>2017</td>"
+
+        class Session:
+            def __init__(self) -> None:
+                self.urls: list[str] = []
+
+            def get(self, url: str, **_kwargs: Any) -> Response:
+                self.urls.append(url)
+                return Response()
+
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake._runtime_settings = settings.runtime_settings_from_options(
+            {
+                "airport_data_base_url": "https://example.invalid/airport-data/",
+                "built_year_cache_seconds": 7,
+            }
+        )
+        fake._cache = {}
+        saved: list[dict[str, Any]] = []
+
+        async def load_cache() -> dict[str, Any]:
+            return fake._cache
+
+        async def save_cache() -> None:
+            saved.append(dict(fake._cache))
+
+        fake._async_cache = load_cache
+        fake._async_save_cache = save_cache
+
+        session = Session()
+        result = await fake._async_airport_data_year(
+            session,
+            "TC-NCU",
+            coordinator.aiohttp.ClientTimeout(total=1.0),
+        )
+
+        self.assertEqual(result, 2017)
+        self.assertEqual(
+            session.urls,
+            ["https://example.invalid/airport-data/aircraft/TC-NCU.html"],
+        )
+        self.assertEqual(saved[-1]["airport-data-year:TC-NCU"]["year"], 2017)
+
     async def test_deadline_miss_does_not_cache_external_error(self) -> None:
         class FailingSession:
             def get(self, *_args: Any, **_kwargs: Any) -> object:

@@ -178,9 +178,10 @@ configured, rows are prioritized by fresh callsign/hex/position/local-strength
 signals instead of raw dump1090 order. Deadline misses are not stored as real
 network errors.
 
-Provider base URLs for ADSBDB, HexDB, Airplanes.live, and the built-in Batumi
-airport board, plus the airport-board cache TTL, can be changed in the options
-flow while keeping the public defaults for normal installs.
+Provider base URLs for ADSBDB, HexDB, Airplanes.live, Airport-data.com, and the
+built-in Batumi airport board, plus the built-year and airport-board cache TTLs,
+can be changed in the options flow while keeping the public defaults for normal
+installs.
 
 The same enrichment is used for special-interest matching and service
 classification. Military detection is best-effort and conservative: it uses
