@@ -715,6 +715,8 @@ AIRLINE_SPEECH_RU = {
     "KLM Royal Dutch Airlines": "Кей-Эл-Эм",
     "Korean Air": "Кореан Эйр",
     "Nas Air": "Флай Нас",
+    "Oneclick": "УанКлик",
+    "OneClick Airways": "УанКлик",
     "Pars Air": "Парс Эйр",
     "Pegasus Airlines": "Пегасус",
     "Qeshm Air": "Кешм Эйр",
@@ -769,7 +771,7 @@ AIRLINE_SPEECH_ALIASES_RU = {
 }
 
 KNOWN_AIRLINE_BY_CALLSIGN_PREFIX = {
-    "4L": "Georgian Airways",
+    "4L": "OneClick Airways",
     "TGZ": "Georgian Airways",
     "VAA": "Van Air Europe",
     "JZR": "Jazeera Airways",

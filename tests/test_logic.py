@@ -1338,7 +1338,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
         self.assertEqual(
             logic.known_airline_for_callsign("4L112"),
-            ("Georgian Airways", "4L"),
+            ("OneClick Airways", "4L"),
         )
         self.assertEqual(
             logic.known_route_for_callsign("VAA021")["route_summary"],
@@ -1385,6 +1385,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
         self.assertEqual(logic.airline_speech("Asiana Airlines"), "Азиана")
         self.assertEqual(logic.airline_speech("Korean Air"), "Кореан Эйр")
+        self.assertEqual(logic.airline_speech("Oneclick"), "УанКлик")
+        self.assertEqual(logic.airline_speech("OneClick Airways"), "УанКлик")
         self.assertTrue(logic.has_airline_speech_mapping("JAZEERA AİRWAYS"))
         self.assertEqual(logic.airline_speech("Carpatair"), "Карпатэйр")
         self.assertEqual(
@@ -1437,13 +1439,13 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertNotIn("джи и оу", announcement)
         self.assert_tts_has_no_latin(announcement)
 
-    def test_georgian_numeric_prefix_special_interest_avoids_letter_soup(self) -> None:
+    def test_oneclick_numeric_prefix_special_interest_avoids_letter_soup(self) -> None:
         text = logic.build_announcement(
             {"hex": "5140de", "flight": "4L112"},
             "special_interest",
             0.74,
             {
-                "airline_name": "Georgian Airways",
+                "airline_name": "OneClick Airways",
                 "aircraft_model_speech": logic.spoken_model("737", "B738"),
                 "spoken_flight": logic.spoken_flight("4L112", airline_icao="4L"),
                 "interest_type": "rapid_descent",
@@ -1453,7 +1455,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
 
         self.assertIn(
-            "Интересный самолёт в зоне видимости: Джорджиан Эйрвейз один один два.",
+            "Интересный самолёт в зоне видимости: УанКлик один один два.",
             text,
         )
         self.assertIn("резкое снижение", text)
