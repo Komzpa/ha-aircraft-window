@@ -199,6 +199,9 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "speech_airport_code_from_overrides_json": '{"XYZ": "Иксвайзеда"}',
                 "speech_airport_code_to_overrides_json": '{"XYZ": "в Иксвайзед"}',
                 "speech_airport_code_route_overrides_json": '{"XYZ": "Иксвайзед"}',
+                "speech_city_from_overrides_json": '{"New-Place (XYZ)": "Нового места"}',
+                "speech_city_to_overrides_json": '{"Other Place": "Другое место"}',
+                "speech_city_route_overrides_json": '{"Other Place": "Другое место"}',
                 "speech_callsign_prefix_overrides_json": '{"ABCD": "Абэцэдэ"}',
                 "speech_model_overrides_json": (
                     '{"MYSTERY JET 9000 MJ90": "Мистери Джет девять тысяч"}'
@@ -273,6 +276,29 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 speech_pack=runtime_settings.speech_pack,
             ),
             "Иксвайзеда",
+        )
+        self.assertEqual(
+            logic.airport_speech(
+                {"municipality": "New Place"},
+                direction="from",
+                speech_pack=runtime_settings.speech_pack,
+            ),
+            "Нового места",
+        )
+        self.assertEqual(
+            logic.airport_speech(
+                {"municipality": "Other Place"},
+                direction="to",
+                speech_pack=runtime_settings.speech_pack,
+            ),
+            "Другое место",
+        )
+        self.assertEqual(
+            logic.airport_route_speech(
+                {"municipality": "Other Place"},
+                speech_pack=runtime_settings.speech_pack,
+            ),
+            "Другое место",
         )
         self.assertEqual(
             logic.spoken_flight("ABCD89", speech_pack=runtime_settings.speech_pack),

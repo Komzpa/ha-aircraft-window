@@ -130,10 +130,10 @@ Current assumptions and status:
   accept a speech pack override.
 - Home Assistant options expose JSON-object overrides for airline names,
   airline aliases, origin/destination/route airport codes, and callsign
-  prefixes, plus aircraft model/type speech. Options also expose JSON-object
-  fallbacks for airline names by callsign prefix and route metadata by callsign.
-  Runtime announcements, enrichment, and mapping review use the merged speech
-  and fallback packs.
+  prefixes, airport city labels, plus aircraft model/type speech. Options also
+  expose JSON-object fallbacks for airline names by callsign prefix and route
+  metadata by callsign. Runtime announcements, enrichment, and mapping review
+  use the merged speech and fallback packs.
 - Mapping review can be resolved by options overrides first; repeatable values
   can still be promoted to built-in tables.
 
@@ -142,8 +142,8 @@ Target shape:
 - Introduce a speech profile:
   `speech_locale = "ru"` initially, with built-in Russian pack loaded from data
   files rather than scattered constants.
-- Extend optional user override packs beyond the first options surface:
-  airport city names and a friendlier editor than raw JSON fields.
+- Extend the first options surface into a friendlier editor than raw JSON
+  fields.
 - Keep text human-readable in integration output; TTS stress marks stay outside
   this integration.
 - Keep bounded-token matching rules for callsign and airline prefixes. Previous
@@ -202,8 +202,8 @@ Target shape:
    profile through config/options.
 5. Partly done: add `RussianSpeechPack`, override merge points, move the
    built-in Russian tables out of `logic.py`, and expose first-pass JSON
-   speech/model/route fallback override options. A friendlier editor and
-   airport city-name overrides are still pending.
+   speech/model/route fallback override options. A friendlier editor is still
+   pending.
 6. Done: move built-in callsign and known-route fallback tables out of
    `logic.py` into `route_fallbacks.py`.
 7. Done for README and entity docstrings: rename Batumi-specific schedule

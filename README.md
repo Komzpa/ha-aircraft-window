@@ -188,8 +188,9 @@ callsign prefix, or aircraft model used fallback speech. This queue is meant for
 proactively filling speech overrides before the next spoken announcement sounds
 wrong. The options flow accepts JSON-object overrides for airline names, airline
 aliases, origin/destination/route airport codes, callsign prefixes, airline
-fallbacks by callsign prefix, route fallbacks by callsign, and aircraft model
-speech. Speech examples: `{"XYZ": "Иксвайзед"}`, `{"ABCD": "Абэцэдэ"}`, or
+fallbacks by callsign prefix, route fallbacks by callsign, airport city labels,
+and aircraft model speech. Speech examples: `{"XYZ": "Иксвайзед"}`,
+`{"Other Place": "Другое место"}`, `{"ABCD": "Абэцэдэ"}`, or
 `{"MYSTERY JET 9000 MJ90": "Мистери Джет девять тысяч"}`. Route fallback example:
 `{"ABC123": {"origin_iata": "XYZ", "destination_iata": "DEF",
 "route_summary": "XYZ → DEF"}}`. Repeatable defaults can later be promoted to

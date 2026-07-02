@@ -33,6 +33,9 @@ from .const import (
     CONF_SPEECH_AIRPORT_CODE_ROUTE_OVERRIDES,
     CONF_SPEECH_AIRPORT_CODE_TO_OVERRIDES,
     CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES,
+    CONF_SPEECH_CITY_FROM_OVERRIDES,
+    CONF_SPEECH_CITY_ROUTE_OVERRIDES,
+    CONF_SPEECH_CITY_TO_OVERRIDES,
     CONF_SPEECH_MODEL_OVERRIDES,
     CONF_TERMINAL_AREA_LATITUDE,
     CONF_TERMINAL_AREA_LONGITUDE,
@@ -348,6 +351,23 @@ def _model_speech_overrides_from_options(options: dict[str, Any]) -> dict[str, s
     }
 
 
+def _city_speech_key(value: str) -> str:
+    """Return the city speech lookup key used by route labels."""
+    label = value.split("(")[0].replace("-", " ").strip()
+    return " ".join(label.split()).title()
+
+
+def _city_speech_overrides_from_options(
+    options: dict[str, Any],
+    key: str,
+) -> dict[str, str]:
+    """Parse user-maintained airport city speech overrides."""
+    return {
+        _city_speech_key(item_key): value
+        for item_key, value in _json_string_map_option(options, key).items()
+    }
+
+
 def _speech_pack_from_options(options: dict[str, Any]) -> RussianSpeechPack:
     """Return the built-in Russian speech pack plus user-maintained overrides."""
     airline_aliases = {
@@ -371,6 +391,18 @@ def _speech_pack_from_options(options: dict[str, Any]) -> RussianSpeechPack:
         for key in upper_code_keys
     }
     return DEFAULT_RUSSIAN_SPEECH_PACK.with_overrides(
+        city_from=_city_speech_overrides_from_options(
+            options,
+            CONF_SPEECH_CITY_FROM_OVERRIDES,
+        ),
+        city_to=_city_speech_overrides_from_options(
+            options,
+            CONF_SPEECH_CITY_TO_OVERRIDES,
+        ),
+        city_route=_city_speech_overrides_from_options(
+            options,
+            CONF_SPEECH_CITY_ROUTE_OVERRIDES,
+        ),
         airline=_json_string_map_option(options, CONF_SPEECH_AIRLINE_OVERRIDES),
         airline_aliases=airline_aliases,
         airport_code_from=normalized_maps[CONF_SPEECH_AIRPORT_CODE_FROM_OVERRIDES],

@@ -850,6 +850,9 @@ class RussianSpeechPack:
     def with_overrides(
         self,
         *,
+        city_from: dict[str, str] | None = None,
+        city_to: dict[str, str] | None = None,
+        city_route: dict[str, str] | None = None,
         airline: dict[str, str] | None = None,
         airline_aliases: dict[str, str] | None = None,
         airport_code_from: dict[str, str] | None = None,
@@ -859,9 +862,9 @@ class RussianSpeechPack:
     ) -> RussianSpeechPack:
         """Return a pack with user-maintained override tables merged in."""
         return RussianSpeechPack(
-            city_from=self.city_from,
-            city_to=self.city_to,
-            city_route=self.city_route,
+            city_from={**self.city_from, **(city_from or {})},
+            city_to={**self.city_to, **(city_to or {})},
+            city_route={**self.city_route, **(city_route or {})},
             airport_code_from={**self.airport_code_from, **(airport_code_from or {})},
             airport_code_to={**self.airport_code_to, **(airport_code_to or {})},
             airport_code_route={**self.airport_code_route, **(airport_code_route or {})},

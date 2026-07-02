@@ -1463,6 +1463,8 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
                 "speech_airline_overrides_json": '{"New Visible Air": "Нью Визибл"}',
                 "speech_airport_code_from_overrides_json": '{"XYZ": "Иксвайзеда"}',
                 "speech_airport_code_route_overrides_json": '{"XYZ": "Иксвайзед"}',
+                "speech_city_to_overrides_json": '{"Other Place": "Другое место"}',
+                "speech_city_route_overrides_json": '{"Other Place": "Другое место"}',
                 "speech_callsign_prefix_overrides_json": '{"ABCD": "Абэцэдэ"}',
                 "speech_model_overrides_json": (
                     '{"MYSTERY JET 9000 MJ90": "Мистери Джет девять тысяч"}'
@@ -1489,6 +1491,7 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
                 "aircraft_type": "MJ90",
                 "origin_iata": "XYZ",
                 "origin_name": "New Place (XYZ)",
+                "destination_name": "Other Place",
                 "route_summary": "XYZ → ATH",
             },
         )
@@ -1496,6 +1499,7 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         kinds = {item["kind"] for item in items}
         self.assertNotIn("airline", kinds)
         self.assertNotIn("origin_airport", kinds)
+        self.assertNotIn("destination_airport", kinds)
         self.assertNotIn("route_airport", kinds)
         self.assertNotIn("aircraft_model", kinds)
         self.assertNotIn("callsign_prefix", kinds)
