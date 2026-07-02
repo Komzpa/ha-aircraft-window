@@ -104,6 +104,29 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
     default_timezone_offset_hours = (
         default_airport.timezone.utcoffset(None).total_seconds() / 3600.0
     )
+    default_profile_iata = str(
+        defaults.get(CONF_LOCAL_AIRPORT_IATA, default_airport.iata)
+        or default_airport.iata
+    ).strip().upper()
+    default_local_airport = default_profile_iata == default_airport.iata.upper()
+    airport_board_provider_default = defaults.get(
+        CONF_AIRPORT_BOARD_PROVIDER,
+        default_airport.board_provider if default_local_airport else "",
+    )
+    if (
+        not default_local_airport
+        and airport_board_provider_default == default_airport.board_provider
+    ):
+        airport_board_provider_default = ""
+    watch_airports_default = defaults.get(
+        CONF_WATCH_AIRPORTS,
+        DEFAULT_WATCH_AIRPORTS if default_local_airport else "",
+    )
+    if (
+        not default_local_airport
+        and str(watch_airports_default).strip().upper() == DEFAULT_WATCH_AIRPORTS
+    ):
+        watch_airports_default = ""
     fields: dict[vol.Marker, Any] = {
         vol.Required(
             CONF_DUMP1090_URL,
@@ -126,10 +149,7 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
         ): vol.All(vol.Coerce(float), vol.Range(min=-12.0, max=14.0)),
         vol.Required(
             CONF_AIRPORT_BOARD_PROVIDER,
-            default=defaults.get(
-                CONF_AIRPORT_BOARD_PROVIDER,
-                default_airport.board_provider,
-            ),
+            default=airport_board_provider_default,
         ): str,
         vol.Required(
             CONF_WINDOW_VIEW_LEAD_SECONDS,
@@ -235,7 +255,7 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
         ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=300.0)),
         vol.Required(
             CONF_WATCH_AIRPORTS,
-            default=defaults.get(CONF_WATCH_AIRPORTS, DEFAULT_WATCH_AIRPORTS),
+            default=watch_airports_default,
         ): str,
         vol.Required(
             CONF_RAPID_DESCENT_FPM,
