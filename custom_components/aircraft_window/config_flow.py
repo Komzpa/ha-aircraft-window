@@ -15,6 +15,7 @@ from .const import (
     CONF_AIRPLANES_LIVE_BASE_URL,
     CONF_AIRPORT_BOARD_CACHE_SECONDS,
     CONF_AIRPORT_BOARD_PROVIDER,
+    CONF_AIRPORT_BOARD_TIMEOUT_SECONDS,
     CONF_AIRPORT_DATA_BASE_URL,
     CONF_BACKGROUND_INTERVAL_SECONDS,
     CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
@@ -465,6 +466,13 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
             ),
         ): vol.All(vol.Coerce(int), vol.Range(min=0, max=86400)),
         vol.Optional(
+            CONF_AIRPORT_BOARD_TIMEOUT_SECONDS,
+            default=defaults.get(
+                CONF_AIRPORT_BOARD_TIMEOUT_SECONDS,
+                DEFAULT_RUNTIME_SETTINGS.providers.airport_board_timeout_seconds,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0.1, max=30.0)),
+        vol.Optional(
             CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
             default=defaults.get(
                 CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
@@ -536,7 +544,7 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
                 CONF_ENRICHMENT_TIMEOUT_SECONDS,
                 DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
             ),
-        ): vol.Coerce(float),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0.1, max=30.0)),
         vol.Required(
             CONF_PREFETCH_LIMIT,
             default=defaults.get(CONF_PREFETCH_LIMIT, DEFAULT_PREFETCH_LIMIT),

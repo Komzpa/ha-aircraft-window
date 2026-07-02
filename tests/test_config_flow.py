@@ -175,6 +175,24 @@ class AircraftWindowConfigFlowTest(unittest.TestCase):
         self.assertEqual(_field_default(schema, const.CONF_SPEECH_LOCALE), "ru")
         self.assertEqual(validator.container, ("ru",))
 
+    def test_schema_exposes_provider_timeout_defaults(self) -> None:
+        schema = config_flow._schema(
+            {
+                const.CONF_ENRICHMENT_TIMEOUT_SECONDS: 2.5,
+                const.CONF_AIRPORT_BOARD_TIMEOUT_SECONDS: 3.5,
+            },
+            include_home_coordinates=False,
+        )
+
+        self.assertEqual(
+            _field_default(schema, const.CONF_ENRICHMENT_TIMEOUT_SECONDS),
+            2.5,
+        )
+        self.assertEqual(
+            _field_default(schema, const.CONF_AIRPORT_BOARD_TIMEOUT_SECONDS),
+            3.5,
+        )
+
     def test_schema_defaults_area_flags_by_profile(self) -> None:
         default_schema = config_flow._schema({}, include_home_coordinates=False)
         other_schema = config_flow._schema(

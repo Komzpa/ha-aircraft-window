@@ -207,6 +207,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "aircraft_cache_seconds": 22,
                 "built_year_cache_seconds": 99,
                 "airport_board_cache_seconds": 42,
+                "enrichment_timeout_seconds": 2.5,
+                "airport_board_timeout_seconds": 3.5,
                 "batumi_airport_board_base_url": "https://example.invalid/board/",
                 "json_airport_board_url": "https://example.invalid/canonical-board/",
                 "speech_locale": "ru",
@@ -297,6 +299,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(runtime_settings.providers.aircraft_cache_seconds, 22)
         self.assertEqual(runtime_settings.providers.built_year_cache_seconds, 99)
         self.assertEqual(runtime_settings.providers.airport_board_cache_seconds, 42)
+        self.assertEqual(runtime_settings.providers.enrichment_timeout_seconds, 2.5)
+        self.assertEqual(runtime_settings.providers.airport_board_timeout_seconds, 3.5)
         self.assertEqual(
             runtime_settings.providers.batumi_airport_board_base_url,
             "https://example.invalid/board",

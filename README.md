@@ -193,9 +193,10 @@ signals instead of raw dump1090 order. Deadline misses are not stored as real
 network errors.
 
 Provider base URLs for ADSBDB, HexDB, Airplanes.live, Airport-data.com, and the
-built-in Batumi airport board, plus the built-year and airport-board cache TTLs,
-and route/aircraft lookup cache TTLs, can be changed in the options flow while
-keeping the public defaults for normal installs.
+built-in Batumi airport board, plus enrichment/airport-board request timeouts,
+the built-year and airport-board cache TTLs, and route/aircraft lookup cache
+TTLs, can be changed in the options flow while keeping the public defaults for
+normal installs.
 For airport boards beyond the built-in Batumi provider, set the
 `airport_board_provider` option to `json_airport_board` and point
 `json_airport_board_url` at a canonical JSON endpoint shaped like

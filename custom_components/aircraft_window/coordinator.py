@@ -36,7 +36,6 @@ from .const import (
     CONF_COLLECT_MAPPING_REVIEW,
     CONF_DUMP1090_URL,
     CONF_ENABLE_ENRICHMENT,
-    CONF_ENRICHMENT_TIMEOUT_SECONDS,
     CONF_HOME_LATITUDE,
     CONF_HOME_LONGITUDE,
     CONF_MAX_APPROACH_ALTITUDE_FT,
@@ -49,7 +48,6 @@ from .const import (
     DEFAULT_BACKGROUND_INTERVAL_SECONDS,
     DEFAULT_COLLECT_MAPPING_REVIEW,
     DEFAULT_DUMP1090_URL,
-    DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
     DEFAULT_MAX_APPROACH_ALTITUDE_FT,
     DEFAULT_MAX_APPROACH_DISTANCE_KM,
     DEFAULT_MAX_NO_POSITION_SEEN_SECONDS,
@@ -390,12 +388,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         phase=base_candidate.phase,
                         cache_only=False,
                         deadline=time.monotonic()
-                        + float(
-                            options.get(
-                                CONF_ENRICHMENT_TIMEOUT_SECONDS,
-                                DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
-                            )
-                        ),
+                        + self.runtime_settings.providers.enrichment_timeout_seconds,
                     )
                 base_candidate = pick_candidate(
                     [row],
@@ -1090,7 +1083,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             return {}
 
         payload: dict[str, Any] = {}
-        request_timeout = 1.2
+        request_timeout = self.runtime_settings.providers.airport_board_timeout_seconds
         if deadline is not None:
             remaining = deadline - time.monotonic()
             if remaining < MIN_EXTERNAL_LOOKUP_TIMEOUT_SECONDS:
@@ -1469,14 +1462,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         deadline: float | None = None,
     ) -> dict[str, Any]:
         """Enrich aircraft with route, airline, model and built year."""
-        options = self.options
         timeout = aiohttp.ClientTimeout(
-            total=float(
-                options.get(
-                    CONF_ENRICHMENT_TIMEOUT_SECONDS,
-                    DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
-                )
-            )
+            total=self.runtime_settings.providers.enrichment_timeout_seconds
         )
         flight = flight_label(aircraft).replace(" ", "").upper()
         hex_id = str(aircraft.get("hex") or "").strip().upper()

@@ -186,7 +186,7 @@ Current assumptions:
 - ADSBDB, HexDB, Airplanes.live, Airport-data.com, and Batumi airport board
   base URLs are configurable through options.
 - Route, aircraft, built-year, and airport-board cache TTLs are configurable.
-  Provider timeouts remain fixed per helper.
+- External enrichment and airport-board request timeouts are configurable.
 
 Target shape:
 

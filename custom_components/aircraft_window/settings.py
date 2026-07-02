@@ -14,10 +14,12 @@ from .const import (
     CONF_AIRPLANES_LIVE_BASE_URL,
     CONF_AIRPORT_BOARD_CACHE_SECONDS,
     CONF_AIRPORT_BOARD_PROVIDER,
+    CONF_AIRPORT_BOARD_TIMEOUT_SECONDS,
     CONF_AIRPORT_DATA_BASE_URL,
     CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
     CONF_BUILT_YEAR_CACHE_SECONDS,
     CONF_DAY_HUMAN_VISIBLE_RADIUS_KM,
+    CONF_ENRICHMENT_TIMEOUT_SECONDS,
     CONF_HEXDB_BASE_URL,
     CONF_JSON_AIRPORT_BOARD_URL,
     CONF_LOCAL_AIRPORT_IATA,
@@ -63,6 +65,8 @@ from .const import (
     CONF_WINDOW_VIEW_POLYGON_JSON,
     CONF_WINDOW_VIEW_PROJECTION_STEP_SECONDS,
     CONF_WINDOW_VIEW_RADIUS_KM,
+    DEFAULT_AIRPORT_BOARD_TIMEOUT_SECONDS,
+    DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
     DEFAULT_SPEECH_LOCALE,
     SUPPORTED_SPEECH_LOCALES,
 )
@@ -179,6 +183,8 @@ class ProviderSettings:
     aircraft_cache_seconds: int
     built_year_cache_seconds: int
     airport_board_cache_seconds: int
+    enrichment_timeout_seconds: float
+    airport_board_timeout_seconds: float
     batumi_airport_board_base_url: str
     json_airport_board_url: str
     batumi_airport_board_legs: dict[str, str]
@@ -257,6 +263,8 @@ DEFAULT_RUNTIME_SETTINGS = RuntimeSettings(
         aircraft_cache_seconds=24 * 60 * 60,
         built_year_cache_seconds=30 * 24 * 60 * 60,
         airport_board_cache_seconds=5 * 60,
+        enrichment_timeout_seconds=DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
+        airport_board_timeout_seconds=DEFAULT_AIRPORT_BOARD_TIMEOUT_SECONDS,
         batumi_airport_board_base_url="https://batumiairport.com/Home/searchFlights",
         json_airport_board_url="",
         batumi_airport_board_legs={
@@ -511,6 +519,22 @@ def _provider_settings_from_options(options: dict[str, Any]) -> ProviderSettings
                 options,
                 CONF_AIRPORT_BOARD_CACHE_SECONDS,
                 defaults.airport_board_cache_seconds,
+            ),
+        ),
+        enrichment_timeout_seconds=max(
+            0.1,
+            _float_option(
+                options,
+                CONF_ENRICHMENT_TIMEOUT_SECONDS,
+                defaults.enrichment_timeout_seconds,
+            ),
+        ),
+        airport_board_timeout_seconds=max(
+            0.1,
+            _float_option(
+                options,
+                CONF_AIRPORT_BOARD_TIMEOUT_SECONDS,
+                defaults.airport_board_timeout_seconds,
             ),
         ),
         batumi_airport_board_base_url=_base_url_option(

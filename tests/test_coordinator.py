@@ -1087,9 +1087,12 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         class Session:
             def __init__(self) -> None:
                 self.calls = 0
+                self.timeout_total: float | None = None
 
-            def get(self, *_args: Any, **_kwargs: Any) -> Response:
+            def get(self, *_args: Any, **kwargs: Any) -> Response:
                 self.calls += 1
+                timeout = kwargs.get("timeout")
+                self.timeout_total = getattr(timeout, "total", None)
                 return Response()
 
         fake = coordinator.AircraftWindowCoordinator.__new__(
@@ -1101,6 +1104,7 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
                 "airport_board_provider": "json_airport_board",
                 "json_airport_board_url": "https://example.invalid/board.json",
                 "airport_board_cache_seconds": 1,
+                "airport_board_timeout_seconds": 2.5,
             }
         )
         cache_key = coordinator.airport_board_cache_key(
@@ -1134,6 +1138,7 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(session.calls, 1)
+        self.assertEqual(session.timeout_total, 2.5)
         self.assertEqual(
             result,
             {"data": {"flights": [{"flightNumber": "123"}]}},
