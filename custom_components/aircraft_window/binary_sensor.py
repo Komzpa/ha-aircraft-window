@@ -13,15 +13,21 @@ from .const import (
 )
 from .coordinator import AircraftWindowCoordinator, EnrichmentPrefetchCoordinator
 
-URGENT_CURTAIN_PHASES = {
+BASE_URGENT_CURTAIN_PHASES = {
     "positioned_approach",
     "positioned_landing",
     "positioned_takeoff",
     "positioned_low_nearby",
     "military_visible",
     "special_interest",
-    "kutaisi_route",
 }
+
+
+def _is_urgent_curtain_phase(coordinator: AircraftWindowCoordinator, phase: str) -> bool:
+    """Return true when a phase should open curtains for visible aircraft."""
+    if phase in BASE_URGENT_CURTAIN_PHASES:
+        return True
+    return coordinator.runtime_settings.watch_policy.airport_phase(phase) is not None
 
 
 async def async_setup_entry(
@@ -106,7 +112,7 @@ class AircraftWindowCurtainPreopenBinarySensor(AircraftWindowBaseBinarySensor):
         altitude_ok = altitude is None or altitude <= 10000
         return bool(
             (candidate.window_visible or candidate.window_runway_staging)
-            and candidate.phase in URGENT_CURTAIN_PHASES
+            and _is_urgent_curtain_phase(self.coordinator, candidate.phase)
             and altitude_ok
         )
 
@@ -125,7 +131,7 @@ class AircraftWindowScheduledDeparturePreopenBinarySensor(
     CoordinatorEntity[EnrichmentPrefetchCoordinator],
     BinarySensorEntity,
 ):
-    """Whether a scheduled Batumi departure needs curtain preopen."""
+    """Whether a scheduled configured-airport departure needs curtain preopen."""
 
     _attr_has_entity_name = True
     _attr_name = "Scheduled departure curtain preopen needed"

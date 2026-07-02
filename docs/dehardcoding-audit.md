@@ -44,8 +44,8 @@ Current assumptions and status:
   Assistant config/options.
 - `airport_board_provider` can be cleared for generic installs. The Batumi
   board is only used when that provider is `batumi_airport_board`.
-- Schedule sensors and docs say "Batumi departure" rather than "configured
-  airport departure".
+- Schedule sensor/binary-sensor docstrings and README now say configured-airport
+  departure while keeping the existing entity IDs.
 - `CALLSIGN_PREFIX_TO_BOARD_AIRLINE` is tuned for the Batumi airport board.
 - `KNOWN_ROUTE_BY_CALLSIGN` contains Vanilla Sky `BUS <-> Natakhtari`.
 - Tests describe this as `BatumiAirportBoardTest`, which is accurate today but
@@ -184,8 +184,8 @@ Target shape:
 4. Done: expose configured `watch_airports`, local airport, and basic view
    profile through config/options.
 5. Move speech tables into a Russian speech pack and add override merge points.
-6. Rename docs/strings from Batumi-specific wording to configured-airport
-   wording while preserving existing entity IDs.
+6. Done for README and entity docstrings: rename Batumi-specific schedule
+   wording to configured-airport wording while preserving existing entity IDs.
 
 This order keeps live behavior stable while removing one category of hardcoding
 at a time.

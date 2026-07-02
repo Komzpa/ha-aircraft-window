@@ -11,8 +11,9 @@ announcements, covers, cameras, or whatever else belongs in your house.
 ## What it exposes
 
 - `sensor.aircraft_window_candidate`: current candidate state and attributes.
-- `sensor.aircraft_window_schedule_preopen`: scheduled Batumi departure preopen
-  state from the airport board.
+- `sensor.aircraft_window_schedule_preopen`: scheduled configured-airport
+  departure preopen state from the airport board when a board provider is
+  configured.
 - `sensor.aircraft_window_enrichment_prefetch`: background enrichment cache status.
   Its attributes include a persistent `mapping_review_items` queue for visible
   aircraft whose airline, airport, callsign, or model fell back to generic TTS
@@ -23,7 +24,7 @@ announcements, covers, cameras, or whatever else belongs in your house.
   candidate is visible, projected into view soon, or active near the runway
   staging area.
 - `binary_sensor.aircraft_scheduled_departure_curtain_preopen_needed`: on while
-  a scheduled Batumi departure is inside the preopen window.
+  a scheduled configured-airport departure is inside the preopen window.
 - `binary_sensor.aircraft_window_candidate_active`: on while a candidate is live.
 - `binary_sensor.aircraft_window_unusual_aircraft`: on for an unmapped airline,
   unmapped aircraft type, or no-position aircraft without useful reference data.
@@ -46,9 +47,10 @@ For arrivals, it also has an early `positioned_approach` phase: by default,
 descending aircraft below 10,000 ft are tracked out to 60 km, matching the common
 landing-light-on operating band before the close runway-window phases take over.
 It also watches special-interest traffic already visible to the local receiver:
-routes to or from Kutaisi (`KUT`) and likely military aircraft identified from
-public owner or operator metadata can produce `kutaisi_route` and
+configured watched route airports and likely military aircraft identified from
+public owner or operator metadata can produce route-watch and
 `military_visible` events even when they are not landing at the home airport.
+The default profile keeps `KUT` as a watched airport for compatibility.
 Aircraft transmitting emergency transponder codes `7500`, `7600`, or `7700`
 produce an `emergency_squawk` event with cautious wording for unlawful
 interference, radio failure, or a general emergency. Speech names the situation
@@ -165,7 +167,8 @@ The hot candidate scan prefers cached enrichment data, so slow route or aircraft
 lookups should not block the 2-second local receiver path. A background
 coordinator warms the same cache from airborne rows across the whole receiver
 feed, not only aircraft that are already near the window, and also refreshes the
-Batumi airport board for scheduled curtain preopen state. The default prefetch
+configured airport board for scheduled curtain preopen state when a board
+provider is configured. The default prefetch
 limit is `0`, meaning "all receiver rows within the time budget"; if a limit is
 configured, rows are prioritized by fresh callsign/hex/position/local-strength
 signals instead of raw dump1090 order. Deadline misses are not stored as real

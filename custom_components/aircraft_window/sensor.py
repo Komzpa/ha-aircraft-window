@@ -104,7 +104,7 @@ class AircraftWindowSchedulePreopenSensor(
     CoordinatorEntity[EnrichmentPrefetchCoordinator],
     SensorEntity,
 ):
-    """Scheduled Batumi departure curtain preopen sensor."""
+    """Scheduled configured-airport departure curtain preopen sensor."""
 
     _attr_has_entity_name = True
     _attr_name = "Schedule preopen"

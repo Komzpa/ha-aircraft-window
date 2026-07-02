@@ -2624,7 +2624,7 @@ def build_announcement(
         route = str(enrichment.get("route_summary") or "").strip()
         if route:
             extra.append(route)
-    elif phase == "kutaisi_route":
+    elif settings.watch_policy.airport_phase(phase):
         if route_pair:
             extra.append(route_pair)
     elif phase == "no_position_nearby":

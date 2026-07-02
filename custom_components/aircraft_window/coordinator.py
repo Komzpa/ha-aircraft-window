@@ -1287,7 +1287,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         *,
         now: datetime | None = None,
     ) -> dict[str, Any]:
-        """Return curtain preopen state from the Batumi Airport board."""
+        """Return curtain preopen state from the configured airport board."""
         now = now or datetime.now(self.runtime_settings.local_airport.timezone)
         rows = (((board.get("data") or {}).get("flights")) or [])
         candidates: list[dict[str, Any]] = []

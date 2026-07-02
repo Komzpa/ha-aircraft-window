@@ -70,6 +70,7 @@ def _load_component_module(name: str) -> types.ModuleType:
 
 _stub_homeassistant_modules()
 _load_component_module("const")
+settings = _load_component_module("settings")
 logic = _load_component_module("logic")
 coordinator_stub = types.ModuleType("aircraft_window.coordinator")
 coordinator_stub.AircraftWindowCoordinator = object
@@ -85,7 +86,10 @@ class AircraftWindowBinarySensorTest(unittest.TestCase):
         sensor = binary_sensor.AircraftWindowCurtainPreopenBinarySensor.__new__(
             binary_sensor.AircraftWindowCurtainPreopenBinarySensor
         )
-        sensor.coordinator = types.SimpleNamespace(data=candidate)
+        sensor.coordinator = types.SimpleNamespace(
+            data=candidate,
+            runtime_settings=settings.DEFAULT_RUNTIME_SETTINGS,
+        )
         return sensor
 
     def test_projected_candidate_does_not_preopen_curtains(self) -> None:
@@ -104,6 +108,17 @@ class AircraftWindowBinarySensorTest(unittest.TestCase):
         visible = logic.AircraftCandidate(
             phase="positioned_takeoff",
             altitude_ft=2000,
+            window_visible=True,
+            window_preopen_needed=True,
+            window_runway_staging=False,
+        )
+
+        self.assertTrue(self._curtain_sensor_for(visible).is_on)
+
+    def test_configured_watched_route_can_preopen_curtains(self) -> None:
+        visible = logic.AircraftCandidate(
+            phase="kutaisi_route",
+            altitude_ft=7000,
             window_visible=True,
             window_preopen_needed=True,
             window_runway_staging=False,

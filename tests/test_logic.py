@@ -99,9 +99,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
             settings=custom_settings,
             enrichment={
                 "origin_iata": "TST",
-                "origin_name": "Test Origin",
+                "origin_name": "Тест",
+                "origin_speech": "Тест",
                 "destination_iata": "ABC",
-                "destination_name": "Config Airport",
+                "destination_name": "Конфиг-аэропорт",
                 "destination_speech": "Конфиг-аэропорт",
                 "spoken_flight": "один два три",
             },
@@ -110,6 +111,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         assert candidate is not None
         self.assertEqual(candidate.phase, "abc_route")
         self.assertIn("рейс на Конфиг-аэропорт", candidate.announcement)
+        self.assertIn("Тест - Конфиг Аэропорт", candidate.announcement)
         self.assertIn("route includes ABC: TST-ABC", candidate.confidence_reason)
 
     def test_default_watch_policy_no_longer_forces_kut_when_overridden(self) -> None:
