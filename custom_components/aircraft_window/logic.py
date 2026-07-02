@@ -1781,35 +1781,9 @@ def _has_holding_or_orbit_nav_mode(nav_modes: Any) -> bool:
     return False
 
 
-def _is_batumi_arrival_route(enrichment: dict[str, Any]) -> bool:
-    """Return true when route metadata says the aircraft is arriving at Batumi."""
-    destination_iata = str(enrichment.get("destination_iata") or "").strip().upper()
-    if destination_iata == "BUS":
-        return True
-    destination_text = " ".join(
-        str(enrichment.get(key) or "")
-        for key in ("destination_name", "destination_speech", "route_summary")
-    ).casefold()
-    return "batumi" in destination_text or "батуми" in destination_text
-
-
-def _is_batumi_route(enrichment: dict[str, Any]) -> bool:
-    """Return true when route metadata involves normal Batumi airport traffic."""
-    origin_iata = str(enrichment.get("origin_iata") or "").strip().upper()
-    destination_iata = str(enrichment.get("destination_iata") or "").strip().upper()
-    if "BUS" in {origin_iata, destination_iata}:
-        return True
-    route_text = " ".join(
-        str(enrichment.get(key) or "")
-        for key in (
-            "origin_name",
-            "origin_speech",
-            "destination_name",
-            "destination_speech",
-            "route_summary",
-        )
-    ).casefold()
-    return "batumi" in route_text or "батуми" in route_text
+def _has_known_route_context(enrichment: dict[str, Any]) -> bool:
+    """Return true when route data explains ordinary terminal manoeuvres."""
+    return has_route_details(enrichment)
 
 
 def classify_special_interest(
@@ -1822,7 +1796,7 @@ def classify_special_interest(
     if vertical_rate is not None and vertical_rate <= -3500 and (
         altitude is None or altitude >= 1000
     ):
-        if _is_batumi_arrival_route(enrichment):
+        if _has_known_route_context(enrichment):
             return None
         label = "резкое снижение"
         return (
@@ -1849,7 +1823,7 @@ def classify_special_interest(
         and ground_speed is not None
         and 60 <= ground_speed <= 260
     ):
-        if _is_batumi_route(enrichment):
+        if _has_known_route_context(enrichment):
             return None
         return (
             "orbiting",

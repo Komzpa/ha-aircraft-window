@@ -982,6 +982,31 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertIsNone(candidate)
 
+    def test_rapid_descent_on_known_route_is_not_special_interest(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "4bb0e9",
+                "flight": "THY162",
+                "alt_baro": 12000,
+                "baro_rate": -4200,
+                "seen": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={
+                "airline_name": "Turkish Airlines",
+                "origin_iata": "IST",
+                "origin_name": "Istanbul",
+                "destination_iata": "SGN",
+                "destination_name": "Ho Chi Minh City",
+                "route_summary": "IST → SGN",
+                "service_type": "passenger",
+            },
+        )
+
+        self.assertIsNone(candidate)
+
     def test_rapid_descent_without_arrival_context_stays_special_interest(self) -> None:
         candidate = logic.interest_candidate(
             {
@@ -1049,6 +1074,32 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "destination_iata": "TLV",
                 "destination_name": "Tel Aviv",
                 "route_summary": "BUS → TLV",
+                "service_type": "passenger",
+            },
+        )
+
+        self.assertIsNone(candidate)
+
+    def test_known_route_turn_is_not_orbit_special_interest(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "4bb0e9",
+                "flight": "THY162",
+                "alt_baro": 12000,
+                "track_rate": 3.1,
+                "gs": 180,
+                "seen": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={
+                "airline_name": "Turkish Airlines",
+                "origin_iata": "IST",
+                "origin_name": "Istanbul",
+                "destination_iata": "SGN",
+                "destination_name": "Ho Chi Minh City",
+                "route_summary": "IST → SGN",
                 "service_type": "passenger",
             },
         )
