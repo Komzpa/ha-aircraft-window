@@ -1569,6 +1569,31 @@ class AircraftWindowLogicTest(unittest.TestCase):
             ),
             "Кувейт",
         )
+        chisinau_airport = {
+            "iata_code": "KIV",
+            "municipality": "Chisinau",
+            "name": "Chișinău International Airport",
+        }
+        self.assertEqual(
+            logic.airport_speech(chisinau_airport, direction="from"),
+            "Кишинёва",
+        )
+        self.assertEqual(
+            logic.airport_speech(chisinau_airport, direction="to"),
+            "Кишинёв",
+        )
+        self.assertEqual(logic.airport_route_speech(chisinau_airport), "Кишинёв")
+        self.assertEqual(
+            logic.route_pair_speech(
+                {
+                    "origin_iata": "KIV",
+                    "origin_name": "Chisinau (KIV)",
+                    "destination_iata": "BUS",
+                    "destination_name": "Batumi (BUS)",
+                }
+            ),
+            "Кишинёв - Батуми",
+        )
         self.assertTrue(
             logic.has_airport_speech_mapping(
                 {
