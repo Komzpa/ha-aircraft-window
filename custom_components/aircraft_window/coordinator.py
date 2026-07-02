@@ -908,7 +908,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         airline_name,
                         speech_pack=speech_pack,
                     ),
-                    "suggested_table": "speech_ru.AIRLINE_SPEECH_RU",
+                    "suggested_table": "data/speech_ru_airlines.json:airline",
                     "suggested_option": CONF_SPEECH_AIRLINE_OVERRIDES,
                     "suggested_key": airline_name,
                     "suggested_value": airline_speech(
@@ -952,9 +952,9 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                             speech_pack=speech_pack,
                         ),
                         "suggested_table": (
-                            "speech_ru.AIRPORT_CODE_FROM_RU/CITY_FROM_RU"
+                            "data/speech_ru_airports.json:airport_code_from/city_from"
                             if speech_direction == "from"
-                            else "speech_ru.AIRPORT_CODE_TO_RU/CITY_TO_RU"
+                            else "data/speech_ru_airports.json:airport_code_to/city_to"
                         ),
                         "suggested_option": suggested_option,
                         "suggested_key": code or normalized_airport_city(name),
@@ -981,7 +981,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         "value": value,
                         "fallback_speech": route_speech,
                         "suggested_table": (
-                            "speech_ru.AIRPORT_CODE_ROUTE_RU/CITY_ROUTE_RU"
+                            "data/speech_ru_airports.json:airport_code_route/city_route"
                         ),
                         "suggested_option": (
                             CONF_SPEECH_AIRPORT_CODE_ROUTE_OVERRIDES
@@ -1015,7 +1015,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         ),
                         speech_pack=self.runtime_settings.speech_pack,
                     ),
-                    "suggested_table": "speech_ru.MODEL_SPEECH_RULES_RU",
+                    "suggested_table": "data/speech_ru_models.json",
                     "suggested_option": CONF_SPEECH_MODEL_OVERRIDES,
                     "suggested_key": " ".join(
                         part for part in (model, aircraft_type) if part
@@ -1046,7 +1046,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         "kind": "callsign_prefix",
                         "value": flight,
                         "fallback_speech": spoken,
-                        "suggested_table": "speech_ru.CALLSIGN_PREFIX_SPEECH_RU",
+                        "suggested_table": "data/speech_ru_airlines.json:callsign_prefix",
                         "suggested_option": CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES,
                         "suggested_key": prefix,
                         "suggested_value": spoken_flight(

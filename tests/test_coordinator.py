@@ -1716,10 +1716,18 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             by_kind["airline"]["suggested_option"],
             coordinator.CONF_SPEECH_AIRLINE_OVERRIDES,
         )
+        self.assertEqual(
+            by_kind["airline"]["suggested_table"],
+            "data/speech_ru_airlines.json:airline",
+        )
         self.assertEqual(by_kind["airline"]["suggested_key"], "New Visible Air")
         self.assertEqual(
             by_kind["origin_airport"]["suggested_option"],
             coordinator.CONF_SPEECH_AIRPORT_CODE_FROM_OVERRIDES,
+        )
+        self.assertEqual(
+            by_kind["origin_airport"]["suggested_table"],
+            "data/speech_ru_airports.json:airport_code_from/city_from",
         )
         self.assertEqual(by_kind["origin_airport"]["suggested_key"], "XYZ")
         self.assertEqual(
@@ -1727,8 +1735,16 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             coordinator.CONF_SPEECH_AIRPORT_CODE_ROUTE_OVERRIDES,
         )
         self.assertEqual(
+            by_kind["route_airport"]["suggested_table"],
+            "data/speech_ru_airports.json:airport_code_route/city_route",
+        )
+        self.assertEqual(
             by_kind["aircraft_model"]["suggested_option"],
             coordinator.CONF_SPEECH_MODEL_OVERRIDES,
+        )
+        self.assertEqual(
+            by_kind["aircraft_model"]["suggested_table"],
+            "data/speech_ru_models.json",
         )
         self.assertEqual(
             by_kind["aircraft_model"]["suggested_key"],
@@ -1737,6 +1753,10 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             by_kind["callsign_prefix"]["suggested_option"],
             coordinator.CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES,
+        )
+        self.assertEqual(
+            by_kind["callsign_prefix"]["suggested_table"],
+            "data/speech_ru_airlines.json:callsign_prefix",
         )
         self.assertEqual(by_kind["callsign_prefix"]["suggested_key"], "ABCD")
 
