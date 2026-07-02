@@ -47,7 +47,9 @@ Current assumptions and status:
 - Schedule sensor/binary-sensor docstrings and README now say configured-airport
   departure while keeping the existing entity IDs.
 - `CALLSIGN_PREFIX_TO_BOARD_AIRLINE` is tuned for the Batumi airport board.
-- `KNOWN_ROUTE_BY_CALLSIGN` contains Vanilla Sky `BUS <-> Natakhtari`.
+- Built-in callsign and known-route fallbacks live in
+  `custom_components/aircraft_window/route_fallbacks.py`; the current default
+  data still includes Vanilla Sky `BUS <-> Natakhtari`.
 - Tests describe this as `BatumiAirportBoardTest`, which is accurate today but
   means the provider contract is not yet generic.
 
@@ -189,7 +191,9 @@ Target shape:
 5. Partly done: add `RussianSpeechPack`, override merge points, and move the
    built-in Russian tables out of `logic.py`. User-owned storage/options for
    speech overrides are still pending.
-6. Done for README and entity docstrings: rename Batumi-specific schedule
+6. Done: move built-in callsign and known-route fallback tables out of
+   `logic.py` into `route_fallbacks.py`.
+7. Done for README and entity docstrings: rename Batumi-specific schedule
    wording to configured-airport wording while preserving existing entity IDs.
 
 This order keeps live behavior stable while removing one category of hardcoding
