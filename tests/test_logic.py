@@ -135,6 +135,65 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertIsNone(candidate)
 
+    def test_runtime_settings_from_options_overrides_profile_fields(self) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {
+                "local_airport_iata": "abc",
+                "local_airport_name": "Config Airport",
+                "local_timezone_offset_hours": 2,
+                "window_view_azimuth_degrees": 120,
+                "window_view_half_angle_degrees": 25,
+                "window_view_radius_km": 44,
+                "day_human_visible_radius_km": 11,
+                "low_light_human_visible_radius_km": 22,
+                "night_human_visible_radius_km": 33,
+                "terminal_area_latitude": 10.1,
+                "terminal_area_longitude": 20.2,
+                "terminal_area_radius_km": 30.3,
+                "terminal_area_max_altitude_ft": 4000,
+                "runway_staging_latitude": 11.1,
+                "runway_staging_longitude": 22.2,
+                "runway_staging_radius_km": 3.3,
+                "runway_staging_max_altitude_ft": 444,
+                "runway_staging_max_speed_kt": 55,
+                "watch_airports": "abc, def, abc",
+            }
+        )
+
+        self.assertEqual(runtime_settings.local_airport.iata, "ABC")
+        self.assertEqual(runtime_settings.local_airport.name, "Config Airport")
+        self.assertEqual(
+            runtime_settings.local_airport.timezone.utcoffset(None).total_seconds(),
+            7200,
+        )
+        self.assertEqual(runtime_settings.window_view.azimuth_degrees, 120)
+        self.assertEqual(runtime_settings.window_view.half_angle_degrees, 25)
+        self.assertEqual(runtime_settings.window_view.default_radius_km, 44)
+        self.assertEqual(runtime_settings.window_view.day_radius_km, 11)
+        self.assertEqual(runtime_settings.window_view.low_light_radius_km, 22)
+        self.assertEqual(runtime_settings.window_view.night_radius_km, 33)
+        terminal_area = runtime_settings.local_airport.terminal_area
+        assert terminal_area is not None
+        self.assertEqual(terminal_area.latitude, 10.1)
+        self.assertEqual(terminal_area.longitude, 20.2)
+        self.assertEqual(terminal_area.radius_km, 30.3)
+        self.assertEqual(terminal_area.max_altitude_ft, 4000)
+        staging_area = runtime_settings.local_airport.runway_staging_areas[0]
+        self.assertEqual(staging_area.latitude, 11.1)
+        self.assertEqual(staging_area.longitude, 22.2)
+        self.assertEqual(staging_area.radius_km, 3.3)
+        self.assertEqual(staging_area.max_altitude_ft, 444)
+        self.assertEqual(staging_area.max_speed_kt, 55)
+        self.assertEqual(
+            [airport.iata for airport in runtime_settings.watch_policy.watch_airports],
+            ["ABC", "DEF"],
+        )
+
+    def test_runtime_settings_from_options_allows_empty_watch_airports(self) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options({"watch_airports": ""})
+
+        self.assertEqual(runtime_settings.watch_policy.watch_airports, ())
+
     def test_landing_announcement_contains_route_model_and_year(self) -> None:
         aircraft = {
             "hex": "4BCE01",

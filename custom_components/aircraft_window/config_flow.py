@@ -11,18 +11,37 @@ from homeassistant.core import callback
 from .const import (
     CONF_BACKGROUND_INTERVAL_SECONDS,
     CONF_COLLECT_MAPPING_REVIEW,
+    CONF_DAY_HUMAN_VISIBLE_RADIUS_KM,
     CONF_DUMP1090_URL,
     CONF_ENABLE_ENRICHMENT,
     CONF_ENRICHMENT_TIMEOUT_SECONDS,
     CONF_HOME_LATITUDE,
     CONF_HOME_LONGITUDE,
+    CONF_LOCAL_AIRPORT_IATA,
+    CONF_LOCAL_AIRPORT_NAME,
+    CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
+    CONF_LOW_LIGHT_HUMAN_VISIBLE_RADIUS_KM,
     CONF_MAX_APPROACH_ALTITUDE_FT,
     CONF_MAX_APPROACH_DISTANCE_KM,
     CONF_MAX_NO_POSITION_SEEN_SECONDS,
     CONF_MAX_POSITIONED_DISTANCE_KM,
+    CONF_NIGHT_HUMAN_VISIBLE_RADIUS_KM,
     CONF_PREFETCH_BUDGET_SECONDS,
     CONF_PREFETCH_LIMIT,
+    CONF_RUNWAY_STAGING_LATITUDE,
+    CONF_RUNWAY_STAGING_LONGITUDE,
+    CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
+    CONF_RUNWAY_STAGING_MAX_SPEED_KT,
+    CONF_RUNWAY_STAGING_RADIUS_KM,
     CONF_SCAN_INTERVAL_SECONDS,
+    CONF_TERMINAL_AREA_LATITUDE,
+    CONF_TERMINAL_AREA_LONGITUDE,
+    CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
+    CONF_TERMINAL_AREA_RADIUS_KM,
+    CONF_WATCH_AIRPORTS,
+    CONF_WINDOW_VIEW_AZIMUTH_DEGREES,
+    CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
+    CONF_WINDOW_VIEW_RADIUS_KM,
     DEFAULT_BACKGROUND_INTERVAL_SECONDS,
     DEFAULT_COLLECT_MAPPING_REVIEW,
     DEFAULT_DUMP1090_URL,
@@ -36,13 +55,129 @@ from .const import (
     DEFAULT_SCAN_INTERVAL_SECONDS,
     DOMAIN,
 )
+from .settings import DEFAULT_RUNTIME_SETTINGS
+
+DEFAULT_WATCH_AIRPORTS = ",".join(
+    airport.iata for airport in DEFAULT_RUNTIME_SETTINGS.watch_policy.watch_airports
+)
 
 
 def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.Schema:
+    default_airport = DEFAULT_RUNTIME_SETTINGS.local_airport
+    default_terminal = default_airport.terminal_area
+    assert default_terminal is not None
+    default_staging = default_airport.runway_staging_areas[0]
+    default_view = DEFAULT_RUNTIME_SETTINGS.window_view
+    default_timezone_offset_hours = (
+        default_airport.timezone.utcoffset(None).total_seconds() / 3600.0
+    )
     fields: dict[vol.Marker, Any] = {
         vol.Required(
             CONF_DUMP1090_URL,
             default=defaults.get(CONF_DUMP1090_URL, DEFAULT_DUMP1090_URL),
+        ): str,
+        vol.Required(
+            CONF_LOCAL_AIRPORT_IATA,
+            default=defaults.get(CONF_LOCAL_AIRPORT_IATA, default_airport.iata),
+        ): str,
+        vol.Required(
+            CONF_LOCAL_AIRPORT_NAME,
+            default=defaults.get(CONF_LOCAL_AIRPORT_NAME, default_airport.name),
+        ): str,
+        vol.Required(
+            CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
+            default=defaults.get(
+                CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
+                default_timezone_offset_hours,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=-12.0, max=14.0)),
+        vol.Required(
+            CONF_WINDOW_VIEW_AZIMUTH_DEGREES,
+            default=defaults.get(
+                CONF_WINDOW_VIEW_AZIMUTH_DEGREES,
+                default_view.azimuth_degrees,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=360.0)),
+        vol.Required(
+            CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
+            default=defaults.get(
+                CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
+                default_view.half_angle_degrees,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=1.0, max=180.0)),
+        vol.Required(
+            CONF_WINDOW_VIEW_RADIUS_KM,
+            default=defaults.get(CONF_WINDOW_VIEW_RADIUS_KM, default_view.default_radius_km),
+        ): vol.All(vol.Coerce(float), vol.Range(min=1.0, max=500.0)),
+        vol.Required(
+            CONF_DAY_HUMAN_VISIBLE_RADIUS_KM,
+            default=defaults.get(
+                CONF_DAY_HUMAN_VISIBLE_RADIUS_KM,
+                default_view.day_radius_km,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=1.0, max=500.0)),
+        vol.Required(
+            CONF_LOW_LIGHT_HUMAN_VISIBLE_RADIUS_KM,
+            default=defaults.get(
+                CONF_LOW_LIGHT_HUMAN_VISIBLE_RADIUS_KM,
+                default_view.low_light_radius_km,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=1.0, max=500.0)),
+        vol.Required(
+            CONF_NIGHT_HUMAN_VISIBLE_RADIUS_KM,
+            default=defaults.get(
+                CONF_NIGHT_HUMAN_VISIBLE_RADIUS_KM,
+                default_view.night_radius_km,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=1.0, max=500.0)),
+        vol.Required(
+            CONF_TERMINAL_AREA_LATITUDE,
+            default=defaults.get(CONF_TERMINAL_AREA_LATITUDE, default_terminal.latitude),
+        ): vol.Coerce(float),
+        vol.Required(
+            CONF_TERMINAL_AREA_LONGITUDE,
+            default=defaults.get(CONF_TERMINAL_AREA_LONGITUDE, default_terminal.longitude),
+        ): vol.Coerce(float),
+        vol.Required(
+            CONF_TERMINAL_AREA_RADIUS_KM,
+            default=defaults.get(CONF_TERMINAL_AREA_RADIUS_KM, default_terminal.radius_km),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=500.0)),
+        vol.Required(
+            CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
+            default=defaults.get(
+                CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
+                default_terminal.max_altitude_ft,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=60000.0)),
+        vol.Required(
+            CONF_RUNWAY_STAGING_LATITUDE,
+            default=defaults.get(CONF_RUNWAY_STAGING_LATITUDE, default_staging.latitude),
+        ): vol.Coerce(float),
+        vol.Required(
+            CONF_RUNWAY_STAGING_LONGITUDE,
+            default=defaults.get(CONF_RUNWAY_STAGING_LONGITUDE, default_staging.longitude),
+        ): vol.Coerce(float),
+        vol.Required(
+            CONF_RUNWAY_STAGING_RADIUS_KM,
+            default=defaults.get(CONF_RUNWAY_STAGING_RADIUS_KM, default_staging.radius_km),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=100.0)),
+        vol.Required(
+            CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
+            default=defaults.get(
+                CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
+                default_staging.max_altitude_ft,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=10000.0)),
+        vol.Required(
+            CONF_RUNWAY_STAGING_MAX_SPEED_KT,
+            default=defaults.get(
+                CONF_RUNWAY_STAGING_MAX_SPEED_KT,
+                default_staging.max_speed_kt,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=300.0)),
+        vol.Required(
+            CONF_WATCH_AIRPORTS,
+            default=defaults.get(CONF_WATCH_AIRPORTS, DEFAULT_WATCH_AIRPORTS),
         ): str,
         vol.Required(
             CONF_MAX_POSITIONED_DISTANCE_KM,

@@ -83,7 +83,7 @@ from .logic import (
     tts_cyrillic_text,
     window_view_attrs,
 )
-from .settings import DEFAULT_RUNTIME_SETTINGS, RuntimeSettings
+from .settings import DEFAULT_RUNTIME_SETTINGS, RuntimeSettings, runtime_settings_from_options
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -253,8 +253,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         self._announced_event_keys_by_airframe: dict[str, set[str]] = {}
         self._held_routine_hex_candidates: dict[str, float] = {}
         self._emergency_squawk_observations: dict[str, dict[str, float]] = {}
-        self._runtime_settings = DEFAULT_RUNTIME_SETTINGS
         options = self.options
+        self._runtime_settings = runtime_settings_from_options(options)
         super().__init__(
             hass,
             _LOGGER,

@@ -21,11 +21,13 @@ geometry or airport context.
 
 Configuration surface today:
 
-- `config_flow.py` only exposes receiver, observer coordinates, candidate
-  thresholds, polling, enrichment, and mapping-review options.
-- `strings.json` and translations mirror that same narrow schema.
-- No option currently identifies the airport, runway area, window direction,
-  schedule provider, watched routes, or speech locale.
+- `config_flow.py` exposes receiver, observer coordinates, candidate
+  thresholds, polling, enrichment, mapping-review options, local airport
+  identity/timezone, window azimuth/radius profile, terminal area, runway
+  staging area, and watched route airport codes.
+- `strings.json` and translations mirror that schema.
+- Options still do not expose polygon editing, board provider selection,
+  provider URLs/TTLs, kinematic thresholds, or speech locale.
 
 ## Hardcoded Local Context
 
@@ -38,6 +40,8 @@ Current assumptions and status:
   `LOCAL_AIRPORT_IATA`, `BATUMI_AIRPORT_BOARD_BASE_URL`,
   `BATUMI_AIRPORT_BOARD_LEGS`, and `TBILISI_TIMEZONE`, but runtime reads go
   through `runtime_settings`.
+- Basic local airport IATA/name/timezone are configurable through Home
+  Assistant config/options.
 - Schedule sensors and docs say "Batumi departure" rather than "configured
   airport departure".
 - `CALLSIGN_PREFIX_TO_BOARD_AIRLINE` is tuned for the Batumi airport board.
@@ -66,7 +70,9 @@ Current assumptions and status:
   areas, and terminal area. `logic.py` keeps compatibility aliases for the old
   constants, but visibility, projection, staging, and terminal suppression reads
   can take a `RuntimeSettings` object.
-- Home Assistant options do not expose these values yet.
+- Basic azimuth, half-angle, radius, terminal area, and runway staging values
+  are configurable through Home Assistant config/options. The polygon remains a
+  built-in default until a real list editor/validator is designed.
 
 Target shape:
 
@@ -86,7 +92,9 @@ Current assumptions and status:
 - Kutaisi is now the default `WatchAirport` in `settings.py`, not a literal
   branch in `interest_candidate`.
 - Kinematic-only thresholds and terminal suppression are now in `WatchPolicy`.
-- Home Assistant options do not expose `WatchPolicy` yet.
+- Watched route airport codes are configurable through Home Assistant
+  config/options. Kinematic thresholds and terminal suppression are still code
+  defaults.
 
 Target shape:
 
@@ -170,8 +178,8 @@ Target shape:
    provider URL, timezone, and local airport IATA reads through those settings
    helpers while keeping current defaults.
 3. Move Batumi airport board behind a provider abstraction and make it optional.
-4. Expose configured `watch_airports`, local airport, and view profile through
-   config/options after migration behavior is designed.
+4. Done: expose configured `watch_airports`, local airport, and basic view
+   profile through config/options.
 5. Move speech tables into a Russian speech pack and add override merge points.
 6. Rename docs/strings from Batumi-specific wording to configured-airport
    wording while preserving existing entity IDs.

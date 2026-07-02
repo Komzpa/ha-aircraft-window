@@ -4,6 +4,29 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta, timezone, tzinfo
+from typing import Any
+
+from .const import (
+    CONF_DAY_HUMAN_VISIBLE_RADIUS_KM,
+    CONF_LOCAL_AIRPORT_IATA,
+    CONF_LOCAL_AIRPORT_NAME,
+    CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
+    CONF_LOW_LIGHT_HUMAN_VISIBLE_RADIUS_KM,
+    CONF_NIGHT_HUMAN_VISIBLE_RADIUS_KM,
+    CONF_RUNWAY_STAGING_LATITUDE,
+    CONF_RUNWAY_STAGING_LONGITUDE,
+    CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
+    CONF_RUNWAY_STAGING_MAX_SPEED_KT,
+    CONF_RUNWAY_STAGING_RADIUS_KM,
+    CONF_TERMINAL_AREA_LATITUDE,
+    CONF_TERMINAL_AREA_LONGITUDE,
+    CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
+    CONF_TERMINAL_AREA_RADIUS_KM,
+    CONF_WATCH_AIRPORTS,
+    CONF_WINDOW_VIEW_AZIMUTH_DEGREES,
+    CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
+    CONF_WINDOW_VIEW_RADIUS_KM,
+)
 
 BATUMI_WINDOW_VIEW_POLYGON_LON_LAT = (
     (41.5906258, 41.6211806),
@@ -187,3 +210,174 @@ DEFAULT_RUNTIME_SETTINGS = RuntimeSettings(
         },
     ),
 )
+
+
+def _float_option(options: dict[str, Any], key: str, default: float) -> float:
+    """Return a finite float option or its default."""
+    try:
+        value = float(options.get(key, default))
+    except (TypeError, ValueError):
+        return default
+    return value
+
+
+def _watch_airports_from_option(value: Any) -> tuple[WatchAirport, ...]:
+    """Parse a comma-separated watched-airport list."""
+    airports: list[WatchAirport] = []
+    seen: set[str] = set()
+    for raw_token in str(value or "").split(","):
+        iata = raw_token.strip().upper()
+        if not iata or iata in seen:
+            continue
+        if not (3 <= len(iata) <= 4 and iata.isalnum()):
+            continue
+        seen.add(iata)
+        phase = f"{iata.lower()}_route"
+        if iata == "KUT":
+            phase = "kutaisi_route"
+        airports.append(
+            WatchAirport(
+                iata=iata,
+                phase=phase,
+                reason_label=f"route includes {iata}",
+            )
+        )
+    return tuple(airports)
+
+
+def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
+    """Build runtime settings from config entry data and options."""
+    defaults = DEFAULT_RUNTIME_SETTINGS
+    default_airport = defaults.local_airport
+    default_view = defaults.window_view
+    default_staging = default_airport.runway_staging_areas[0]
+    default_terminal = default_airport.terminal_area
+    assert default_terminal is not None
+
+    local_iata = str(
+        options.get(CONF_LOCAL_AIRPORT_IATA, default_airport.iata)
+        or default_airport.iata
+    ).strip().upper()
+    local_name = str(
+        options.get(CONF_LOCAL_AIRPORT_NAME, default_airport.name)
+        or default_airport.name
+    ).strip()
+    timezone_offset_hours = _float_option(
+        options,
+        CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
+        default_airport.timezone.utcoffset(None).total_seconds() / 3600.0,
+    )
+
+    runway_staging = RunwayStagingArea(
+        latitude=_float_option(
+            options,
+            CONF_RUNWAY_STAGING_LATITUDE,
+            default_staging.latitude,
+        ),
+        longitude=_float_option(
+            options,
+            CONF_RUNWAY_STAGING_LONGITUDE,
+            default_staging.longitude,
+        ),
+        radius_km=_float_option(
+            options,
+            CONF_RUNWAY_STAGING_RADIUS_KM,
+            default_staging.radius_km,
+        ),
+        max_altitude_ft=_float_option(
+            options,
+            CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
+            default_staging.max_altitude_ft,
+        ),
+        max_speed_kt=_float_option(
+            options,
+            CONF_RUNWAY_STAGING_MAX_SPEED_KT,
+            default_staging.max_speed_kt,
+        ),
+    )
+    terminal_area = TerminalArea(
+        latitude=_float_option(
+            options,
+            CONF_TERMINAL_AREA_LATITUDE,
+            default_terminal.latitude,
+        ),
+        longitude=_float_option(
+            options,
+            CONF_TERMINAL_AREA_LONGITUDE,
+            default_terminal.longitude,
+        ),
+        radius_km=_float_option(
+            options,
+            CONF_TERMINAL_AREA_RADIUS_KM,
+            default_terminal.radius_km,
+        ),
+        max_altitude_ft=_float_option(
+            options,
+            CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
+            default_terminal.max_altitude_ft,
+        ),
+    )
+    window_view = WindowViewProfile(
+        lead_seconds=default_view.lead_seconds,
+        projection_step_seconds=default_view.projection_step_seconds,
+        default_radius_km=_float_option(
+            options,
+            CONF_WINDOW_VIEW_RADIUS_KM,
+            default_view.default_radius_km,
+        ),
+        day_radius_km=_float_option(
+            options,
+            CONF_DAY_HUMAN_VISIBLE_RADIUS_KM,
+            default_view.day_radius_km,
+        ),
+        low_light_radius_km=_float_option(
+            options,
+            CONF_LOW_LIGHT_HUMAN_VISIBLE_RADIUS_KM,
+            default_view.low_light_radius_km,
+        ),
+        night_radius_km=_float_option(
+            options,
+            CONF_NIGHT_HUMAN_VISIBLE_RADIUS_KM,
+            default_view.night_radius_km,
+        ),
+        azimuth_degrees=_float_option(
+            options,
+            CONF_WINDOW_VIEW_AZIMUTH_DEGREES,
+            default_view.azimuth_degrees,
+        ),
+        half_angle_degrees=_float_option(
+            options,
+            CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
+            default_view.half_angle_degrees,
+        ),
+        polygon_lon_lat=default_view.polygon_lon_lat,
+    )
+    watch_airports = _watch_airports_from_option(
+        options.get(
+            CONF_WATCH_AIRPORTS,
+            ",".join(airport.iata for airport in defaults.watch_policy.watch_airports),
+        )
+    )
+    return RuntimeSettings(
+        local_airport=LocalAirportProfile(
+            iata=local_iata,
+            name=local_name,
+            timezone=timezone(timedelta(hours=timezone_offset_hours)),
+            board_provider=default_airport.board_provider,
+            terminal_area=terminal_area,
+            runway_staging_areas=(runway_staging,),
+        ),
+        window_view=window_view,
+        watch_policy=WatchPolicy(
+            rapid_descent_fpm=defaults.watch_policy.rapid_descent_fpm,
+            rapid_descent_min_altitude_ft=defaults.watch_policy.rapid_descent_min_altitude_ft,
+            orbit_track_rate_degrees_per_second=(
+                defaults.watch_policy.orbit_track_rate_degrees_per_second
+            ),
+            orbit_min_ground_speed_kt=defaults.watch_policy.orbit_min_ground_speed_kt,
+            orbit_max_ground_speed_kt=defaults.watch_policy.orbit_max_ground_speed_kt,
+            terminal_suppression_enabled=defaults.watch_policy.terminal_suppression_enabled,
+            watch_airports=watch_airports,
+        ),
+        providers=defaults.providers,
+    )
