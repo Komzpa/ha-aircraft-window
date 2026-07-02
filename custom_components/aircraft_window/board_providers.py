@@ -29,7 +29,7 @@ class AirportBoardProvider:
 
 AIRPORT_BOARD_PROVIDERS = (
     AirportBoardProvider(DISABLED_AIRPORT_BOARD_PROVIDER, "Disabled"),
-    AirportBoardProvider(BATUMI_AIRPORT_BOARD_PROVIDER, "Batumi airport board"),
+    AirportBoardProvider(BATUMI_AIRPORT_BOARD_PROVIDER, "Built-in airport board"),
     AirportBoardProvider(JSON_AIRPORT_BOARD_PROVIDER, "Canonical JSON airport board"),
 )
 AIRPORT_BOARD_PROVIDER_IDS = tuple(provider.provider_id for provider in AIRPORT_BOARD_PROVIDERS)
@@ -82,7 +82,7 @@ def batumi_airport_board_leg_request(
     flight_leg: str,
     request_raw_url: str,
 ) -> AirportBoardLegRequest:
-    """Return the Batumi airport board request shape for one leg."""
+    """Return the built-in airport board request shape for one leg."""
     return AirportBoardLegRequest(
         url=base_url,
         params={

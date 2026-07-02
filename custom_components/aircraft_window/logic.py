@@ -22,7 +22,6 @@ from .speech_ru import (
     LATIN_TRANSLITERATION_CHARS_RU,
     LATIN_TRANSLITERATION_DIGRAPHS_RU,
     LATIN_WORD_TRANSLITERATION_RU,
-    MILITARY_OWNER_SPEECH_RU,
     RussianSpeechPack,
 )
 
@@ -1140,7 +1139,7 @@ def military_operator_speech(enrichment: dict[str, Any]) -> str:
     if operator in pack.military_operator:
         return pack.military_operator[operator]
     owner = str(enrichment.get("registered_owner") or "").strip()
-    owner_speech = MILITARY_OWNER_SPEECH_RU.get(owner.casefold())
+    owner_speech = pack.military_owner.get(owner.casefold())
     if owner_speech:
         return owner_speech
     return tts_cyrillic_text(owner)

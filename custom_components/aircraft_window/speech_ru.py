@@ -10,6 +10,8 @@ from typing import Any
 
 SPEECH_RU_AIRPORTS_DATA_FILE = "data/speech_ru_airports.json"
 SPEECH_RU_AIRLINES_DATA_FILE = "data/speech_ru_airlines.json"
+SPEECH_RU_MILITARY_DATA_FILE = "data/speech_ru_military.json"
+SPEECH_RU_MODELS_DATA_FILE = "data/speech_ru_models.json"
 
 
 def _load_speech_data_file(filename: str) -> Any:
@@ -235,35 +237,45 @@ def load_callsign_prefix_speech_data(
     return _speech_string_map(raw_data.get("callsign_prefix"))
 
 
+def load_model_speech_rules_data(
+    filename: str = SPEECH_RU_MODELS_DATA_FILE,
+) -> tuple[tuple[tuple[str, ...], str], ...]:
+    """Load built-in Russian aircraft model speech rules from packaged data."""
+    raw_data = _load_speech_data_file(filename)
+    if not isinstance(raw_data, list):
+        return ()
+    rules: list[tuple[tuple[str, ...], str]] = []
+    for raw_rule in raw_data:
+        if not isinstance(raw_rule, dict):
+            continue
+        raw_tokens = raw_rule.get("tokens")
+        speech = str(raw_rule.get("speech", "")).strip()
+        if not isinstance(raw_tokens, list) or not speech:
+            continue
+        tokens = tuple(str(token).strip() for token in raw_tokens if str(token).strip())
+        if not tokens:
+            continue
+        rules.append((tokens, speech))
+    return tuple(rules)
+
+
+def load_military_speech_data(
+    filename: str = SPEECH_RU_MILITARY_DATA_FILE,
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Load built-in Russian military operator and owner speech tables."""
+    raw_data = _load_speech_data_file(filename)
+    if not isinstance(raw_data, dict):
+        return {}, {}
+    return (
+        _speech_string_map(raw_data.get("operator")),
+        _speech_string_map(raw_data.get("owner"), fold_keys=True),
+    )
+
+
 AIRLINE_SPEECH_RU, AIRLINE_SPEECH_ALIASES_RU = load_airline_speech_data()
 
-MILITARY_OPERATOR_SPEECH_RU = {
-    "PLF": "Польские ВВС",
-    "RCH": "военный транспорт США",
-    "RRR": "Королевские ВВС",
-    "ASY": "австралийские ВВС",
-    "IAM": "итальянские ВВС",
-    "GAF": "немецкие ВВС",
-    "FAF": "французские ВВС",
-    "CTM": "французские ВВС",
-    "AME": "испанские ВВС",
-    "THK": "турецкие ВВС",
-}
-
-MILITARY_OWNER_SPEECH_RU = {
-    "french air force": "французские ВВС",
-    "united states air force": "ВВС США",
-    "us air force": "ВВС США",
-    "u.s. air force": "ВВС США",
-    "turkish air force": "ВВС Турции",
-    "romanian air force": "ВВС Румынии",
-    "united states army": "Армия США",
-    "us army": "Армия США",
-    "united states navy": "ВМС США",
-    "us navy": "ВМС США",
-}
-
 CALLSIGN_PREFIX_SPEECH_RU = load_callsign_prefix_speech_data()
+MILITARY_OPERATOR_SPEECH_RU, MILITARY_OWNER_SPEECH_RU = load_military_speech_data()
 
 YEAR_RU = {
     1990: "тысяча девятьсот девяностого года",
@@ -298,61 +310,7 @@ YEAR_RU = {
 }
 
 
-MODEL_SPEECH_RULES_RU: tuple[tuple[tuple[str, ...], str], ...] = (
-    (("C-130", "C130", "C30J", "HERCULES"), "Си-сто тридцать Геркулес"),
-    (("C-12", "C12", "HURON"), "Си-двенадцать Хьюрон"),
-    (("C-146", "C146"), "Си-сто сорок шесть"),
-    (("A400",), "Аэробус А-четыреста"),
-    (("TU-204", "T204"), "Ту-двести четыре"),
-    (("TU-214", "T214"), "Ту-двести четырнадцать"),
-    (("A220", "BCS3", "BCS1"), "Аэробус А-двести двадцать"),
-    (("A19N", "A319"), "Аэробус триста девятнадцать"),
-    (("A20N", "A320"), "Аэробус триста двадцать"),
-    (("A21N", "A321"), "Аэробус триста двадцать один"),
-    (("A332", "A330"), "Аэробус триста тридцать"),
-    (("A35K", "A350"), "Аэробус триста пятьдесят"),
-    (
-        ("B38M", "737 MAX 8", "re:\\b737-8(?!00)\\b"),
-        "Боинг семьсот тридцать семь Макс восемь",
-    ),
-    (
-        ("B39M", "737 MAX 9", "re:\\b737-9(?!00)\\b"),
-        "Боинг семьсот тридцать семь Макс девять",
-    ),
-    (("B737", "B738", "B739", "737"), "Боинг семьсот тридцать семь"),
-    (("B752", "757"), "Боинг семьсот пятьдесят семь"),
-    (("B763", "767"), "Боинг семьсот шестьдесят семь"),
-    (("B77", "777"), "Боинг семьсот семьдесят семь"),
-    (("B78", "787"), "Боинг семьсот восемьдесят семь"),
-    (("IL76", "IL-76"), "Ил-семьдесят шесть"),
-    (("E190",), "Эмбраер сто девяносто"),
-    (("E195",), "Эмбраер сто девяносто пять"),
-    (("E170", "E75"), "Эмбраер сто семьдесят"),
-    (("CRJ",), "Си-ар-джей"),
-    (("PA-46", "M500"), "Пайпер M500"),
-    (("ASTRA", "1125"), "Астра эс-пи-икс"),
-    (("FALCON 2000",), "Дассо Фалькон две тысячи"),
-    (("CHALLENGER 300", "CL30"), "Бомбардье Челленджер трёхсотый"),
-    (("CHALLENGER 350", "CL35"), "Бомбардье Челленджер триста пятидесятый"),
-    (("CHALLENGER 604",), "Бомбардье Челленджер шестьсот четвёртый"),
-    (("CHALLENGER 605",), "Бомбардье Челленджер шестьсот пятый"),
-    (("CHALLENGER 650",), "Бомбардье Челленджер шестьсот пятидесятый"),
-    (("CHALLENGER", "CL60", "CL65"), "Бомбардье Челленджер"),
-    (("GL6T", "GLOBAL 6000"), "Бомбардье Глобал шесть тысяч"),
-    (("GL5T", "GLOBAL 5000"), "Бомбардье Глобал пять тысяч"),
-    (("G650", "GLF6"), "Гольфстрим Джи-шестьсот пятьдесят"),
-    (("G550", "GLF5"), "Гольфстрим Джи-пятьсот пятьдесят"),
-    (("GLF4",), "Гольфстрим четыре"),
-    (("GULFSTREAM", "GLF"), "Гольфстрим"),
-    (("H25B", "850XP"), "Хокер восемьсот пятьдесят икс пи"),
-    (("SU95", "SSJ"), "Суперджет"),
-    (("C208", "CARAVAN"), "Цессна Караван"),
-    (("EUROFOX", "AEROPRO"), "Еврофокс"),
-    (
-        ("L410", "LET"),
-        "Лет четыреста десять Турболет, небольшой двухмоторный турбовинтовой",
-    ),
-)
+MODEL_SPEECH_RULES_RU = load_model_speech_rules_data()
 
 
 @dataclass(frozen=True, slots=True)
@@ -371,6 +329,7 @@ class RussianSpeechPack:
     airline_aliases: dict[str, str]
     callsign_prefix: dict[str, str]
     military_operator: dict[str, str]
+    military_owner: dict[str, str]
     model_rules: tuple[tuple[tuple[str, ...], str], ...]
     year: dict[int, str]
 
@@ -401,6 +360,7 @@ class RussianSpeechPack:
             airline_aliases={**self.airline_aliases, **(airline_aliases or {})},
             callsign_prefix={**self.callsign_prefix, **(callsign_prefix or {})},
             military_operator=self.military_operator,
+            military_owner=self.military_owner,
             model_rules=self.model_rules,
             year=self.year,
         )
@@ -419,6 +379,7 @@ DEFAULT_RUSSIAN_SPEECH_PACK = RussianSpeechPack(
     airline_aliases=AIRLINE_SPEECH_ALIASES_RU,
     callsign_prefix=CALLSIGN_PREFIX_SPEECH_RU,
     military_operator=MILITARY_OPERATOR_SPEECH_RU,
+    military_owner=MILITARY_OWNER_SPEECH_RU,
     model_rules=MODEL_SPEECH_RULES_RU,
     year=YEAR_RU,
 )

@@ -50,9 +50,9 @@ It also watches special-interest traffic already visible to the local receiver:
 configured watched route airports and likely military aircraft identified from
 public owner or operator metadata can produce route-watch and
 `military_visible` events even when they are not landing at the home airport.
-The default Batumi profile keeps `KUT` as a watched airport for compatibility;
-other local airports start with no watched route airport unless `watch_airports`
-is set to a non-default value.
+The bundled default profile is for Batumi (`BUS`) and keeps `KUT` as a watched
+airport for compatibility. Other local airports start with no watched route
+airport unless `watch_airports` is set to a non-default value.
 Use `watch_airports_json` when a watched route endpoint needs a custom phase or
 reason label, for example
 `[{"iata": "DEF", "phase": "def_arrival_watch", "reason_label": "route includes DEF"}]`.
@@ -62,18 +62,18 @@ reusing Batumi.
 Use `local_timezone_name` with an IANA timezone such as `Europe/Paris` when the
 airport observes DST; `local_timezone_offset_hours` remains the fixed-offset
 fallback.
-Built-in callsign fallbacks for local Batumi/regional traffic are also loaded
-only for the default Batumi profile; other local airports use only their
-explicit `route_airline_prefix_overrides_json` and
-`route_callsign_overrides_json` fallbacks.
+Built-in callsign fallbacks for the bundled Batumi/regional default profile are
+also profile-scoped. Other local airports use only their explicit
+`route_airline_prefix_overrides_json` and `route_callsign_overrides_json`
+fallbacks.
 Window geometry is configurable with azimuth, half-angle, radius, projection
 lead/step, and an optional raw lon/lat polygon JSON override. Leaving the
 polygon blank keeps the profile default; `[]` explicitly clears it and uses the
 azimuth/radius model only.
-The built-in Batumi terminal area and runway staging area are inherited only by
-the default `BUS` local-airport profile; other local airports use no
-terminal/staging geometry unless `terminal_area_enabled` or
-`runway_staging_enabled` is set. `terminal_areas_json` can define multiple
+The built-in terminal area and runway staging area are part of the bundled
+Batumi (`BUS`) profile only. Other local airports use no terminal/staging
+geometry unless `terminal_area_enabled` or `runway_staging_enabled` is set.
+`terminal_areas_json` can define multiple
 routine terminal/suppression areas as objects with `lat`/`lon`, `radius_km`, and
 `max_altitude_ft`; `runway_staging_areas_json` can define multiple preopen
 staging areas as objects with `lat`/`lon`, `radius_km`, `max_altitude_ft`, and
@@ -204,16 +204,19 @@ signals instead of raw dump1090 order. Deadline misses are not stored as real
 network errors.
 
 Provider base URLs for ADSBDB, HexDB, Airplanes.live, Airport-data.com, and the
-built-in Batumi airport board, plus enrichment/airport-board request timeouts,
-the built-year and airport-board cache TTLs, and route/aircraft lookup cache
-TTLs, can be changed in the options flow while keeping the public defaults for
-normal installs.
-For airport boards beyond the built-in Batumi provider, set the
+built-in airport board provider, plus enrichment/airport-board request
+timeouts, the built-year and airport-board cache TTLs, and route/aircraft lookup
+cache TTLs, can be changed in the options flow while keeping the public defaults
+for normal installs.
+For airport boards beyond the built-in provider, set the
 `airport_board_provider` option to `json_airport_board` and point
 `json_airport_board_url` at a canonical JSON endpoint shaped like
 `{"data": {"flights": [...]}}` or `{"flights": [...]}` using the same row fields
 as the built-in board path. The provider option is limited to disabled,
-`batumi_airport_board`, or `json_airport_board`.
+`batumi_airport_board`, or `json_airport_board`. The legacy option key and
+provider id still contain `batumi` for Home Assistant storage compatibility; new
+installations should treat them as the bundled board provider, not as a generic
+airport template.
 The schedule preopen sensor and binary sensor attributes include the configured
 local airport IATA/name and the board provider source used for the decision.
 
@@ -234,7 +237,10 @@ built-in Russian pack, `ru`. The options flow accepts JSON-object overrides for
 airline names, airline
 aliases, origin/destination/route airport codes, callsign prefixes, airline
 fallbacks by callsign prefix, route fallbacks by callsign, airport city labels,
-and aircraft model speech. Speech examples: `{"XYZ": "Иксвайзед"}`,
+and aircraft model speech. Built-in airport, airline, callsign-prefix, military
+operator, registered-owner, and model speech defaults live under
+`custom_components/aircraft_window/data/` so reusable pronunciation fixes can be
+reviewed as data instead of Python code. Speech examples: `{"XYZ": "Иксвайзед"}`,
 `{"Other Place": "Другое место"}`, `{"ABCD": "Абэцэдэ"}`, or
 `{"MYSTERY JET 9000 MJ90": "Мистери Джет девять тысяч"}`. Route fallback example:
 `{"ABC123": {"origin_iata": "XYZ", "destination_iata": "DEF",
@@ -242,10 +248,12 @@ and aircraft model speech. Speech examples: `{"XYZ": "Иксвайзед"}`,
 the built-in airport/city speech data in
 `custom_components/aircraft_window/data/speech_ru_airports.json`, airline and
 callsign-prefix speech data in
-`custom_components/aircraft_window/data/speech_ru_airlines.json`, route fallback data in
-`custom_components/aircraft_window/data/route_fallbacks_ru.json`, and the shared TTS
-stress lexicon. Each mapping-review item includes `suggested_option`,
-`suggested_key`, and `suggested_value` fields so a user can copy the
+`custom_components/aircraft_window/data/speech_ru_airlines.json`, aircraft model
+speech data in `custom_components/aircraft_window/data/speech_ru_models.json`,
+military speech data in `custom_components/aircraft_window/data/speech_ru_military.json`,
+route fallback data in `custom_components/aircraft_window/data/route_fallbacks_ru.json`,
+and the shared TTS stress lexicon. Each mapping-review item includes
+`suggested_option`, `suggested_key`, and `suggested_value` fields so a user can copy the
 recommendation into the matching JSON override option without reading the Python
 tables first.
 

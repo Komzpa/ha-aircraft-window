@@ -766,6 +766,30 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertEqual(callsign_prefix["SPAR"], "Спар")
 
+    def test_default_military_speech_loads_from_package_data(self) -> None:
+        operator, owner = speech_ru_module.load_military_speech_data()
+
+        self.assertEqual(operator["PLF"], "Польские ВВС")
+        self.assertEqual(owner["romanian air force"], "ВВС Румынии")
+
+    def test_default_model_speech_loads_from_package_data(self) -> None:
+        model_rules = speech_ru_module.load_model_speech_rules_data()
+
+        self.assertIn(
+            (
+                ("B38M", "737 MAX 8", r"re:\b737-8(?!00)\b"),
+                "Боинг семьсот тридцать семь Макс восемь",
+            ),
+            model_rules,
+        )
+        self.assertIn(
+            (
+                ("L410", "LET"),
+                "Лет четыреста десять Турболет, небольшой двухмоторный турбовинтовой",
+            ),
+            model_rules,
+        )
+
     def test_default_airport_speech_loads_from_package_data(self) -> None:
         (
             city_from,
