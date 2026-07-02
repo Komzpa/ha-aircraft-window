@@ -48,6 +48,7 @@ from .const import (
     CONF_SPEECH_AIRPORT_CODE_ROUTE_OVERRIDES,
     CONF_SPEECH_AIRPORT_CODE_TO_OVERRIDES,
     CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES,
+    CONF_SPEECH_MODEL_OVERRIDES,
     CONF_TERMINAL_AREA_LATITUDE,
     CONF_TERMINAL_AREA_LONGITUDE,
     CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
@@ -311,6 +312,10 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
         vol.Optional(
             CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES,
             default=defaults.get(CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES, "{}"),
+        ): str,
+        vol.Optional(
+            CONF_SPEECH_MODEL_OVERRIDES,
+            default=defaults.get(CONF_SPEECH_MODEL_OVERRIDES, "{}"),
         ): str,
         vol.Optional(
             CONF_ROUTE_AIRLINE_PREFIX_OVERRIDES,

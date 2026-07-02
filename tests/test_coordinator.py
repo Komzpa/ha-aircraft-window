@@ -1464,6 +1464,9 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
                 "speech_airport_code_from_overrides_json": '{"XYZ": "Иксвайзеда"}',
                 "speech_airport_code_route_overrides_json": '{"XYZ": "Иксвайзед"}',
                 "speech_callsign_prefix_overrides_json": '{"ABCD": "Абэцэдэ"}',
+                "speech_model_overrides_json": (
+                    '{"MYSTERY JET 9000 MJ90": "Мистери Джет девять тысяч"}'
+                ),
             }
         )
 
@@ -1482,6 +1485,8 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             },
             {
                 "airline_name": "New Visible Air",
+                "aircraft_model": "Mystery Jet 9000",
+                "aircraft_type": "MJ90",
                 "origin_iata": "XYZ",
                 "origin_name": "New Place (XYZ)",
                 "route_summary": "XYZ → ATH",
@@ -1492,11 +1497,15 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("airline", kinds)
         self.assertNotIn("origin_airport", kinds)
         self.assertNotIn("route_airport", kinds)
+        self.assertNotIn("aircraft_model", kinds)
         self.assertNotIn("callsign_prefix", kinds)
 
     async def test_mapping_review_record_prunes_resolved_items(self) -> None:
         fake = coordinator.AircraftWindowCoordinator.__new__(
             coordinator.AircraftWindowCoordinator
+        )
+        fake._runtime_settings = settings.runtime_settings_from_options(
+            {"speech_model_overrides_json": '{"MJ90": "Мистери Джет"}'}
         )
         fake._cache = {
             coordinator.MAPPING_REVIEW_CACHE_KEY: [
@@ -1512,6 +1521,14 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
                     "key": "airline:new visible air",
                     "kind": "airline",
                     "value": "New Visible Air",
+                    "count": 1,
+                    "first_seen": 1,
+                    "last_seen": 2,
+                },
+                {
+                    "key": "model:mj90",
+                    "kind": "aircraft_model",
+                    "value": "Mystery Jet 9000 MJ90",
                     "count": 1,
                     "first_seen": 1,
                     "last_seen": 2,

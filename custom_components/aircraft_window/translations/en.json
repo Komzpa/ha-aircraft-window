@@ -45,6 +45,7 @@
           "speech_airport_code_to_overrides_json": "Destination airport-code speech overrides, JSON object",
           "speech_airport_code_route_overrides_json": "Route airport-code speech overrides, JSON object",
           "speech_callsign_prefix_overrides_json": "Callsign-prefix speech overrides, JSON object",
+          "speech_model_overrides_json": "Aircraft model speech overrides, JSON object",
           "route_airline_prefix_overrides_json": "Airline fallback by callsign prefix, JSON object",
           "route_callsign_overrides_json": "Route fallback by callsign, JSON object",
           "enrichment_timeout_seconds": "Enrichment request timeout, seconds"

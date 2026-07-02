@@ -820,7 +820,14 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 speech_pack=speech_pack,
             )
         if kind == "aircraft_model":
-            return bool(value) and not has_aircraft_model_speech_mapping(value)
+            aircraft_type = ""
+            if key.startswith("model:"):
+                aircraft_type = key.split(":", 1)[1].strip().upper()
+            return bool(value) and not has_aircraft_model_speech_mapping(
+                value,
+                aircraft_type,
+                model_speech_overrides=self.runtime_settings.model_speech_overrides,
+            )
         if kind == "callsign_prefix":
             return bool(value) and not has_callsign_prefix_speech_mapping(
                 value,
@@ -933,13 +940,23 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
 
         model = str(attrs.get("aircraft_model") or "").strip()
         aircraft_type = str(attrs.get("aircraft_type") or "").strip()
-        if model and not has_aircraft_model_speech_mapping(model, aircraft_type):
+        if model and not has_aircraft_model_speech_mapping(
+            model,
+            aircraft_type,
+            model_speech_overrides=self.runtime_settings.model_speech_overrides,
+        ):
             items.append(
                 {
                     "key": f"model:{aircraft_type or model}".casefold(),
                     "kind": "aircraft_model",
                     "value": " ".join(part for part in (model, aircraft_type) if part),
-                    "fallback_speech": spoken_model(model, aircraft_type),
+                    "fallback_speech": spoken_model(
+                        model,
+                        aircraft_type,
+                        model_speech_overrides=(
+                            self.runtime_settings.model_speech_overrides
+                        ),
+                    ),
                     "suggested_table": "spoken_model",
                     **context,
                 }
@@ -1623,6 +1640,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         attrs["aircraft_model_speech"] = spoken_model(
             attrs["aircraft_model"],
             attrs["aircraft_type"],
+            model_speech_overrides=self.runtime_settings.model_speech_overrides,
         )
         built_year = await self._async_airport_data_year(
             session,

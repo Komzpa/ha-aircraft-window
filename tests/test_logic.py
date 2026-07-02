@@ -200,6 +200,9 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "speech_airport_code_to_overrides_json": '{"XYZ": "в Иксвайзед"}',
                 "speech_airport_code_route_overrides_json": '{"XYZ": "Иксвайзед"}',
                 "speech_callsign_prefix_overrides_json": '{"ABCD": "Абэцэдэ"}',
+                "speech_model_overrides_json": (
+                    '{"MYSTERY JET 9000 MJ90": "Мистери Джет девять тысяч"}'
+                ),
                 "route_airline_prefix_overrides_json": '{"ABC": "Example Air"}',
                 "route_callsign_overrides_json": (
                     '{"ABC123": {"airline_name": "Example Air", '
@@ -274,6 +277,21 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(
             logic.spoken_flight("ABCD89", speech_pack=runtime_settings.speech_pack),
             "Абэцэдэ восемь девять",
+        )
+        self.assertEqual(
+            logic.spoken_model(
+                "Mystery Jet 9000",
+                "MJ90",
+                model_speech_overrides=runtime_settings.model_speech_overrides,
+            ),
+            "Мистери Джет девять тысяч",
+        )
+        self.assertTrue(
+            logic.has_aircraft_model_speech_mapping(
+                "Mystery Jet 9000",
+                "MJ90",
+                model_speech_overrides=runtime_settings.model_speech_overrides,
+            )
         )
         self.assertEqual(
             logic.known_airline_for_callsign(

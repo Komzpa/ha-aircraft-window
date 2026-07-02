@@ -33,6 +33,7 @@ from .const import (
     CONF_SPEECH_AIRPORT_CODE_ROUTE_OVERRIDES,
     CONF_SPEECH_AIRPORT_CODE_TO_OVERRIDES,
     CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES,
+    CONF_SPEECH_MODEL_OVERRIDES,
     CONF_TERMINAL_AREA_LATITUDE,
     CONF_TERMINAL_AREA_LONGITUDE,
     CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
@@ -165,6 +166,7 @@ class RuntimeSettings:
     watch_policy: WatchPolicy
     providers: ProviderSettings
     speech_pack: RussianSpeechPack
+    model_speech_overrides: dict[str, str]
     route_fallbacks: RouteFallbacks
 
 
@@ -230,6 +232,7 @@ DEFAULT_RUNTIME_SETTINGS = RuntimeSettings(
         },
     ),
     speech_pack=DEFAULT_RUSSIAN_SPEECH_PACK,
+    model_speech_overrides={},
     route_fallbacks=DEFAULT_ROUTE_FALLBACKS,
 )
 
@@ -332,6 +335,17 @@ def _route_fallbacks_from_options(options: dict[str, Any]) -> RouteFallbacks:
         airline_by_callsign_prefix=prefix_overrides,
         route_by_callsign=_json_route_map_option(options, CONF_ROUTE_CALLSIGN_OVERRIDES),
     )
+
+
+def _model_speech_overrides_from_options(options: dict[str, Any]) -> dict[str, str]:
+    """Parse user-maintained aircraft model/type speech overrides."""
+    return {
+        " ".join(key.upper().split()): value
+        for key, value in _json_string_map_option(
+            options,
+            CONF_SPEECH_MODEL_OVERRIDES,
+        ).items()
+    }
 
 
 def _speech_pack_from_options(options: dict[str, Any]) -> RussianSpeechPack:
@@ -534,5 +548,6 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
         ),
         providers=defaults.providers,
         speech_pack=_speech_pack_from_options(options),
+        model_speech_overrides=_model_speech_overrides_from_options(options),
         route_fallbacks=_route_fallbacks_from_options(options),
     )

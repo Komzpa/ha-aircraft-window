@@ -1303,8 +1303,33 @@ def airline_speech(
     return tts_cyrillic_text(name)
 
 
-def spoken_model(model: str, aircraft_type: str = "") -> str:
+def _model_speech_lookup_keys(model: str, aircraft_type: str = "") -> tuple[str, ...]:
+    """Return aircraft model/type override lookup keys, most specific first."""
+    normalized_model = " ".join(model.upper().split())
+    normalized_type = " ".join(aircraft_type.upper().split())
+    keys: list[str] = []
+    for key in (
+        " ".join(part for part in (normalized_model, normalized_type) if part),
+        normalized_model,
+        normalized_type,
+    ):
+        if key and key not in keys:
+            keys.append(key)
+    return tuple(keys)
+
+
+def spoken_model(
+    model: str,
+    aircraft_type: str = "",
+    *,
+    model_speech_overrides: dict[str, str] | None = None,
+) -> str:
     """Turn common aircraft model strings into Russian TTS-friendly text."""
+    if model_speech_overrides:
+        for key in _model_speech_lookup_keys(model, aircraft_type):
+            override = model_speech_overrides.get(key)
+            if override:
+                return override
     text = f"{model} {aircraft_type}".upper()
     if (
         "C-130" in text
@@ -1542,12 +1567,24 @@ def airport_route_speech(
     return municipality or name or code
 
 
-def has_aircraft_model_speech_mapping(model: str, aircraft_type: str = "") -> bool:
+def has_aircraft_model_speech_mapping(
+    model: str,
+    aircraft_type: str = "",
+    *,
+    model_speech_overrides: dict[str, str] | None = None,
+) -> bool:
     """Return true when model/type speech is not only generic Latin fallback."""
     raw = model.strip()
     if not raw:
         return True
-    return spoken_model(raw, aircraft_type) != tts_cyrillic_text(raw)
+    return (
+        spoken_model(
+            raw,
+            aircraft_type,
+            model_speech_overrides=model_speech_overrides,
+        )
+        != tts_cyrillic_text(raw)
+    )
 
 
 def route_endpoint_speech(
