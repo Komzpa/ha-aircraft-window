@@ -1371,6 +1371,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(logic.airline_speech("Austrian Airlines"), "Австрийские авиалинии")
         self.assertEqual(logic.airline_speech("Virgin Atlantic Airways"), "Вёрджин Атлантик")
         self.assertEqual(logic.airline_speech("South West Air Corporation"), "Саутвест Эйр")
+        self.assertEqual(logic.airline_speech("Air Cairo"), "Эйр Каиро")
+        self.assertEqual(logic.airline_speech("China Southern Airlines"), "Чайна Саузерн")
+        self.assertEqual(logic.airline_speech("Swiss International Air Lines"), "Свисс")
+        self.assertEqual(logic.airline_speech("Cathay Pacific"), "Катай Пасифик")
         self.assertTrue(logic.has_airline_speech_mapping("JAZEERA AİRWAYS"))
         self.assertEqual(logic.airline_speech("Carpatair"), "Карпатэйр")
         self.assertEqual(
@@ -1577,6 +1581,14 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "Кувейт",
         )
         live_gap_airports = [
+            ("BEY", "Beirut", "Бейрута", "Бейрут", "Бейрут"),
+            ("PKX", "Beijing", "Пекина, Дасин", "Пекин, Дасин", "Пекин, Дасин"),
+            ("ZRH", "Zurich", "Цюриха", "Цюрих", "Цюрих"),
+            ("HKG", "Kowloon City, Kowloon", "Гонконга", "Гонконг", "Гонконг"),
+            ("MAN", "Manchester", "Манчестера", "Манчестер", "Манчестер"),
+            ("CAN", "Guangzhou", "Гуанчжоу", "Гуанчжоу", "Гуанчжоу"),
+            ("GNY", "Şanlıurfa", "Шанлыурфы", "Шанлыурфу", "Шанлыурфа"),
+            ("OSL", "Oslo", "Осло", "Осло", "Осло"),
             ("TIV", "Tivat", "Тивата", "Тиват", "Тиват"),
             ("VOG", "Volgograd", "Волгограда", "Волгоград", "Волгоград"),
             ("OGU", "Ordu", "Орду", "Орду", "Орду"),
