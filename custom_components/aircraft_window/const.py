@@ -36,6 +36,12 @@ CONF_RUNWAY_STAGING_RADIUS_KM = "runway_staging_radius_km"
 CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT = "runway_staging_max_altitude_ft"
 CONF_RUNWAY_STAGING_MAX_SPEED_KT = "runway_staging_max_speed_kt"
 CONF_WATCH_AIRPORTS = "watch_airports"
+CONF_RAPID_DESCENT_FPM = "rapid_descent_fpm"
+CONF_RAPID_DESCENT_MIN_ALTITUDE_FT = "rapid_descent_min_altitude_ft"
+CONF_ORBIT_TRACK_RATE_DEGREES_PER_SECOND = "orbit_track_rate_degrees_per_second"
+CONF_ORBIT_MIN_GROUND_SPEED_KT = "orbit_min_ground_speed_kt"
+CONF_ORBIT_MAX_GROUND_SPEED_KT = "orbit_max_ground_speed_kt"
+CONF_TERMINAL_SUPPRESSION_ENABLED = "terminal_suppression_enabled"
 
 DEFAULT_DUMP1090_URL = "http://piaware.local/skyaware/data/aircraft.json"
 DEFAULT_MAX_POSITIONED_DISTANCE_KM = 8.0

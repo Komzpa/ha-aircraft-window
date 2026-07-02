@@ -160,6 +160,12 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "runway_staging_max_altitude_ft": 444,
                 "runway_staging_max_speed_kt": 55,
                 "watch_airports": "abc, def, abc",
+                "rapid_descent_fpm": -4200,
+                "rapid_descent_min_altitude_ft": 1500,
+                "orbit_track_rate_degrees_per_second": 3.5,
+                "orbit_min_ground_speed_kt": 70,
+                "orbit_max_ground_speed_kt": 210,
+                "terminal_suppression_enabled": False,
             }
         )
 
@@ -192,6 +198,15 @@ class AircraftWindowLogicTest(unittest.TestCase):
             [airport.iata for airport in runtime_settings.watch_policy.watch_airports],
             ["ABC", "DEF"],
         )
+        self.assertEqual(runtime_settings.watch_policy.rapid_descent_fpm, -4200)
+        self.assertEqual(runtime_settings.watch_policy.rapid_descent_min_altitude_ft, 1500)
+        self.assertEqual(
+            runtime_settings.watch_policy.orbit_track_rate_degrees_per_second,
+            3.5,
+        )
+        self.assertEqual(runtime_settings.watch_policy.orbit_min_ground_speed_kt, 70)
+        self.assertEqual(runtime_settings.watch_policy.orbit_max_ground_speed_kt, 210)
+        self.assertFalse(runtime_settings.watch_policy.terminal_suppression_enabled)
 
     def test_runtime_settings_from_options_allows_empty_watch_airports(self) -> None:
         runtime_settings = settings_module.runtime_settings_from_options({"watch_airports": ""})

@@ -27,8 +27,13 @@ from .const import (
     CONF_MAX_NO_POSITION_SEEN_SECONDS,
     CONF_MAX_POSITIONED_DISTANCE_KM,
     CONF_NIGHT_HUMAN_VISIBLE_RADIUS_KM,
+    CONF_ORBIT_MAX_GROUND_SPEED_KT,
+    CONF_ORBIT_MIN_GROUND_SPEED_KT,
+    CONF_ORBIT_TRACK_RATE_DEGREES_PER_SECOND,
     CONF_PREFETCH_BUDGET_SECONDS,
     CONF_PREFETCH_LIMIT,
+    CONF_RAPID_DESCENT_FPM,
+    CONF_RAPID_DESCENT_MIN_ALTITUDE_FT,
     CONF_RUNWAY_STAGING_LATITUDE,
     CONF_RUNWAY_STAGING_LONGITUDE,
     CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
@@ -39,6 +44,7 @@ from .const import (
     CONF_TERMINAL_AREA_LONGITUDE,
     CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
     CONF_TERMINAL_AREA_RADIUS_KM,
+    CONF_TERMINAL_SUPPRESSION_ENABLED,
     CONF_WATCH_AIRPORTS,
     CONF_WINDOW_VIEW_AZIMUTH_DEGREES,
     CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
@@ -69,6 +75,7 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
     assert default_terminal is not None
     default_staging = default_airport.runway_staging_areas[0]
     default_view = DEFAULT_RUNTIME_SETTINGS.window_view
+    default_policy = DEFAULT_RUNTIME_SETTINGS.watch_policy
     default_timezone_offset_hours = (
         default_airport.timezone.utcoffset(None).total_seconds() / 3600.0
     )
@@ -187,6 +194,45 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
             CONF_WATCH_AIRPORTS,
             default=defaults.get(CONF_WATCH_AIRPORTS, DEFAULT_WATCH_AIRPORTS),
         ): str,
+        vol.Required(
+            CONF_RAPID_DESCENT_FPM,
+            default=defaults.get(CONF_RAPID_DESCENT_FPM, default_policy.rapid_descent_fpm),
+        ): vol.All(vol.Coerce(float), vol.Range(min=-20000.0, max=-100.0)),
+        vol.Required(
+            CONF_RAPID_DESCENT_MIN_ALTITUDE_FT,
+            default=defaults.get(
+                CONF_RAPID_DESCENT_MIN_ALTITUDE_FT,
+                default_policy.rapid_descent_min_altitude_ft,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=60000.0)),
+        vol.Required(
+            CONF_ORBIT_TRACK_RATE_DEGREES_PER_SECOND,
+            default=defaults.get(
+                CONF_ORBIT_TRACK_RATE_DEGREES_PER_SECOND,
+                default_policy.orbit_track_rate_degrees_per_second,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0.1, max=30.0)),
+        vol.Required(
+            CONF_ORBIT_MIN_GROUND_SPEED_KT,
+            default=defaults.get(
+                CONF_ORBIT_MIN_GROUND_SPEED_KT,
+                default_policy.orbit_min_ground_speed_kt,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=1000.0)),
+        vol.Required(
+            CONF_ORBIT_MAX_GROUND_SPEED_KT,
+            default=defaults.get(
+                CONF_ORBIT_MAX_GROUND_SPEED_KT,
+                default_policy.orbit_max_ground_speed_kt,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=1000.0)),
+        vol.Required(
+            CONF_TERMINAL_SUPPRESSION_ENABLED,
+            default=defaults.get(
+                CONF_TERMINAL_SUPPRESSION_ENABLED,
+                default_policy.terminal_suppression_enabled,
+            ),
+        ): bool,
         vol.Required(
             CONF_MAX_POSITIONED_DISTANCE_KM,
             default=defaults.get(

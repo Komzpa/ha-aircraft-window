@@ -95,8 +95,8 @@ Current assumptions and status:
   branch in `interest_candidate`.
 - Kinematic-only thresholds and terminal suppression are now in `WatchPolicy`.
 - Watched route airport codes are configurable through Home Assistant
-  config/options. Kinematic thresholds and terminal suppression are still code
-  defaults.
+  config/options. Kinematic thresholds and terminal suppression are also
+  configurable through Home Assistant config/options.
 
 Target shape:
 

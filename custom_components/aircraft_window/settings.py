@@ -14,6 +14,11 @@ from .const import (
     CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
     CONF_LOW_LIGHT_HUMAN_VISIBLE_RADIUS_KM,
     CONF_NIGHT_HUMAN_VISIBLE_RADIUS_KM,
+    CONF_ORBIT_MAX_GROUND_SPEED_KT,
+    CONF_ORBIT_MIN_GROUND_SPEED_KT,
+    CONF_ORBIT_TRACK_RATE_DEGREES_PER_SECOND,
+    CONF_RAPID_DESCENT_FPM,
+    CONF_RAPID_DESCENT_MIN_ALTITUDE_FT,
     CONF_RUNWAY_STAGING_LATITUDE,
     CONF_RUNWAY_STAGING_LONGITUDE,
     CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
@@ -23,6 +28,7 @@ from .const import (
     CONF_TERMINAL_AREA_LONGITUDE,
     CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
     CONF_TERMINAL_AREA_RADIUS_KM,
+    CONF_TERMINAL_SUPPRESSION_ENABLED,
     CONF_WATCH_AIRPORTS,
     CONF_WINDOW_VIEW_AZIMUTH_DEGREES,
     CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
@@ -376,14 +382,37 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
         ),
         window_view=window_view,
         watch_policy=WatchPolicy(
-            rapid_descent_fpm=defaults.watch_policy.rapid_descent_fpm,
-            rapid_descent_min_altitude_ft=defaults.watch_policy.rapid_descent_min_altitude_ft,
-            orbit_track_rate_degrees_per_second=(
-                defaults.watch_policy.orbit_track_rate_degrees_per_second
+            rapid_descent_fpm=_float_option(
+                options,
+                CONF_RAPID_DESCENT_FPM,
+                defaults.watch_policy.rapid_descent_fpm,
             ),
-            orbit_min_ground_speed_kt=defaults.watch_policy.orbit_min_ground_speed_kt,
-            orbit_max_ground_speed_kt=defaults.watch_policy.orbit_max_ground_speed_kt,
-            terminal_suppression_enabled=defaults.watch_policy.terminal_suppression_enabled,
+            rapid_descent_min_altitude_ft=_float_option(
+                options,
+                CONF_RAPID_DESCENT_MIN_ALTITUDE_FT,
+                defaults.watch_policy.rapid_descent_min_altitude_ft,
+            ),
+            orbit_track_rate_degrees_per_second=_float_option(
+                options,
+                CONF_ORBIT_TRACK_RATE_DEGREES_PER_SECOND,
+                defaults.watch_policy.orbit_track_rate_degrees_per_second,
+            ),
+            orbit_min_ground_speed_kt=_float_option(
+                options,
+                CONF_ORBIT_MIN_GROUND_SPEED_KT,
+                defaults.watch_policy.orbit_min_ground_speed_kt,
+            ),
+            orbit_max_ground_speed_kt=_float_option(
+                options,
+                CONF_ORBIT_MAX_GROUND_SPEED_KT,
+                defaults.watch_policy.orbit_max_ground_speed_kt,
+            ),
+            terminal_suppression_enabled=bool(
+                options.get(
+                    CONF_TERMINAL_SUPPRESSION_ENABLED,
+                    defaults.watch_policy.terminal_suppression_enabled,
+                )
+            ),
             watch_airports=watch_airports,
         ),
         providers=defaults.providers,
