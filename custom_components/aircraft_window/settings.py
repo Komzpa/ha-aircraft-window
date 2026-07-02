@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from datetime import timedelta, timezone, tzinfo
 from typing import Any
@@ -50,6 +51,9 @@ from .const import (
     CONF_WATCH_AIRPORTS,
     CONF_WINDOW_VIEW_AZIMUTH_DEGREES,
     CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
+    CONF_WINDOW_VIEW_LEAD_SECONDS,
+    CONF_WINDOW_VIEW_POLYGON_JSON,
+    CONF_WINDOW_VIEW_PROJECTION_STEP_SECONDS,
     CONF_WINDOW_VIEW_RADIUS_KM,
 )
 from .route_fallbacks import DEFAULT_ROUTE_FALLBACKS, RouteFallbacks
@@ -268,6 +272,53 @@ def _base_url_option(options: dict[str, Any], key: str, default: str) -> str:
     if not value:
         return default
     return value.rstrip("/")
+
+
+def _json_polygon_option(
+    options: dict[str, Any],
+    key: str,
+    default: tuple[tuple[float, float], ...],
+) -> tuple[tuple[float, float], ...]:
+    """Parse a JSON lon/lat polygon option or return the supplied default."""
+    raw = options.get(key, "")
+    if raw in (None, ""):
+        return default
+    if isinstance(raw, list):
+        parsed = raw
+    else:
+        try:
+            parsed = json.loads(str(raw))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return default
+    if not isinstance(parsed, list):
+        return default
+    if not parsed:
+        return ()
+    points: list[tuple[float, float]] = []
+    for item in parsed:
+        if isinstance(item, dict):
+            raw_lon = item.get("lon", item.get("longitude"))
+            raw_lat = item.get("lat", item.get("latitude"))
+        elif isinstance(item, (list, tuple)) and len(item) == 2:
+            raw_lon, raw_lat = item
+        else:
+            return default
+        try:
+            lon = float(raw_lon)
+            lat = float(raw_lat)
+        except (TypeError, ValueError):
+            return default
+        if (
+            not math.isfinite(lon)
+            or not math.isfinite(lat)
+            or not -180.0 <= lon <= 180.0
+            or not -90.0 <= lat <= 90.0
+        ):
+            return default
+        points.append((lon, lat))
+    if len(points) < 3:
+        return default
+    return tuple(points)
 
 
 def _watch_airports_from_option(value: Any) -> tuple[WatchAirport, ...]:
@@ -551,8 +602,16 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
         ),
     )
     window_view = WindowViewProfile(
-        lead_seconds=default_view.lead_seconds,
-        projection_step_seconds=default_view.projection_step_seconds,
+        lead_seconds=_float_option(
+            options,
+            CONF_WINDOW_VIEW_LEAD_SECONDS,
+            default_view.lead_seconds,
+        ),
+        projection_step_seconds=_float_option(
+            options,
+            CONF_WINDOW_VIEW_PROJECTION_STEP_SECONDS,
+            default_view.projection_step_seconds,
+        ),
         default_radius_km=_float_option(
             options,
             CONF_WINDOW_VIEW_RADIUS_KM,
@@ -583,7 +642,11 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
             CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
             default_view.half_angle_degrees,
         ),
-        polygon_lon_lat=default_polygon,
+        polygon_lon_lat=_json_polygon_option(
+            options,
+            CONF_WINDOW_VIEW_POLYGON_JSON,
+            default_polygon,
+        ),
     )
     watch_airports = _watch_airports_from_option(
         options.get(

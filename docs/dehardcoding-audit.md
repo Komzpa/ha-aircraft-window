@@ -23,12 +23,12 @@ Configuration surface today:
 
 - `config_flow.py` exposes receiver, observer coordinates, candidate
   thresholds, polling, enrichment, mapping-review options, local airport
-  identity/timezone, window azimuth/radius profile, terminal area, runway
-  staging area, watched route airport codes, and provider base URL/cache
-  options.
+  identity/timezone, window azimuth/radius/projection profile, optional raw
+  window polygon JSON, terminal area, runway staging area, watched route airport
+  codes, and provider base URL/cache options.
 - `strings.json` and translations mirror that schema.
-- Options still do not expose polygon editing, a generic airport-board provider
-  registry, or speech locale.
+- Options still do not expose a friendly polygon editor, a generic
+  airport-board provider registry, or speech locale.
 
 ## Hardcoded Local Context
 
@@ -76,11 +76,11 @@ Current assumptions and status:
   areas, and terminal area. `logic.py` keeps compatibility aliases for the old
   constants, but visibility, projection, staging, and terminal suppression reads
   can take a `RuntimeSettings` object.
-- Basic azimuth, half-angle, radius, terminal area, and runway staging values
-  are configurable through Home Assistant config/options. The Batumi polygon is
-  kept only for the default Batumi profile; other local-airport profiles fall
-  back to the azimuth/radius model until a real polygon editor/validator is
-  designed.
+- Basic azimuth, half-angle, projection lead/step, radius, raw polygon JSON,
+  terminal area, and runway staging values are configurable through Home
+  Assistant config/options. The Batumi polygon is kept only for the default
+  Batumi profile when the polygon option is empty; other local-airport profiles
+  fall back to the azimuth/radius model unless a polygon is configured.
 
 Target shape:
 
@@ -90,8 +90,9 @@ Target shape:
 - Add `airport_profiles[]` with `iata`, `lat`, `lon`,
   `terminal_radius_km`, `terminal_max_altitude_ft`, and optional staging areas.
 - Keep current Batumi values as default profile data, not as logic constants.
-- Avoid making every user hand-enter a polygon at first: support the current
-  azimuth/half-angle model, with polygon override as an advanced setting.
+- Avoid making every user hand-enter a polygon: support the current
+  azimuth/half-angle model, with raw polygon JSON as an advanced setting and a
+  friendlier editor still pending.
 
 ### Special-Interest Policy
 
@@ -201,8 +202,8 @@ Target shape:
    `airport_board_provider`, and provider-specific row matching/fetch helpers
    are split into `board_providers.py`. A fully generic multi-provider
    registry/config surface is still pending.
-4. Done: expose configured `watch_airports`, local airport, and basic view
-   profile through config/options.
+4. Done: expose configured `watch_airports`, local airport, and basic/raw-JSON
+   view profile through config/options.
 5. Partly done: add `RussianSpeechPack`, override merge points, move the
    built-in Russian tables out of `logic.py`, and expose first-pass JSON
    speech/model/route fallback override options. A friendlier editor is still

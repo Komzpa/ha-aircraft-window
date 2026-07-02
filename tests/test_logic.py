@@ -172,9 +172,14 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "local_airport_name": "Config Airport",
                 "local_timezone_offset_hours": 2,
                 "airport_board_provider": "custom_board",
+                "window_view_lead_seconds": 180,
+                "window_view_projection_step_seconds": 20,
                 "window_view_azimuth_degrees": 120,
                 "window_view_half_angle_degrees": 25,
                 "window_view_radius_km": 44,
+                "window_view_polygon_lon_lat_json": (
+                    "[[10.0, 20.0], {\"lon\": 11.0, \"lat\": 21.0}, [12.0, 22.0]]"
+                ),
                 "day_human_visible_radius_km": 11,
                 "low_light_human_visible_radius_km": 22,
                 "night_human_visible_radius_km": 33,
@@ -228,13 +233,18 @@ class AircraftWindowLogicTest(unittest.TestCase):
             runtime_settings.local_airport.timezone.utcoffset(None).total_seconds(),
             7200,
         )
+        self.assertEqual(runtime_settings.window_view.lead_seconds, 180)
+        self.assertEqual(runtime_settings.window_view.projection_step_seconds, 20)
         self.assertEqual(runtime_settings.window_view.azimuth_degrees, 120)
         self.assertEqual(runtime_settings.window_view.half_angle_degrees, 25)
         self.assertEqual(runtime_settings.window_view.default_radius_km, 44)
         self.assertEqual(runtime_settings.window_view.day_radius_km, 11)
         self.assertEqual(runtime_settings.window_view.low_light_radius_km, 22)
         self.assertEqual(runtime_settings.window_view.night_radius_km, 33)
-        self.assertEqual(runtime_settings.window_view.polygon_lon_lat, ())
+        self.assertEqual(
+            runtime_settings.window_view.polygon_lon_lat,
+            ((10.0, 20.0), (11.0, 21.0), (12.0, 22.0)),
+        )
         terminal_area = runtime_settings.local_airport.terminal_area
         assert terminal_area is not None
         self.assertEqual(terminal_area.latitude, 10.1)
@@ -372,6 +382,23 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
     def test_runtime_settings_keeps_default_polygon_for_default_airport(self) -> None:
         runtime_settings = settings_module.runtime_settings_from_options({})
+
+        self.assertEqual(
+            runtime_settings.window_view.polygon_lon_lat,
+            settings_module.BATUMI_WINDOW_VIEW_POLYGON_LON_LAT,
+        )
+
+    def test_runtime_settings_can_clear_default_polygon(self) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {"window_view_polygon_lon_lat_json": "[]"}
+        )
+
+        self.assertEqual(runtime_settings.window_view.polygon_lon_lat, ())
+
+    def test_runtime_settings_keeps_default_polygon_on_invalid_json(self) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {"window_view_polygon_lon_lat_json": "[[10, 20], [11, 21]]"}
+        )
 
         self.assertEqual(
             runtime_settings.window_view.polygon_lon_lat,

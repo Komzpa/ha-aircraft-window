@@ -51,6 +51,10 @@ configured watched route airports and likely military aircraft identified from
 public owner or operator metadata can produce route-watch and
 `military_visible` events even when they are not landing at the home airport.
 The default profile keeps `KUT` as a watched airport for compatibility.
+Window geometry is configurable with azimuth, half-angle, radius, projection
+lead/step, and an optional raw lon/lat polygon JSON override. Leaving the
+polygon blank keeps the profile default; `[]` explicitly clears it and uses the
+azimuth/radius model only.
 Aircraft transmitting emergency transponder codes `7500`, `7600`, or `7700`
 produce an `emergency_squawk` event with cautious wording for unlawful
 interference, radio failure, or a general emergency. Speech names the situation

@@ -65,6 +65,9 @@ from .const import (
     CONF_WATCH_AIRPORTS,
     CONF_WINDOW_VIEW_AZIMUTH_DEGREES,
     CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
+    CONF_WINDOW_VIEW_LEAD_SECONDS,
+    CONF_WINDOW_VIEW_POLYGON_JSON,
+    CONF_WINDOW_VIEW_PROJECTION_STEP_SECONDS,
     CONF_WINDOW_VIEW_RADIUS_KM,
     DEFAULT_BACKGROUND_INTERVAL_SECONDS,
     DEFAULT_COLLECT_MAPPING_REVIEW,
@@ -124,6 +127,20 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
             ),
         ): str,
         vol.Required(
+            CONF_WINDOW_VIEW_LEAD_SECONDS,
+            default=defaults.get(
+                CONF_WINDOW_VIEW_LEAD_SECONDS,
+                default_view.lead_seconds,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=3600.0)),
+        vol.Required(
+            CONF_WINDOW_VIEW_PROJECTION_STEP_SECONDS,
+            default=defaults.get(
+                CONF_WINDOW_VIEW_PROJECTION_STEP_SECONDS,
+                default_view.projection_step_seconds,
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=1.0, max=300.0)),
+        vol.Required(
             CONF_WINDOW_VIEW_AZIMUTH_DEGREES,
             default=defaults.get(
                 CONF_WINDOW_VIEW_AZIMUTH_DEGREES,
@@ -141,6 +158,10 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
             CONF_WINDOW_VIEW_RADIUS_KM,
             default=defaults.get(CONF_WINDOW_VIEW_RADIUS_KM, default_view.default_radius_km),
         ): vol.All(vol.Coerce(float), vol.Range(min=1.0, max=500.0)),
+        vol.Optional(
+            CONF_WINDOW_VIEW_POLYGON_JSON,
+            default=defaults.get(CONF_WINDOW_VIEW_POLYGON_JSON, ""),
+        ): str,
         vol.Required(
             CONF_DAY_HUMAN_VISIBLE_RADIUS_KM,
             default=defaults.get(
