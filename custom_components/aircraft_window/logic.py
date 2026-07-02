@@ -1781,6 +1781,18 @@ def _has_holding_or_orbit_nav_mode(nav_modes: Any) -> bool:
     return False
 
 
+def _is_batumi_arrival_route(enrichment: dict[str, Any]) -> bool:
+    """Return true when route metadata says the aircraft is arriving at Batumi."""
+    destination_iata = str(enrichment.get("destination_iata") or "").strip().upper()
+    if destination_iata == "BUS":
+        return True
+    destination_text = " ".join(
+        str(enrichment.get(key) or "")
+        for key in ("destination_name", "destination_speech", "route_summary")
+    ).casefold()
+    return "batumi" in destination_text or "батуми" in destination_text
+
+
 def classify_special_interest(
     aircraft: dict[str, Any],
     enrichment: dict[str, Any],
@@ -1791,6 +1803,8 @@ def classify_special_interest(
     if vertical_rate is not None and vertical_rate <= -3500 and (
         altitude is None or altitude >= 1000
     ):
+        if _is_batumi_arrival_route(enrichment):
+            return None
         label = "резкое снижение"
         return (
             "rapid_descent",
