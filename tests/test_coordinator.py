@@ -1694,6 +1694,34 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             ("origin_airport", "New Place (XYZ)"),
             {(item["kind"], item["value"]) for item in items},
         )
+        by_kind = {item["kind"]: item for item in items}
+        self.assertEqual(
+            by_kind["airline"]["suggested_option"],
+            coordinator.CONF_SPEECH_AIRLINE_OVERRIDES,
+        )
+        self.assertEqual(by_kind["airline"]["suggested_key"], "New Visible Air")
+        self.assertEqual(
+            by_kind["origin_airport"]["suggested_option"],
+            coordinator.CONF_SPEECH_AIRPORT_CODE_FROM_OVERRIDES,
+        )
+        self.assertEqual(by_kind["origin_airport"]["suggested_key"], "XYZ")
+        self.assertEqual(
+            by_kind["route_airport"]["suggested_option"],
+            coordinator.CONF_SPEECH_AIRPORT_CODE_ROUTE_OVERRIDES,
+        )
+        self.assertEqual(
+            by_kind["aircraft_model"]["suggested_option"],
+            coordinator.CONF_SPEECH_MODEL_OVERRIDES,
+        )
+        self.assertEqual(
+            by_kind["aircraft_model"]["suggested_key"],
+            "MYSTERY JET 9000 MJ90",
+        )
+        self.assertEqual(
+            by_kind["callsign_prefix"]["suggested_option"],
+            coordinator.CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES,
+        )
+        self.assertEqual(by_kind["callsign_prefix"]["suggested_key"], "ABCD")
 
     def test_visible_mapping_review_respects_speech_overrides(self) -> None:
         fake = coordinator.AircraftWindowCoordinator.__new__(

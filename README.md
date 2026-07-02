@@ -236,7 +236,10 @@ and aircraft model speech. Speech examples: `{"XYZ": "Иксвайзед"}`,
 "route_summary": "XYZ → DEF"}}`. Repeatable defaults can later be promoted to
 the built-in speech pack tables in `custom_components/aircraft_window/speech_ru.py`,
 `custom_components/aircraft_window/route_fallbacks.py`, and the shared TTS
-stress lexicon.
+stress lexicon. Each mapping-review item includes `suggested_option`,
+`suggested_key`, and `suggested_value` fields so a user can copy the
+recommendation into the matching JSON override option without reading the Python
+tables first.
 
 ## Development
 

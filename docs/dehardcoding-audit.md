@@ -160,14 +160,16 @@ Current assumptions and status:
   metadata by callsign. Runtime announcements, enrichment, and mapping review
   use the merged speech and fallback packs.
 - Mapping review can be resolved by options overrides first; repeatable values
-  can still be promoted to built-in tables.
+  can still be promoted to built-in tables. Review items include
+  `suggested_option`, `suggested_key`, and `suggested_value` hints for the
+  matching JSON override field.
 
 Target shape:
 
 - Add more speech profiles beyond the initial `speech_locale = "ru"` option,
   with built-in packs loaded from data files rather than Python constants.
 - Extend the first options surface into a friendlier editor than raw JSON
-  fields.
+  fields; current mapping-review hints are an intermediate step.
 - Keep text human-readable in integration output; TTS stress marks stay outside
   this integration.
 - Keep bounded-token matching rules for callsign and airline prefixes. Previous

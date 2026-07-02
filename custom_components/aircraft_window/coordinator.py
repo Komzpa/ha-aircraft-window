@@ -45,6 +45,15 @@ from .const import (
     CONF_PREFETCH_BUDGET_SECONDS,
     CONF_PREFETCH_LIMIT,
     CONF_SCAN_INTERVAL_SECONDS,
+    CONF_SPEECH_AIRLINE_OVERRIDES,
+    CONF_SPEECH_AIRPORT_CODE_FROM_OVERRIDES,
+    CONF_SPEECH_AIRPORT_CODE_ROUTE_OVERRIDES,
+    CONF_SPEECH_AIRPORT_CODE_TO_OVERRIDES,
+    CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES,
+    CONF_SPEECH_CITY_FROM_OVERRIDES,
+    CONF_SPEECH_CITY_ROUTE_OVERRIDES,
+    CONF_SPEECH_CITY_TO_OVERRIDES,
+    CONF_SPEECH_MODEL_OVERRIDES,
     DEFAULT_BACKGROUND_INTERVAL_SECONDS,
     DEFAULT_COLLECT_MAPPING_REVIEW,
     DEFAULT_DUMP1090_URL,
@@ -900,6 +909,12 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         speech_pack=speech_pack,
                     ),
                     "suggested_table": "speech_ru.AIRLINE_SPEECH_RU",
+                    "suggested_option": CONF_SPEECH_AIRLINE_OVERRIDES,
+                    "suggested_key": airline_name,
+                    "suggested_value": airline_speech(
+                        airline_name,
+                        speech_pack=speech_pack,
+                    ),
                     **context,
                 }
             )
@@ -917,6 +932,15 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             ):
                 value = _mapping_review_airport_value(name, code)
                 review_key = code or normalized_airport_city(name)
+                suggested_option = (
+                    CONF_SPEECH_AIRPORT_CODE_FROM_OVERRIDES
+                    if code and speech_direction == "from"
+                    else CONF_SPEECH_AIRPORT_CODE_TO_OVERRIDES
+                    if code
+                    else CONF_SPEECH_CITY_FROM_OVERRIDES
+                    if speech_direction == "from"
+                    else CONF_SPEECH_CITY_TO_OVERRIDES
+                )
                 items.append(
                     {
                         "key": f"airport:{speech_direction}:{review_key}",
@@ -932,6 +956,13 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                             if speech_direction == "from"
                             else "speech_ru.AIRPORT_CODE_TO_RU/CITY_TO_RU"
                         ),
+                        "suggested_option": suggested_option,
+                        "suggested_key": code or normalized_airport_city(name),
+                        "suggested_value": airport_speech(
+                            airport,
+                            direction=speech_direction,
+                            speech_pack=speech_pack,
+                        ),
                         **context,
                     }
                 )
@@ -941,15 +972,24 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 speech_pack=speech_pack,
             ):
                 value = _mapping_review_airport_value(name, code)
+                route_key = code or normalized_airport_city(name)
+                route_speech = tts_cyrillic_text(name or code)
                 items.append(
                     {
-                        "key": f"airport:route:{code or normalized_airport_city(name)}",
+                        "key": f"airport:route:{route_key}",
                         "kind": "route_airport",
                         "value": value,
-                        "fallback_speech": tts_cyrillic_text(name or code),
+                        "fallback_speech": route_speech,
                         "suggested_table": (
                             "speech_ru.AIRPORT_CODE_ROUTE_RU/CITY_ROUTE_RU"
                         ),
+                        "suggested_option": (
+                            CONF_SPEECH_AIRPORT_CODE_ROUTE_OVERRIDES
+                            if code
+                            else CONF_SPEECH_CITY_ROUTE_OVERRIDES
+                        ),
+                        "suggested_key": route_key,
+                        "suggested_value": route_speech,
                         **context,
                     }
                 )
@@ -976,20 +1016,43 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         speech_pack=self.runtime_settings.speech_pack,
                     ),
                     "suggested_table": "speech_ru.MODEL_SPEECH_RULES_RU",
+                    "suggested_option": CONF_SPEECH_MODEL_OVERRIDES,
+                    "suggested_key": " ".join(
+                        part for part in (model, aircraft_type) if part
+                    ).upper(),
+                    "suggested_value": spoken_model(
+                        model,
+                        aircraft_type,
+                        model_speech_overrides=(
+                            self.runtime_settings.model_speech_overrides
+                        ),
+                        speech_pack=self.runtime_settings.speech_pack,
+                    ),
                     **context,
                 }
             )
 
         if flight and re.fullmatch(r"[A-Z]{4,}\d+", flight):
             spoken = spoken_flight(flight, speech_pack=speech_pack)
-            if not has_callsign_prefix_speech_mapping(flight, speech_pack=speech_pack):
+            prefix_match = re.match(r"[A-Z]+", flight)
+            if (
+                prefix_match
+                and not has_callsign_prefix_speech_mapping(flight, speech_pack=speech_pack)
+            ):
+                prefix = prefix_match.group(0)
                 items.append(
                     {
-                        "key": f"callsign:{re.match(r'[A-Z]+', flight).group(0)}",
+                        "key": f"callsign:{prefix}",
                         "kind": "callsign_prefix",
                         "value": flight,
                         "fallback_speech": spoken,
                         "suggested_table": "speech_ru.CALLSIGN_PREFIX_SPEECH_RU",
+                        "suggested_option": CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES,
+                        "suggested_key": prefix,
+                        "suggested_value": spoken_flight(
+                            prefix,
+                            speech_pack=speech_pack,
+                        ),
                         **context,
                     }
                 )
