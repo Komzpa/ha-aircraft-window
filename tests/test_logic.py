@@ -2160,6 +2160,14 @@ class AircraftWindowLogicTest(unittest.TestCase):
             logic.spoken_flight("EXA123", speech_pack=custom_pack),
             "Экза один два три",
         )
+        model_pack = replace(
+            logic.DEFAULT_RUSSIAN_SPEECH_PACK,
+            model_rules=((("MYSTERY MODEL",), "Мистери модель"),),
+        )
+        self.assertEqual(
+            logic.spoken_model("Mystery Model 100", speech_pack=model_pack),
+            "Мистери модель",
+        )
         announcement_settings = replace(
             logic.DEFAULT_RUNTIME_SETTINGS,
             speech_pack=custom_pack,

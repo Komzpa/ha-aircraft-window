@@ -849,6 +849,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 value,
                 aircraft_type,
                 model_speech_overrides=self.runtime_settings.model_speech_overrides,
+                speech_pack=self.runtime_settings.speech_pack,
             )
         if kind == "callsign_prefix":
             return bool(value) and not has_callsign_prefix_speech_mapping(
@@ -966,6 +967,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             model,
             aircraft_type,
             model_speech_overrides=self.runtime_settings.model_speech_overrides,
+            speech_pack=self.runtime_settings.speech_pack,
         ):
             items.append(
                 {
@@ -978,8 +980,9 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         model_speech_overrides=(
                             self.runtime_settings.model_speech_overrides
                         ),
+                        speech_pack=self.runtime_settings.speech_pack,
                     ),
-                    "suggested_table": "spoken_model",
+                    "suggested_table": "speech_ru.MODEL_SPEECH_RULES_RU",
                     **context,
                 }
             )
@@ -1690,6 +1693,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             attrs["aircraft_model"],
             attrs["aircraft_type"],
             model_speech_overrides=self.runtime_settings.model_speech_overrides,
+            speech_pack=self.runtime_settings.speech_pack,
         )
         built_year = await self._async_airport_data_year(
             session,

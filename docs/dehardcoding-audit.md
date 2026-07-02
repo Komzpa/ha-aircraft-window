@@ -143,11 +143,10 @@ Current assumptions and status:
 
 - Built-in Russian speech tables live in
   `custom_components/aircraft_window/speech_ru.py`: city forms, airport forms,
-  airline/operator forms, callsign prefixes, military phrases, digits, years,
-  and Latin transliteration. Built-in model phrases still live in
-  `spoken_model()`.
+  airline/operator forms, callsign prefixes, aircraft-model phrases, military
+  phrases, digits, years, and Latin transliteration.
 - `RussianSpeechPack` now groups the Russian lookup tables and selected helpers
-  accept a speech pack override.
+  accept a speech pack override, including aircraft-model speech rules.
 - Home Assistant options expose JSON-object overrides for airline names,
   airline aliases, origin/destination/route airport codes, and callsign
   prefixes, airport city labels, plus aircraft model/type speech. Options also
@@ -171,9 +170,11 @@ Target shape:
 
 Migration path:
 
-1. Move speech constants into structured in-repo data modules/files without
-   changing behavior.
-2. Add lookup wrappers that merge built-in Russian pack plus user overrides.
+1. Done for the first Python-data slice: move speech constants into structured
+   in-repo modules without changing behavior. A later slice can move those
+   tables from Python modules into data files.
+2. Done: add lookup wrappers that merge built-in Russian pack plus user
+   overrides.
 3. Only then expose user-editable override options or storage.
 
 ## External Providers

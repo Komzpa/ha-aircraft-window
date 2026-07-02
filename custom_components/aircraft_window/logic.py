@@ -1323,6 +1323,7 @@ def spoken_model(
     aircraft_type: str = "",
     *,
     model_speech_overrides: dict[str, str] | None = None,
+    speech_pack: RussianSpeechPack = DEFAULT_RUSSIAN_SPEECH_PACK,
 ) -> str:
     """Turn common aircraft model strings into Russian TTS-friendly text."""
     if model_speech_overrides:
@@ -1331,100 +1332,17 @@ def spoken_model(
             if override:
                 return override
     text = f"{model} {aircraft_type}".upper()
-    if (
-        "C-130" in text
-        or "C130" in text
-        or "C30J" in text
-        or "HERCULES" in text
-    ):
-        return "Си-сто тридцать Геркулес"
-    if "C-12" in text or "C12" in text or "HURON" in text:
-        return "Си-двенадцать Хьюрон"
-    if "C-146" in text or "C146" in text:
-        return "Си-сто сорок шесть"
-    if "A400" in text:
-        return "Аэробус А-четыреста"
-    if "TU-204" in text or "T204" in text:
-        return "Ту-двести четыре"
-    if "TU-214" in text or "T214" in text:
-        return "Ту-двести четырнадцать"
-    if "A220" in text or "BCS3" in text or "BCS1" in text:
-        return "Аэробус А-двести двадцать"
-    if "A19N" in text or "A319" in text:
-        return "Аэробус триста девятнадцать"
-    if "A20N" in text or "A320" in text:
-        return "Аэробус триста двадцать"
-    if "A21N" in text or "A321" in text:
-        return "Аэробус триста двадцать один"
-    if "A332" in text or "A330" in text:
-        return "Аэробус триста тридцать"
-    if "A35K" in text or "A350" in text:
-        return "Аэробус триста пятьдесят"
-    if "B38M" in text or "737 MAX 8" in text or re.search(r"\b737-8(?!00)\b", text):
-        return "Боинг семьсот тридцать семь Макс восемь"
-    if "B39M" in text or "737 MAX 9" in text or re.search(r"\b737-9(?!00)\b", text):
-        return "Боинг семьсот тридцать семь Макс девять"
-    if "B737" in text or "B738" in text or "B739" in text or "737" in text:
-        return "Боинг семьсот тридцать семь"
-    if "B752" in text or "757" in text:
-        return "Боинг семьсот пятьдесят семь"
-    if "B763" in text or "767" in text:
-        return "Боинг семьсот шестьдесят семь"
-    if "B77" in text or "777" in text:
-        return "Боинг семьсот семьдесят семь"
-    if "B78" in text or "787" in text:
-        return "Боинг семьсот восемьдесят семь"
-    if "IL76" in text or "IL-76" in text:
-        return "Ил-семьдесят шесть"
-    if "E190" in text:
-        return "Эмбраер сто девяносто"
-    if "E195" in text:
-        return "Эмбраер сто девяносто пять"
-    if "E170" in text or "E75" in text:
-        return "Эмбраер сто семьдесят"
-    if "CRJ" in text:
-        return "Си-ар-джей"
-    if "PA-46" in text or "M500" in text:
-        return "Пайпер M500"
-    if "ASTRA" in text or "1125" in text:
-        return "Астра эс-пи-икс"
-    if "FALCON 2000" in text:
-        return "Дассо Фалькон две тысячи"
-    if "CHALLENGER 300" in text or "CL30" in text:
-        return "Бомбардье Челленджер трёхсотый"
-    if "CHALLENGER 350" in text or "CL35" in text:
-        return "Бомбардье Челленджер триста пятидесятый"
-    if "CHALLENGER 604" in text:
-        return "Бомбардье Челленджер шестьсот четвёртый"
-    if "CHALLENGER 605" in text:
-        return "Бомбардье Челленджер шестьсот пятый"
-    if "CHALLENGER 650" in text:
-        return "Бомбардье Челленджер шестьсот пятидесятый"
-    if "CHALLENGER" in text or "CL60" in text or "CL65" in text:
-        return "Бомбардье Челленджер"
-    if "GL6T" in text or "GLOBAL 6000" in text:
-        return "Бомбардье Глобал шесть тысяч"
-    if "GL5T" in text or "GLOBAL 5000" in text:
-        return "Бомбардье Глобал пять тысяч"
-    if "G650" in text or "GLF6" in text:
-        return "Гольфстрим Джи-шестьсот пятьдесят"
-    if "G550" in text or "GLF5" in text:
-        return "Гольфстрим Джи-пятьсот пятьдесят"
-    if "GLF4" in text:
-        return "Гольфстрим четыре"
-    if "GULFSTREAM" in text or "GLF" in text:
-        return "Гольфстрим"
-    if "H25B" in text or "850XP" in text:
-        return "Хокер восемьсот пятьдесят икс пи"
-    if "SU95" in text or "SSJ" in text:
-        return "Суперджет"
-    if "C208" in text or "CARAVAN" in text:
-        return "Цессна Караван"
-    if "EUROFOX" in text or "AEROPRO" in text:
-        return "Еврофокс"
-    if "L410" in text or "LET" in text:
-        return "Лет четыреста десять Турболет, небольшой двухмоторный турбовинтовой"
+    for tokens, speech in speech_pack.model_rules:
+        if any(_model_speech_token_matches(text, token) for token in tokens):
+            return speech
     return tts_cyrillic_text(model.strip())
+
+
+def _model_speech_token_matches(text: str, token: str) -> bool:
+    """Return true when a model speech rule token matches normalized model text."""
+    if token.startswith("re:"):
+        return re.search(token[3:], text) is not None
+    return token in text
 
 
 def spoken_year(year: int | None) -> str:
@@ -1572,6 +1490,7 @@ def has_aircraft_model_speech_mapping(
     aircraft_type: str = "",
     *,
     model_speech_overrides: dict[str, str] | None = None,
+    speech_pack: RussianSpeechPack = DEFAULT_RUSSIAN_SPEECH_PACK,
 ) -> bool:
     """Return true when model/type speech is not only generic Latin fallback."""
     raw = model.strip()
@@ -1582,6 +1501,7 @@ def has_aircraft_model_speech_mapping(
             raw,
             aircraft_type,
             model_speech_overrides=model_speech_overrides,
+            speech_pack=speech_pack,
         )
         != tts_cyrillic_text(raw)
     )
