@@ -27,6 +27,7 @@ from .board_providers import (
     airport_board_city,
     airport_board_leg_for_phase,
     batumi_airport_board_leg_request,
+    is_airport_board_provider,
     json_airport_board_request,
     match_airport_board_row,
 )
@@ -1069,7 +1070,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         deadline: float | None = None,
     ) -> dict[str, Any]:
         """Return one live-board leg for the configured provider."""
-        if provider_id not in {BATUMI_AIRPORT_BOARD_PROVIDER, JSON_AIRPORT_BOARD_PROVIDER}:
+        if not is_airport_board_provider(provider_id):
             return {}
         cache_key = airport_board_cache_key(provider_id, today, flight_leg)
         cache = await self._async_cache()
@@ -1128,7 +1129,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
     ) -> dict[str, Any]:
         """Return the current configured airport live board."""
         provider_id = self.runtime_settings.local_airport.board_provider
-        if provider_id not in {BATUMI_AIRPORT_BOARD_PROVIDER, JSON_AIRPORT_BOARD_PROVIDER}:
+        if not is_airport_board_provider(provider_id):
             return {}
         today = datetime.now(self.runtime_settings.local_airport.timezone).strftime("%d.%m.%Y")
         if provider_id == JSON_AIRPORT_BOARD_PROVIDER:

@@ -59,10 +59,15 @@ def _stub_voluptuous_module() -> None:
         def __init__(self, schema: dict[Any, Any]) -> None:
             self.schema = schema
 
+    class InValidator:
+        def __init__(self, container: object) -> None:
+            self.container = container
+
     voluptuous.Required = lambda schema, default=None: Marker(schema, default=default)
     voluptuous.Optional = lambda schema, default=None: Marker(schema, default=default)
     voluptuous.All = lambda *validators: validators
     voluptuous.Coerce = lambda target: target
+    voluptuous.In = InValidator
     voluptuous.Range = lambda **_kwargs: object()
     voluptuous.Schema = Schema
 
@@ -102,6 +107,14 @@ def _field_default(schema: Any, field: str) -> Any:
     raise AssertionError(f"missing schema field {field}")
 
 
+def _field_validator(schema: Any, field: str) -> Any:
+    """Return the validator attached to a voluptuous marker in a schema."""
+    for marker, validator in schema.schema.items():
+        if getattr(marker, "schema", None) == field:
+            return validator
+    raise AssertionError(f"missing schema field {field}")
+
+
 class AircraftWindowConfigFlowTest(unittest.TestCase):
     """Verify config-flow defaults that affect dehardcoded profiles."""
 
@@ -133,6 +146,16 @@ class AircraftWindowConfigFlowTest(unittest.TestCase):
             "json_airport_board",
         )
         self.assertEqual(_field_default(schema, const.CONF_WATCH_AIRPORTS), "DEF")
+
+    def test_schema_limits_airport_board_provider_choices(self) -> None:
+        schema = config_flow._schema({}, include_home_coordinates=False)
+
+        validator = _field_validator(schema, const.CONF_AIRPORT_BOARD_PROVIDER)
+
+        self.assertEqual(
+            validator.container,
+            ("", "batumi_airport_board", "json_airport_board"),
+        )
 
 
 if __name__ == "__main__":

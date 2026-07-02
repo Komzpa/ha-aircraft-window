@@ -8,6 +8,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 
+from .board_providers import AIRPORT_BOARD_PROVIDER_IDS
 from .const import (
     CONF_ADSBDB_BASE_URL,
     CONF_AIRCRAFT_CACHE_SECONDS,
@@ -150,7 +151,7 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
         vol.Required(
             CONF_AIRPORT_BOARD_PROVIDER,
             default=airport_board_provider_default,
-        ): str,
+        ): vol.In(AIRPORT_BOARD_PROVIDER_IDS),
         vol.Required(
             CONF_WINDOW_VIEW_LEAD_SECONDS,
             default=defaults.get(

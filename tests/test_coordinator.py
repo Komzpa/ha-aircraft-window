@@ -1202,6 +1202,12 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             "DEPARTURE",
         )
 
+    def test_airport_board_provider_registry_marks_enabled_providers(self) -> None:
+        self.assertTrue(coordinator.is_airport_board_provider("batumi_airport_board"))
+        self.assertTrue(coordinator.is_airport_board_provider("json_airport_board"))
+        self.assertFalse(coordinator.is_airport_board_provider(""))
+        self.assertFalse(coordinator.is_airport_board_provider("unknown_board"))
+
     def test_batumi_board_match_maps_flyone_callsign_prefix_to_board_code(self) -> None:
         board = {
             "data": {

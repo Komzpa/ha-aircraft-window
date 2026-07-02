@@ -10,12 +10,35 @@ from .logic import normalized_airport_city
 
 BATUMI_AIRPORT_BOARD_PROVIDER = "batumi_airport_board"
 JSON_AIRPORT_BOARD_PROVIDER = "json_airport_board"
+DISABLED_AIRPORT_BOARD_PROVIDER = ""
 BATUMI_AIRPORT_BOARD_CACHE_PREFIX = "batumi-airport-board:"
 GENERIC_AIRPORT_BOARD_CACHE_PREFIX = "airport-board:"
 AIRPORT_BOARD_CACHE_PREFIXES = (
     BATUMI_AIRPORT_BOARD_CACHE_PREFIX,
     GENERIC_AIRPORT_BOARD_CACHE_PREFIX,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class AirportBoardProvider:
+    """Configured airport-board provider descriptor."""
+
+    provider_id: str
+    title: str
+
+
+AIRPORT_BOARD_PROVIDERS = (
+    AirportBoardProvider(DISABLED_AIRPORT_BOARD_PROVIDER, "Disabled"),
+    AirportBoardProvider(BATUMI_AIRPORT_BOARD_PROVIDER, "Batumi airport board"),
+    AirportBoardProvider(JSON_AIRPORT_BOARD_PROVIDER, "Canonical JSON airport board"),
+)
+AIRPORT_BOARD_PROVIDER_IDS = tuple(provider.provider_id for provider in AIRPORT_BOARD_PROVIDERS)
+
+
+def is_airport_board_provider(provider_id: str) -> bool:
+    """Return true when the provider id is supported and enabled."""
+    return provider_id in {BATUMI_AIRPORT_BOARD_PROVIDER, JSON_AIRPORT_BOARD_PROVIDER}
+
 
 BATUMI_CALLSIGN_PREFIX_TO_BOARD_AIRLINE = {
     "AIZ": "IZ",
@@ -107,7 +130,7 @@ def match_airport_board_row(
     preferred_leg: str = "",
 ) -> dict[str, Any]:
     """Match a callsign to an airport board row."""
-    if provider_id not in {BATUMI_AIRPORT_BOARD_PROVIDER, JSON_AIRPORT_BOARD_PROVIDER}:
+    if not is_airport_board_provider(provider_id):
         return {}
     token = flight.strip().replace(" ", "").upper()
     match = re.fullmatch(r"([A-Z]{2,3})([A-Z0-9]+)", token)
