@@ -94,7 +94,12 @@ from .logic import (
     tts_cyrillic_text,
     window_view_attrs,
 )
-from .settings import DEFAULT_RUNTIME_SETTINGS, RuntimeSettings, runtime_settings_from_options
+from .settings import (
+    DEFAULT_RUNTIME_SETTINGS,
+    ProviderSettings,
+    RuntimeSettings,
+    runtime_settings_from_options,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -120,31 +125,42 @@ MAPPING_REVIEW_MAX_ITEMS = 80
 MAPPING_REVIEW_VISIBLE_LIMIT = 24
 
 
-def _cache_entry_ttl_seconds(key: str, entry: dict[str, Any]) -> int | None:
+def _cache_entry_ttl_seconds(
+    key: str,
+    entry: dict[str, Any],
+    *,
+    providers: ProviderSettings | None = None,
+) -> int | None:
     """Return the effective TTL for a persistent cache entry."""
+    provider_settings = providers or DEFAULT_RUNTIME_SETTINGS.providers
     if key == MAPPING_REVIEW_CACHE_KEY:
         return None
     if key.startswith(AIRPORT_BOARD_CACHE_PREFIXES):
-        return AIRPORT_BOARD_CACHE_SECONDS
+        return provider_settings.airport_board_cache_seconds
     if key.startswith("airport-data-year:"):
-        return BUILT_YEAR_CACHE_SECONDS
+        return provider_settings.built_year_cache_seconds
     if entry.get("error") is True:
         return EXTERNAL_LOOKUP_ERROR_CACHE_SECONDS
     if key.startswith("callsign:"):
-        return ROUTE_CACHE_SECONDS
+        return provider_settings.route_cache_seconds
     if key.startswith(("aircraft:", "hexdb-aircraft:", "airplanes-live-aircraft:")):
-        return AIRCRAFT_CACHE_SECONDS
+        return provider_settings.aircraft_cache_seconds
     return None
 
 
-def _prune_expired_cache_entries(cache: dict[str, Any], *, now: int | None = None) -> int:
+def _prune_expired_cache_entries(
+    cache: dict[str, Any],
+    *,
+    now: int | None = None,
+    providers: ProviderSettings | None = None,
+) -> int:
     """Remove expired known cache entries in-place and return the removal count."""
     current_time = int(time.time()) if now is None else now
     expired: list[str] = []
     for key, entry in cache.items():
         if not isinstance(entry, dict):
             continue
-        ttl_seconds = _cache_entry_ttl_seconds(key, entry)
+        ttl_seconds = _cache_entry_ttl_seconds(key, entry, providers=providers)
         if ttl_seconds is None:
             continue
         try:
@@ -748,7 +764,10 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
     async def _async_save_cache(self) -> None:
         """Save persistent enrichment cache."""
         if self._cache is not None:
-            _prune_expired_cache_entries(self._cache)
+            _prune_expired_cache_entries(
+                self._cache,
+                providers=self.runtime_settings.providers,
+            )
             await self._store.async_save(self._cache)
 
     async def _async_mapping_review_items(self) -> list[dict[str, Any]]:
@@ -1058,7 +1077,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         cached = cache.get(cache_key)
         if (
             isinstance(cached, dict)
-            and now - int(cached.get("fetched_at", 0)) < AIRPORT_BOARD_CACHE_SECONDS
+            and now - int(cached.get("fetched_at", 0))
+            < self.runtime_settings.providers.airport_board_cache_seconds
         ):
             payload = cached.get("payload")
             return payload if isinstance(payload, dict) else {}
@@ -1806,7 +1826,10 @@ class EnrichmentPrefetchCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         schedule_preopen = self.aircraft._scheduled_preopen_result(board)
         cache = await self.aircraft._async_cache()
-        cache_pruned = _prune_expired_cache_entries(cache)
+        cache_pruned = _prune_expired_cache_entries(
+            cache,
+            providers=self.aircraft.runtime_settings.providers,
+        )
         if cache_pruned:
             await self.aircraft._async_save_cache()
         prefetch_status = {

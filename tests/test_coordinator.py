@@ -164,6 +164,34 @@ class CachePruneTest(unittest.TestCase):
         self.assertIn(coordinator.MAPPING_REVIEW_CACHE_KEY, cache)
         self.assertIn("unknown-old-shape", cache)
 
+    def test_prune_uses_runtime_provider_cache_ttls(self) -> None:
+        runtime_settings = settings.runtime_settings_from_options(
+            {
+                "route_cache_seconds": 1,
+                "aircraft_cache_seconds": 1,
+                "built_year_cache_seconds": 1,
+                "airport_board_cache_seconds": 1,
+            }
+        )
+        cache: dict[str, Any] = {
+            "airport-board:json-airport-board:01.01.2026:board": {
+                "fetched_at": 10,
+                "payload": {},
+            },
+            "callsign:PGT48DK": {"fetched_at": 10, "payload": {"ok": True}},
+            "aircraft:4BB875": {"fetched_at": 10, "payload": {"ok": True}},
+            "airport-data-year:TC-NCU": {"fetched_at": 10, "year": 2021},
+        }
+
+        pruned = coordinator._prune_expired_cache_entries(
+            cache,
+            now=12,
+            providers=runtime_settings.providers,
+        )
+
+        self.assertEqual(pruned, 4)
+        self.assertEqual(cache, {})
+
     def test_prune_error_entries_with_short_ttl(self) -> None:
         now = 10_000_000
         cache: dict[str, Any] = {
@@ -1017,6 +1045,75 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(session.urls, ["https://example.invalid/board.json"])
         self.assertEqual(row["airlineName"], "Example Air")
         self.assertIn("airport-board:json-airport-board:", next(iter(fake._cache)))
+
+    async def test_airport_board_leg_uses_runtime_cache_ttl(self) -> None:
+        class Response:
+            async def __aenter__(self) -> Response:
+                return self
+
+            async def __aexit__(self, *_args: Any) -> None:
+                return None
+
+            def raise_for_status(self) -> None:
+                return None
+
+            async def json(self) -> dict[str, Any]:
+                return {"data": {"flights": [{"flightNumber": "123"}]}}
+
+        class Session:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def get(self, *_args: Any, **_kwargs: Any) -> Response:
+                self.calls += 1
+                return Response()
+
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake._runtime_settings = settings.runtime_settings_from_options(
+            {
+                "local_airport_iata": "BBB",
+                "airport_board_provider": "json_airport_board",
+                "json_airport_board_url": "https://example.invalid/board.json",
+                "airport_board_cache_seconds": 1,
+            }
+        )
+        cache_key = coordinator.airport_board_cache_key(
+            "json_airport_board",
+            "20.05.2026",
+            "BOARD",
+        )
+        fake._cache = {
+            cache_key: {
+                "fetched_at": int(coordinator.time.time()) - 2,
+                "payload": {"data": {"flights": [{"flightNumber": "stale"}]}},
+            }
+        }
+
+        async def load_cache() -> dict[str, Any]:
+            return fake._cache
+
+        async def save_cache() -> None:
+            return None
+
+        fake._async_cache = load_cache
+        fake._async_save_cache = save_cache
+
+        session = Session()
+        result = await fake._async_airport_board_leg(
+            session,
+            provider_id="json_airport_board",
+            today="20.05.2026",
+            flight_leg="BOARD",
+            request_raw_url="",
+        )
+
+        self.assertEqual(session.calls, 1)
+        self.assertEqual(
+            result,
+            {"data": {"flights": [{"flightNumber": "123"}]}},
+        )
 
     def test_batumi_board_match_prefers_candidate_leg(self) -> None:
         board = {
