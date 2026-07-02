@@ -31,12 +31,13 @@ Configuration surface today:
 
 ### Airport Identity And Board
 
-Current assumptions:
+Current assumptions and status:
 
-- `LOCAL_AIRPORT_IATA = "BUS"` in `coordinator.py`.
-- Batumi board URL, request legs, cache keys, and timezone are hardcoded:
-  `BATUMI_AIRPORT_BOARD_BASE_URL`, `BATUMI_AIRPORT_BOARD_LEGS`,
-  `TBILISI_TIMEZONE`.
+- `settings.py` now defines the default `local_airport` profile and provider
+  settings. `coordinator.py` keeps compatibility aliases such as
+  `LOCAL_AIRPORT_IATA`, `BATUMI_AIRPORT_BOARD_BASE_URL`,
+  `BATUMI_AIRPORT_BOARD_LEGS`, and `TBILISI_TIMEZONE`, but runtime reads go
+  through `runtime_settings`.
 - Schedule sensors and docs say "Batumi departure" rather than "configured
   airport departure".
 - `CALLSIGN_PREFIX_TO_BOARD_AIRLINE` is tuned for the Batumi airport board.
@@ -59,14 +60,13 @@ Target shape:
 
 ### Viewing Geometry
 
-Current assumptions in `logic.py`:
+Current assumptions and status:
 
-- Window azimuth and half-angle are fixed:
-  `WINDOW_VIEW_AZIMUTH_DEGREES = 290`,
-  `WINDOW_VIEW_HALF_ANGLE_DEGREES = 90`.
-- Window polygon is fixed in `WINDOW_VIEW_POLYGON_LON_LAT`.
-- Batumi runway staging point and radius are fixed.
-- Local terminal-area suppression is fixed around the Batumi runway point.
+- `settings.py` now defines the default `WindowViewProfile`, runway staging
+  areas, and terminal area. `logic.py` keeps compatibility aliases for the old
+  constants, but visibility, projection, staging, and terminal suppression reads
+  can take a `RuntimeSettings` object.
+- Home Assistant options do not expose these values yet.
 
 Target shape:
 
@@ -81,14 +81,12 @@ Target shape:
 
 ### Special-Interest Policy
 
-Current assumptions:
+Current assumptions and status:
 
-- Kutaisi is a hardcoded watch route: `"KUT"` creates `kutaisi_route`.
-- Kinematic-only alerts use hardcoded thresholds:
-  rapid descent `<= -3500 fpm`, orbit-like `track_rate >= 2.5 deg/s`.
-- Recent fixes suppress these kinematic-only alerts for known routes,
-  transport aircraft, and local terminal area, but the policy values are still
-  code constants.
+- Kutaisi is now the default `WatchAirport` in `settings.py`, not a literal
+  branch in `interest_candidate`.
+- Kinematic-only thresholds and terminal suppression are now in `WatchPolicy`.
+- Home Assistant options do not expose `WatchPolicy` yet.
 
 Target shape:
 
@@ -166,13 +164,14 @@ Target shape:
 
 ## Recommended Refactor Order
 
-1. Add typed runtime settings helpers that normalize existing entry options into
-   `observer`, `view_profile`, `airport_profiles`, `watch_policy`, and
-   `provider_settings`. No behavior change.
-2. Move window geometry, runway staging, terminal area, and local airport IATA
-   reads through those settings helpers. Keep current defaults.
+1. Done: add typed runtime settings helpers for default `local_airport`,
+   `view_profile`, `watch_policy`, and `provider_settings`.
+2. Done: move window geometry, runway staging, terminal area, watched-airport,
+   provider URL, timezone, and local airport IATA reads through those settings
+   helpers while keeping current defaults.
 3. Move Batumi airport board behind a provider abstraction and make it optional.
-4. Generalize `KUT` watch-route into configured `watch_airports`.
+4. Expose configured `watch_airports`, local airport, and view profile through
+   config/options after migration behavior is designed.
 5. Move speech tables into a Russian speech pack and add override merge points.
 6. Rename docs/strings from Batumi-specific wording to configured-airport
    wording while preserving existing entity IDs.
@@ -192,6 +191,5 @@ The lowest-risk first slice is a typed settings module with current defaults:
 - `ProviderSettings`: current enrichment providers and Batumi board enabled for
   migrated/default local profile.
 
-Wire only reads through this module first. Do not expose all fields in the Home
-Assistant options UI until the internal call sites stop reading old constants
-directly.
+Status: this slice is implemented in code. Do not expose all fields in the Home
+Assistant options UI until migration behavior and validation are designed.

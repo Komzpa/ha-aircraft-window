@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import types
 import unittest
+from dataclasses import replace
 from datetime import datetime
 from importlib import util
 from pathlib import Path
@@ -80,6 +81,7 @@ def _load_component_module(name: str) -> types.ModuleType:
 
 _stub_homeassistant_modules()
 _load_component_module("const")
+settings = _load_component_module("settings")
 _load_component_module("logic")
 coordinator = _load_component_module("coordinator")
 
@@ -294,6 +296,40 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(attrs["route_source"], "")
         self.assertEqual(attrs["origin_iata"], "")
         self.assertEqual(attrs["destination_iata"], "")
+
+    def test_route_direction_uses_configured_local_airport(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake._runtime_settings = replace(
+            settings.DEFAULT_RUNTIME_SETTINGS,
+            local_airport=replace(
+                settings.DEFAULT_RUNTIME_SETTINGS.local_airport,
+                iata="ABC",
+            ),
+        )
+
+        self.assertTrue(
+            fake._route_matches_local_phase(
+                "positioned_landing",
+                "TST",
+                "ABC",
+            )
+        )
+        self.assertFalse(
+            fake._route_matches_local_phase(
+                "positioned_landing",
+                "TST",
+                "BUS",
+            )
+        )
+        self.assertTrue(
+            fake._route_matches_local_phase(
+                "positioned_takeoff",
+                "ABC",
+                "TST",
+            )
+        )
 
     def test_airport_board_route_applies_valid_local_arrival(self) -> None:
         fake = coordinator.AircraftWindowCoordinator.__new__(
@@ -970,29 +1006,33 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         )
 
     def test_callsign_route_must_match_local_phase(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+
         self.assertTrue(
-            coordinator.AircraftWindowCoordinator._route_matches_local_phase(
+            fake._route_matches_local_phase(
                 "positioned_approach",
                 "TLV",
                 "BUS",
             )
         )
         self.assertFalse(
-            coordinator.AircraftWindowCoordinator._route_matches_local_phase(
+            fake._route_matches_local_phase(
                 "positioned_approach",
                 "TLV",
                 "WAW",
             )
         )
         self.assertTrue(
-            coordinator.AircraftWindowCoordinator._route_matches_local_phase(
+            fake._route_matches_local_phase(
                 "positioned_takeoff",
                 "BUS",
                 "TLV",
             )
         )
         self.assertFalse(
-            coordinator.AircraftWindowCoordinator._route_matches_local_phase(
+            fake._route_matches_local_phase(
                 "positioned_takeoff",
                 "TLV",
                 "WAW",
@@ -1125,7 +1165,11 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row, {})
 
     def test_parse_board_time_accepts_batumi_dot_format(self) -> None:
-        parsed = coordinator.AircraftWindowCoordinator._parse_board_time(
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+
+        parsed = fake._parse_board_time(
             "25.05.2026 15:00",
             coordinator.datetime(
                 2026,

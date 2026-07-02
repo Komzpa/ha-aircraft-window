@@ -8,7 +8,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import quote, urlsplit, urlunsplit
 
@@ -83,25 +83,25 @@ from .logic import (
     tts_cyrillic_text,
     window_view_attrs,
 )
+from .settings import DEFAULT_RUNTIME_SETTINGS, RuntimeSettings
 
 _LOGGER = logging.getLogger(__name__)
 
-ADSBDB_BASE_URL = "https://api.adsbdb.com/v0"
-HEXDB_BASE_URL = "https://hexdb.io/api/v1"
-AIRPLANES_LIVE_BASE_URL = "https://api.airplanes.live/v2"
-LOCAL_AIRPORT_IATA = "BUS"
+ADSBDB_BASE_URL = DEFAULT_RUNTIME_SETTINGS.providers.adsbdb_base_url
+HEXDB_BASE_URL = DEFAULT_RUNTIME_SETTINGS.providers.hexdb_base_url
+AIRPLANES_LIVE_BASE_URL = DEFAULT_RUNTIME_SETTINGS.providers.airplanes_live_base_url
+LOCAL_AIRPORT_IATA = DEFAULT_RUNTIME_SETTINGS.local_airport.iata
 ROUTE_CACHE_SECONDS = 6 * 60 * 60
 AIRCRAFT_CACHE_SECONDS = 24 * 60 * 60
 BUILT_YEAR_CACHE_SECONDS = 30 * 24 * 60 * 60
-AIRPORT_BOARD_CACHE_SECONDS = 5 * 60
+AIRPORT_BOARD_CACHE_SECONDS = DEFAULT_RUNTIME_SETTINGS.providers.airport_board_cache_seconds
 ROUTINE_HEX_HOLD_SECONDS = 10.0
 ROUTINE_HEX_HOLD_SUPPRESSION_REASON = "waiting briefly for callsign"
-BATUMI_AIRPORT_BOARD_BASE_URL = "https://batumiairport.com/Home/searchFlights"
-TBILISI_TIMEZONE = timezone(timedelta(hours=4))
-BATUMI_AIRPORT_BOARD_LEGS = {
-    "DEPARTURE": "/en-EN/flights/departure-flights",
-    "ARRIVAL": "/en-EN/flights/arrival-flights",
-}
+BATUMI_AIRPORT_BOARD_BASE_URL = (
+    DEFAULT_RUNTIME_SETTINGS.providers.batumi_airport_board_base_url
+)
+TBILISI_TIMEZONE = DEFAULT_RUNTIME_SETTINGS.local_airport.timezone
+BATUMI_AIRPORT_BOARD_LEGS = DEFAULT_RUNTIME_SETTINGS.providers.batumi_airport_board_legs
 EXTERNAL_LOOKUP_ERROR_CACHE_SECONDS = 10 * 60
 MIN_EXTERNAL_LOOKUP_TIMEOUT_SECONDS = 0.25
 MAPPING_REVIEW_CACHE_KEY = "mapping_review:v1"
@@ -253,6 +253,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         self._announced_event_keys_by_airframe: dict[str, set[str]] = {}
         self._held_routine_hex_candidates: dict[str, float] = {}
         self._emergency_squawk_observations: dict[str, dict[str, float]] = {}
+        self._runtime_settings = DEFAULT_RUNTIME_SETTINGS
         options = self.options
         super().__init__(
             hass,
@@ -269,6 +270,11 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         merged = dict(self.entry.data)
         merged.update(self.entry.options)
         return merged
+
+    @property
+    def runtime_settings(self) -> RuntimeSettings:
+        """Return resolved runtime profile settings for this entry."""
+        return getattr(self, "_runtime_settings", DEFAULT_RUNTIME_SETTINGS)
 
     async def _async_update_data(self) -> AircraftCandidate:
         """Fetch aircraft data and return the best candidate."""
@@ -309,6 +315,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 options.get(CONF_MAX_NO_POSITION_SEEN_SECONDS, DEFAULT_MAX_NO_POSITION_SEEN_SECONDS)
             ),
             source=dump1090_url,
+            settings=self.runtime_settings,
         )
         if base_candidate.phase == "no_position_nearby":
             backfilled_rows = await self._async_backfill_no_position_rows(
@@ -349,6 +356,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         )
                     ),
                     source=dump1090_url,
+                    settings=self.runtime_settings,
                 )
                 aircraft_rows = backfilled_rows
         if base_candidate.active and options.get(CONF_ENABLE_ENRICHMENT, True):
@@ -632,6 +640,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 enrichment={},
                 source=source,
                 aircraft_count=len(aircraft_rows),
+                settings=self.runtime_settings,
             )
             if raw_candidate is None or raw_candidate.phase not in {
                 "emergency_squawk",
@@ -648,6 +657,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 enrichment=enrichment,
                 source=source,
                 aircraft_count=len(aircraft_rows),
+                settings=self.runtime_settings,
             )
             if (
                 candidate is not None
@@ -668,6 +678,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 enrichment={},
                 source=source,
                 aircraft_count=len(aircraft_rows),
+                settings=self.runtime_settings,
             ) is not None:
                 continue
             try:
@@ -687,6 +698,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 enrichment=enrichment,
                 source=source,
                 aircraft_count=len(aircraft_rows),
+                settings=self.runtime_settings,
             )
             if candidate is not None and (
                 best is None or candidate.confidence > best.confidence
@@ -829,6 +841,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             home_longitude=float(
                 self.options.get(CONF_HOME_LONGITUDE, self.hass.config.longitude)
             ),
+            settings=self.runtime_settings,
         )
         if not (
             view.get("window_visible")
@@ -1025,9 +1038,10 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             "airline": "",
             "requestRawUrl": request_raw_url,
         }
+        providers = self.runtime_settings.providers
         try:
             async with session.get(
-                BATUMI_AIRPORT_BOARD_BASE_URL,
+                providers.batumi_airport_board_base_url,
                 params=params,
                 headers={
                     "Accept": "application/json, text/javascript, */*; q=0.01",
@@ -1053,10 +1067,12 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         deadline: float | None = None,
     ) -> dict[str, Any]:
         """Return the current Batumi Airport live board for arrivals and departures."""
-        today = datetime.now(TBILISI_TIMEZONE).strftime("%d.%m.%Y")
+        today = datetime.now(self.runtime_settings.local_airport.timezone).strftime("%d.%m.%Y")
         flights: list[dict[str, Any]] = []
         current_time = ""
-        for flight_leg, request_raw_url in BATUMI_AIRPORT_BOARD_LEGS.items():
+        for flight_leg, request_raw_url in (
+            self.runtime_settings.providers.batumi_airport_board_legs.items()
+        ):
             payload = await self._async_batumi_airport_board_leg(
                 session,
                 today=today,
@@ -1150,15 +1166,20 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             return "DEPARTURE"
         return ""
 
-    @staticmethod
-    def _route_matches_local_phase(phase: str, origin_iata: str, destination_iata: str) -> bool:
-        """Return true when route direction matches the local Batumi movement."""
+    def _route_matches_local_phase(
+        self,
+        phase: str,
+        origin_iata: str,
+        destination_iata: str,
+    ) -> bool:
+        """Return true when route direction matches the configured local movement."""
         origin = origin_iata.strip().upper()
         destination = destination_iata.strip().upper()
+        local_iata = self.runtime_settings.local_airport.iata.upper()
         if phase in {"positioned_landing", "positioned_approach"}:
-            return destination == LOCAL_AIRPORT_IATA
+            return destination == local_iata
         if phase == "positioned_takeoff":
-            return origin == LOCAL_AIRPORT_IATA
+            return origin == local_iata
         return True
 
     @staticmethod
@@ -1236,9 +1257,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         value = str(data.get(key) or data.get(f"{direction}Iata") or "").strip()
         return normalized_airport_city(value)
 
-    @staticmethod
-    def _parse_board_time(value: str, now: datetime) -> datetime | None:
-        """Parse a Batumi board timestamp into Tbilisi local time."""
+    def _parse_board_time(self, value: str, now: datetime) -> datetime | None:
+        """Parse an airport board timestamp into the configured airport local time."""
         value = value.strip()
         if not value:
             return None
@@ -1247,13 +1267,13 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 parsed = datetime.strptime(value[:19], fmt)
             except ValueError:
                 continue
-            return parsed.replace(tzinfo=TBILISI_TIMEZONE)
+            return parsed.replace(tzinfo=self.runtime_settings.local_airport.timezone)
         for fmt in ("%d.%m.%Y %H:%M:%S", "%d.%m.%Y %H:%M"):
             try:
                 parsed = datetime.strptime(value[:19], fmt)
             except ValueError:
                 continue
-            return parsed.replace(tzinfo=TBILISI_TIMEZONE)
+            return parsed.replace(tzinfo=self.runtime_settings.local_airport.timezone)
         if re.fullmatch(r"\d{2}:\d{2}", value):
             hour, minute = (int(part) for part in value.split(":"))
             return now.replace(hour=hour, minute=minute, second=0, microsecond=0)
@@ -1266,7 +1286,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         now: datetime | None = None,
     ) -> dict[str, Any]:
         """Return curtain preopen state from the Batumi Airport board."""
-        now = now or datetime.now(TBILISI_TIMEZONE)
+        now = now or datetime.now(self.runtime_settings.local_airport.timezone)
         rows = (((board.get("data") or {}).get("flights")) or [])
         candidates: list[dict[str, Any]] = []
         for row in rows if isinstance(rows, list) else []:
@@ -1478,9 +1498,10 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 self._apply_airport_board_route(attrs, board_row, phase=phase)
 
         if flight and flight != "UNKNOWN" and not flight.lower().startswith(hex_id.lower()):
+            providers = self.runtime_settings.providers
             route_payload = await self._async_get_json(
                 session,
-                f"{ADSBDB_BASE_URL}/callsign/{quote(flight)}",
+                f"{providers.adsbdb_base_url}/callsign/{quote(flight)}",
                 cache_key=f"callsign:{flight}",
                 ttl_seconds=ROUTE_CACHE_SECONDS,
                 timeout=timeout,
@@ -1535,9 +1556,10 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             self._add_enrichment_source(attrs, "local_route")
 
         if hex_id:
+            providers = self.runtime_settings.providers
             aircraft_payload = await self._async_get_json(
                 session,
-                f"{ADSBDB_BASE_URL}/aircraft/{quote(hex_id)}",
+                f"{providers.adsbdb_base_url}/aircraft/{quote(hex_id)}",
                 cache_key=f"aircraft:{hex_id}",
                 ttl_seconds=AIRCRAFT_CACHE_SECONDS,
                 timeout=timeout,
@@ -1565,9 +1587,10 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     self._add_enrichment_source(attrs, "adsbdb")
 
         if hex_id and (not attrs["aircraft_model"] or not attrs["registration"]):
+            providers = self.runtime_settings.providers
             hexdb_payload = await self._async_get_json(
                 session,
-                f"{HEXDB_BASE_URL}/aircraft/{quote(hex_id)}",
+                f"{providers.hexdb_base_url}/aircraft/{quote(hex_id)}",
                 cache_key=f"hexdb-aircraft:{hex_id}",
                 ttl_seconds=AIRCRAFT_CACHE_SECONDS,
                 timeout=timeout,
@@ -1598,9 +1621,10 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 self._add_enrichment_source(attrs, "hexdb")
 
         if hex_id and (not attrs["aircraft_model"] or not attrs["registration"]):
+            providers = self.runtime_settings.providers
             airplanes_live_payload = await self._async_get_json(
                 session,
-                f"{AIRPLANES_LIVE_BASE_URL}/hex/{quote(hex_id)}",
+                f"{providers.airplanes_live_base_url}/hex/{quote(hex_id)}",
                 cache_key=f"airplanes-live-aircraft:{hex_id}",
                 ttl_seconds=AIRCRAFT_CACHE_SECONDS,
                 timeout=timeout,

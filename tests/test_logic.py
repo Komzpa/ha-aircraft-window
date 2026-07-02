@@ -5,20 +5,38 @@ from __future__ import annotations
 import sys
 import unicodedata
 import unittest
+from dataclasses import replace
 from importlib import util
 from pathlib import Path
 
-LOGIC_PATH = (
+COMPONENT_ROOT = (
     Path(__file__).resolve().parents[1]
     / "custom_components"
     / "aircraft_window"
-    / "logic.py"
 )
-SPEC = util.spec_from_file_location("aircraft_window_logic", LOGIC_PATH)
-assert SPEC is not None and SPEC.loader is not None
-logic = util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = logic
-SPEC.loader.exec_module(logic)
+
+
+def _load_component_module(name: str):
+    """Load an aircraft_window module under a package name for relative imports."""
+    package = sys.modules.get("aircraft_window")
+    if package is None:
+        package = type(sys)("aircraft_window")
+        package.__path__ = [str(COMPONENT_ROOT)]  # type: ignore[attr-defined]
+        sys.modules["aircraft_window"] = package
+
+    spec = util.spec_from_file_location(
+        f"aircraft_window.{name}",
+        COMPONENT_ROOT / f"{name}.py",
+    )
+    assert spec is not None and spec.loader is not None
+    module = util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+settings_module = _load_component_module("settings")
+logic = _load_component_module("logic")
 
 
 class AircraftWindowLogicTest(unittest.TestCase):
@@ -30,6 +48,92 @@ class AircraftWindowLogicTest(unittest.TestCase):
             char for char in text if char.isalpha() and "LATIN" in unicodedata.name(char, "")
         ]
         self.assertEqual(latin, [])
+
+    def test_custom_window_profile_controls_visibility(self) -> None:
+        custom_settings = replace(
+            logic.DEFAULT_RUNTIME_SETTINGS,
+            window_view=replace(
+                logic.DEFAULT_RUNTIME_SETTINGS.window_view,
+                azimuth_degrees=90.0,
+                half_angle_degrees=30.0,
+                polygon_lon_lat=((40.0, 40.0), (42.0, 40.0), (42.0, 42.0), (40.0, 42.0)),
+                default_radius_km=100.0,
+            ),
+        )
+
+        attrs = logic.window_view_attrs(
+            {
+                "lat": 41.0,
+                "lon": 41.1,
+                "alt_baro": 2000,
+                "seen": 0.2,
+                "seen_pos": 0.3,
+            },
+            home_latitude=41.0,
+            home_longitude=41.0,
+            settings=custom_settings,
+        )
+
+        self.assertTrue(attrs["window_visible"])
+        self.assertEqual(attrs["window_view_lead_seconds"], 0.0)
+
+    def test_custom_watch_airport_replaces_kutaisi_route_policy(self) -> None:
+        custom_settings = replace(
+            logic.DEFAULT_RUNTIME_SETTINGS,
+            watch_policy=replace(
+                logic.DEFAULT_RUNTIME_SETTINGS.watch_policy,
+                watch_airports=(
+                    settings_module.WatchAirport(
+                        iata="ABC",
+                        phase="abc_route",
+                        reason_label="route includes ABC",
+                    ),
+                ),
+            ),
+        )
+
+        candidate = logic.interest_candidate(
+            {"hex": "abc123", "flight": "ZZZ123", "seen": 1.0},
+            source="test",
+            aircraft_count=1,
+            settings=custom_settings,
+            enrichment={
+                "origin_iata": "TST",
+                "origin_name": "Test Origin",
+                "destination_iata": "ABC",
+                "destination_name": "Config Airport",
+                "destination_speech": "Конфиг-аэропорт",
+                "spoken_flight": "один два три",
+            },
+        )
+
+        assert candidate is not None
+        self.assertEqual(candidate.phase, "abc_route")
+        self.assertIn("рейс на Конфиг-аэропорт", candidate.announcement)
+        self.assertIn("route includes ABC: TST-ABC", candidate.confidence_reason)
+
+    def test_default_watch_policy_no_longer_forces_kut_when_overridden(self) -> None:
+        custom_settings = replace(
+            logic.DEFAULT_RUNTIME_SETTINGS,
+            watch_policy=replace(logic.DEFAULT_RUNTIME_SETTINGS.watch_policy, watch_airports=()),
+        )
+
+        candidate = logic.interest_candidate(
+            {"hex": "abc123", "flight": "WZZ123", "seen": 1.0},
+            source="test",
+            aircraft_count=1,
+            settings=custom_settings,
+            enrichment={
+                "airline_name": "Wizz Air",
+                "origin_iata": "LCA",
+                "origin_name": "Larnaca (LCA)",
+                "destination_iata": "KUT",
+                "destination_name": "Kopitnari (KUT)",
+                "destination_speech": "Кутаиси",
+            },
+        )
+
+        self.assertIsNone(candidate)
 
     def test_landing_announcement_contains_route_model_and_year(self) -> None:
         aircraft = {
