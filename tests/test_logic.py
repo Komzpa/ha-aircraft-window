@@ -1594,6 +1594,28 @@ class AircraftWindowLogicTest(unittest.TestCase):
             ),
             "Кишинёв - Батуми",
         )
+        self.assertEqual(
+            logic.route_pair_speech(
+                {
+                    "origin_iata": "",
+                    "origin_name": "Chișinău (KIV)",
+                    "destination_iata": "BUS",
+                    "destination_name": "Batumi (BUS)",
+                }
+            ),
+            "Кишинёв - Батуми",
+        )
+        self.assertEqual(
+            logic.route_pair_speech(
+                {
+                    "origin_iata": "",
+                    "origin_name": "Chişinău (KIV)",
+                    "destination_iata": "BUS",
+                    "destination_name": "Batumi (BUS)",
+                }
+            ),
+            "Кишинёв - Батуми",
+        )
         self.assertTrue(
             logic.has_airport_speech_mapping(
                 {
