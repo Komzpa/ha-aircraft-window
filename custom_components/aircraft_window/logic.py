@@ -769,6 +769,7 @@ AIRLINE_SPEECH_ALIASES_RU = {
 }
 
 KNOWN_AIRLINE_BY_CALLSIGN_PREFIX = {
+    "4L": "Georgian Airways",
     "TGZ": "Georgian Airways",
     "VAA": "Van Air Europe",
     "JZR": "Jazeera Airways",

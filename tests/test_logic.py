@@ -1337,6 +1337,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
             ("Jazeera Airways", "JZR"),
         )
         self.assertEqual(
+            logic.known_airline_for_callsign("4L112"),
+            ("Georgian Airways", "4L"),
+        )
+        self.assertEqual(
             logic.known_route_for_callsign("VAA021")["route_summary"],
             "BUS → Natakhtari",
         )
@@ -1432,6 +1436,29 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("Джорджиан Эйрвейз", announcement)
         self.assertNotIn("джи и оу", announcement)
         self.assert_tts_has_no_latin(announcement)
+
+    def test_georgian_numeric_prefix_special_interest_avoids_letter_soup(self) -> None:
+        text = logic.build_announcement(
+            {"hex": "5140de", "flight": "4L112"},
+            "special_interest",
+            0.74,
+            {
+                "airline_name": "Georgian Airways",
+                "aircraft_model_speech": logic.spoken_model("737", "B738"),
+                "spoken_flight": logic.spoken_flight("4L112", airline_icao="4L"),
+                "interest_type": "rapid_descent",
+                "interest_label": "резкое снижение",
+                "service_type": "unknown",
+            },
+        )
+
+        self.assertIn(
+            "Интересный самолёт в зоне видимости: Джорджиан Эйрвейз один один два.",
+            text,
+        )
+        self.assertIn("резкое снижение", text)
+        self.assertNotIn("четыре эл", text)
+        self.assert_tts_has_no_latin(text)
 
     def test_known_airline_names_do_not_spell_company_words(self) -> None:
         scat = logic.build_announcement(
