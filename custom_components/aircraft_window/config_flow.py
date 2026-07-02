@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Any
 
 import voluptuous as vol
@@ -31,6 +32,7 @@ from .const import (
     CONF_JSON_AIRPORT_BOARD_URL,
     CONF_LOCAL_AIRPORT_IATA,
     CONF_LOCAL_AIRPORT_NAME,
+    CONF_LOCAL_TIMEZONE_NAME,
     CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
     CONF_LOW_LIGHT_HUMAN_VISIBLE_RADIUS_KM,
     CONF_MAX_APPROACH_ALTITUDE_FT,
@@ -119,14 +121,19 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
     default_staging = default_airport.runway_staging_areas[0]
     default_view = DEFAULT_RUNTIME_SETTINGS.window_view
     default_policy = DEFAULT_RUNTIME_SETTINGS.watch_policy
+    default_timezone_offset = datetime.now(default_airport.timezone).utcoffset()
     default_timezone_offset_hours = (
-        default_airport.timezone.utcoffset(None).total_seconds() / 3600.0
+        (default_timezone_offset or timedelta()).total_seconds() / 3600.0
     )
     default_profile_iata = str(
         defaults.get(CONF_LOCAL_AIRPORT_IATA, default_airport.iata)
         or default_airport.iata
     ).strip().upper()
     default_local_airport = default_profile_iata == default_airport.iata.upper()
+    local_timezone_name_default = defaults.get(
+        CONF_LOCAL_TIMEZONE_NAME,
+        default_airport.timezone_name if default_local_airport else "",
+    )
     local_airport_name_default = defaults.get(
         CONF_LOCAL_AIRPORT_NAME,
         default_airport.name if default_local_airport else default_profile_iata,
@@ -198,6 +205,10 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
         vol.Required(
             CONF_LOCAL_AIRPORT_NAME,
             default=local_airport_name_default,
+        ): str,
+        vol.Optional(
+            CONF_LOCAL_TIMEZONE_NAME,
+            default=local_timezone_name_default,
         ): str,
         vol.Required(
             CONF_LOCAL_TIMEZONE_OFFSET_HOURS,

@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
-from datetime import timedelta, timezone, tzinfo
+from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .const import (
     CONF_ADSBDB_BASE_URL,
@@ -24,6 +25,7 @@ from .const import (
     CONF_JSON_AIRPORT_BOARD_URL,
     CONF_LOCAL_AIRPORT_IATA,
     CONF_LOCAL_AIRPORT_NAME,
+    CONF_LOCAL_TIMEZONE_NAME,
     CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
     CONF_LOW_LIGHT_HUMAN_VISIBLE_RADIUS_KM,
     CONF_NIGHT_HUMAN_VISIBLE_RADIUS_KM,
@@ -113,6 +115,7 @@ class LocalAirportProfile:
 
     iata: str
     name: str
+    timezone_name: str
     timezone: tzinfo
     board_provider: str = ""
     terminal_area: TerminalArea | None = None
@@ -224,7 +227,8 @@ DEFAULT_RUNTIME_SETTINGS = RuntimeSettings(
     local_airport=LocalAirportProfile(
         iata="BUS",
         name="Batumi",
-        timezone=timezone(timedelta(hours=4)),
+        timezone_name="Asia/Tbilisi",
+        timezone=ZoneInfo("Asia/Tbilisi"),
         board_provider="batumi_airport_board",
         terminal_area=DEFAULT_BATUMI_TERMINAL_AREA,
         runway_staging_areas=(DEFAULT_BATUMI_RUNWAY_STAGING_AREA,),
@@ -287,6 +291,28 @@ def _float_option(options: dict[str, Any], key: str, default: float) -> float:
     except (TypeError, ValueError):
         return default
     return value
+
+
+def _timezone_offset_hours(tz: tzinfo) -> float:
+    """Return the current UTC offset for a timezone."""
+    offset = datetime.now(tz).utcoffset()
+    return (offset or timedelta()).total_seconds() / 3600.0
+
+
+def _timezone_from_options(
+    options: dict[str, Any],
+    *,
+    default_name: str,
+    offset_hours: float,
+) -> tuple[str, tzinfo]:
+    """Return a named IANA timezone when configured, else a fixed offset."""
+    timezone_name = str(options.get(CONF_LOCAL_TIMEZONE_NAME, default_name) or "").strip()
+    if timezone_name:
+        try:
+            return timezone_name, ZoneInfo(timezone_name)
+        except ZoneInfoNotFoundError:
+            pass
+    return "", timezone(timedelta(hours=offset_hours))
 
 
 def _int_option(options: dict[str, Any], key: str, default: int) -> int:
@@ -718,7 +744,12 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
     timezone_offset_hours = _float_option(
         options,
         CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
-        default_airport.timezone.utcoffset(None).total_seconds() / 3600.0,
+        _timezone_offset_hours(default_airport.timezone),
+    )
+    timezone_name, local_timezone = _timezone_from_options(
+        options,
+        default_name=default_airport.timezone_name if default_local_airport else "",
+        offset_hours=timezone_offset_hours,
     )
     default_polygon = (
         default_view.polygon_lon_lat if default_local_airport else ()
@@ -878,7 +909,8 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
         local_airport=LocalAirportProfile(
             iata=local_iata,
             name=local_name,
-            timezone=timezone(timedelta(hours=timezone_offset_hours)),
+            timezone_name=timezone_name,
+            timezone=local_timezone,
             board_provider=board_provider,
             terminal_area=terminal_area,
             runway_staging_areas=runway_staging_areas,

@@ -6,6 +6,7 @@ import sys
 import unicodedata
 import unittest
 from dataclasses import replace
+from datetime import datetime
 from importlib import util
 from pathlib import Path
 
@@ -170,6 +171,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
             {
                 "local_airport_iata": "abc",
                 "local_airport_name": "Config Airport",
+                "local_timezone_name": "Europe/Paris",
                 "local_timezone_offset_hours": 2,
                 "airport_board_provider": "custom_board",
                 "window_view_lead_seconds": 180,
@@ -240,10 +242,19 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertEqual(runtime_settings.local_airport.iata, "ABC")
         self.assertEqual(runtime_settings.local_airport.name, "Config Airport")
+        self.assertEqual(runtime_settings.local_airport.timezone_name, "Europe/Paris")
         self.assertEqual(runtime_settings.speech_locale, "ru")
         self.assertEqual(runtime_settings.local_airport.board_provider, "custom_board")
         self.assertEqual(
-            runtime_settings.local_airport.timezone.utcoffset(None).total_seconds(),
+            runtime_settings.local_airport.timezone.utcoffset(
+                datetime(2026, 1, 1),
+            ).total_seconds(),
+            3600,
+        )
+        self.assertEqual(
+            runtime_settings.local_airport.timezone.utcoffset(
+                datetime(2026, 7, 1),
+            ).total_seconds(),
             7200,
         )
         self.assertEqual(runtime_settings.window_view.lead_seconds, 180)
@@ -411,6 +422,22 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
 
         self.assertEqual(runtime_settings.speech_locale, "ru")
+
+    def test_runtime_settings_falls_back_to_timezone_offset_for_bad_timezone_name(
+        self,
+    ) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {
+                "local_timezone_name": "Not/AZone",
+                "local_timezone_offset_hours": 3,
+            }
+        )
+
+        self.assertEqual(runtime_settings.local_airport.timezone_name, "")
+        self.assertEqual(
+            runtime_settings.local_airport.timezone.utcoffset(None).total_seconds(),
+            10800,
+        )
 
     def test_runtime_settings_disable_default_board_for_other_local_airport(self) -> None:
         runtime_settings = settings_module.runtime_settings_from_options(

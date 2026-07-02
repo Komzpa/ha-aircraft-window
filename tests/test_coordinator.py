@@ -1871,6 +1871,7 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["source"], "json_airport_board")
         self.assertEqual(result["local_airport_iata"], "ABC")
         self.assertEqual(result["local_airport_name"], "ABC")
+        self.assertEqual(result["local_timezone_name"], "")
 
     async def test_deadline_miss_does_not_cache_airport_board_error(self) -> None:
         class FailingSession:

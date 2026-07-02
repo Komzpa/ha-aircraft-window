@@ -1368,6 +1368,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             "scheduled_candidates": len(candidates),
             "local_airport_iata": self.runtime_settings.local_airport.iata,
             "local_airport_name": self.runtime_settings.local_airport.name,
+            "local_timezone_name": self.runtime_settings.local_airport.timezone_name,
             "source": self.runtime_settings.local_airport.board_provider
             or "airport_board",
             "updated_at": int(time.time()),

@@ -44,6 +44,8 @@ Current assumptions and status:
 - Basic local airport IATA/name/timezone are configurable through Home
   Assistant config/options. Non-Batumi profiles without a custom name fall back
   to their configured IATA code instead of inheriting the Batumi display name.
+  IANA `local_timezone_name` supports DST-aware airport-local schedules, with
+  `local_timezone_offset_hours` retained as a fixed-offset fallback.
 - `airport_board_provider` is a constrained option backed by the provider
   registry in `board_providers.py`. It can be disabled for generic installs.
   The Batumi board is only used when that provider is `batumi_airport_board`;

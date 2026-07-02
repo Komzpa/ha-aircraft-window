@@ -59,6 +59,9 @@ reason label, for example
 If the local airport IATA is changed away from `BUS` and no custom local airport
 name is configured, the display name falls back to that IATA code instead of
 reusing Batumi.
+Use `local_timezone_name` with an IANA timezone such as `Europe/Paris` when the
+airport observes DST; `local_timezone_offset_hours` remains the fixed-offset
+fallback.
 Built-in callsign fallbacks for local Batumi/regional traffic are also loaded
 only for the default Batumi profile; other local airports use only their
 explicit `route_airline_prefix_overrides_json` and

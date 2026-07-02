@@ -138,6 +138,7 @@ class AircraftWindowConfigFlowTest(unittest.TestCase):
             {
                 const.CONF_LOCAL_AIRPORT_IATA: "ABC",
                 const.CONF_LOCAL_AIRPORT_NAME: "Custom Airport",
+                const.CONF_LOCAL_TIMEZONE_NAME: "Europe/Paris",
                 const.CONF_AIRPORT_BOARD_PROVIDER: "json_airport_board",
                 const.CONF_WATCH_AIRPORTS: "DEF",
                 const.CONF_WATCH_AIRPORTS_JSON: '{"ghi": {"phase": "ghi_watch"}}',
@@ -148,6 +149,10 @@ class AircraftWindowConfigFlowTest(unittest.TestCase):
         self.assertEqual(
             _field_default(schema, const.CONF_LOCAL_AIRPORT_NAME),
             "Custom Airport",
+        )
+        self.assertEqual(
+            _field_default(schema, const.CONF_LOCAL_TIMEZONE_NAME),
+            "Europe/Paris",
         )
         self.assertEqual(
             _field_default(schema, const.CONF_AIRPORT_BOARD_PROVIDER),
