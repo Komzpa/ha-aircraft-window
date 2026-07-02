@@ -55,7 +55,7 @@
           "built_year_cache_seconds": "Built-year cache TTL, seconds",
           "airport_board_cache_seconds": "Airport board cache TTL, seconds",
           "airport_board_timeout_seconds": "Airport board request timeout, seconds",
-          "batumi_airport_board_base_url": "Batumi airport board base URL",
+          "batumi_airport_board_base_url": "Built-in Batumi board provider base URL",
           "json_airport_board_url": "Canonical JSON airport board URL",
           "speech_locale": "Speech locale",
           "speech_airline_overrides_json": "Airline speech overrides, JSON object",

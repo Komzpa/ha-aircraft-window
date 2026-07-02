@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import types
 import unittest
+from asyncio import run
 from importlib import util
 from pathlib import Path
 from typing import Any
@@ -29,7 +30,8 @@ def _stub_homeassistant_modules() -> None:
             super().__init_subclass__()
 
     class OptionsFlow:
-        pass
+        def async_create_entry(self, *, title: str, data: dict[str, Any]) -> dict[str, Any]:
+            return {"title": title, "data": data}
 
     config_entries.ConfigEntry = ConfigEntry
     config_entries.ConfigFlow = ConfigFlow
@@ -115,6 +117,11 @@ def _field_validator(schema: Any, field: str) -> Any:
     raise AssertionError(f"missing schema field {field}")
 
 
+def _has_field(schema: Any, field: str) -> bool:
+    """Return true when a field is present in a voluptuous schema."""
+    return any(getattr(marker, "schema", None) == field for marker in schema.schema)
+
+
 class AircraftWindowConfigFlowTest(unittest.TestCase):
     """Verify config-flow defaults that affect dehardcoded profiles."""
 
@@ -162,6 +169,54 @@ class AircraftWindowConfigFlowTest(unittest.TestCase):
         self.assertEqual(
             _field_default(schema, const.CONF_WATCH_AIRPORTS_JSON),
             '{"ghi": {"phase": "ghi_watch"}}',
+        )
+        self.assertFalse(_has_field(schema, const.CONF_BATUMI_AIRPORT_BOARD_BASE_URL))
+        self.assertTrue(_has_field(schema, const.CONF_JSON_AIRPORT_BOARD_URL))
+
+    def test_schema_hides_provider_urls_when_airport_board_disabled(self) -> None:
+        schema = config_flow._schema(
+            {
+                const.CONF_LOCAL_AIRPORT_IATA: "ABC",
+                const.CONF_AIRPORT_BOARD_PROVIDER: "",
+            },
+            include_home_coordinates=False,
+        )
+
+        self.assertFalse(_has_field(schema, const.CONF_BATUMI_AIRPORT_BOARD_BASE_URL))
+        self.assertFalse(_has_field(schema, const.CONF_JSON_AIRPORT_BOARD_URL))
+
+    def test_schema_exposes_only_batumi_provider_url_for_default_profile(self) -> None:
+        schema = config_flow._schema({}, include_home_coordinates=False)
+
+        self.assertTrue(_has_field(schema, const.CONF_BATUMI_AIRPORT_BOARD_BASE_URL))
+        self.assertFalse(_has_field(schema, const.CONF_JSON_AIRPORT_BOARD_URL))
+
+    def test_options_flow_preserves_hidden_provider_urls(self) -> None:
+        config_entry = types.SimpleNamespace(
+            data={},
+            options={
+                const.CONF_BATUMI_AIRPORT_BOARD_BASE_URL: "https://example.invalid/bus",
+                const.CONF_JSON_AIRPORT_BOARD_URL: "https://example.invalid/board.json",
+            },
+        )
+        flow = config_flow.AircraftWindowOptionsFlow(config_entry)
+
+        result = run(
+            flow.async_step_init(
+                {
+                    const.CONF_AIRPORT_BOARD_PROVIDER: "",
+                    const.CONF_DUMP1090_URL: "http://example.invalid/aircraft.json",
+                }
+            )
+        )
+
+        self.assertEqual(
+            result["data"][const.CONF_BATUMI_AIRPORT_BOARD_BASE_URL],
+            "https://example.invalid/bus",
+        )
+        self.assertEqual(
+            result["data"][const.CONF_JSON_AIRPORT_BOARD_URL],
+            "https://example.invalid/board.json",
         )
 
     def test_schema_limits_airport_board_provider_choices(self) -> None:

@@ -53,6 +53,9 @@ Current assumptions and status:
 - A `json_airport_board` provider can fetch a user-supplied canonical board JSON
   endpoint, so non-Batumi installs can integrate their own adapter/proxy without
   patching Python.
+- The options flow only exposes the Batumi provider URL when the Batumi board
+  provider is selected, and only exposes the canonical JSON URL when the JSON
+  provider is selected. Hidden provider URLs are preserved on options save.
 - Schedule sensor/binary-sensor docstrings and README now say configured-airport
   departure while keeping the existing entity IDs, and schedule attributes expose
   the configured local airport IATA/name plus provider source.

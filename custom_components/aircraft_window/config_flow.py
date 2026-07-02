@@ -9,7 +9,11 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 
-from .board_providers import AIRPORT_BOARD_PROVIDER_IDS
+from .board_providers import (
+    AIRPORT_BOARD_PROVIDER_IDS,
+    BATUMI_AIRPORT_BOARD_PROVIDER,
+    JSON_AIRPORT_BOARD_PROVIDER,
+)
 from .const import (
     CONF_ADSBDB_BASE_URL,
     CONF_AIRCRAFT_CACHE_SECONDS,
@@ -488,20 +492,6 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
                 DEFAULT_RUNTIME_SETTINGS.providers.airport_board_timeout_seconds,
             ),
         ): vol.All(vol.Coerce(float), vol.Range(min=0.1, max=30.0)),
-        vol.Optional(
-            CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
-            default=defaults.get(
-                CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
-                DEFAULT_RUNTIME_SETTINGS.providers.batumi_airport_board_base_url,
-            ),
-        ): str,
-        vol.Optional(
-            CONF_JSON_AIRPORT_BOARD_URL,
-            default=defaults.get(
-                CONF_JSON_AIRPORT_BOARD_URL,
-                DEFAULT_RUNTIME_SETTINGS.providers.json_airport_board_url,
-            ),
-        ): str,
         vol.Required(
             CONF_SPEECH_LOCALE,
             default=speech_locale_default,
@@ -574,6 +564,27 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
         ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=60.0)),
     }
 
+    if airport_board_provider_default == BATUMI_AIRPORT_BOARD_PROVIDER:
+        fields[
+            vol.Optional(
+                CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
+                default=defaults.get(
+                    CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
+                    DEFAULT_RUNTIME_SETTINGS.providers.batumi_airport_board_base_url,
+                ),
+            )
+        ] = str
+    elif airport_board_provider_default == JSON_AIRPORT_BOARD_PROVIDER:
+        fields[
+            vol.Optional(
+                CONF_JSON_AIRPORT_BOARD_URL,
+                default=defaults.get(
+                    CONF_JSON_AIRPORT_BOARD_URL,
+                    DEFAULT_RUNTIME_SETTINGS.providers.json_airport_board_url,
+                ),
+            )
+        ] = str
+
     if include_home_coordinates:
         fields.update(
             {
@@ -635,7 +646,9 @@ class AircraftWindowOptionsFlow(config_entries.OptionsFlow):
     ) -> config_entries.ConfigFlowResult:
         """Manage options."""
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            merged_options = dict(self._config_entry.options)
+            merged_options.update(user_input)
+            return self.async_create_entry(title="", data=merged_options)
 
         defaults = {
             CONF_HOME_LATITUDE: self.hass.config.latitude,
