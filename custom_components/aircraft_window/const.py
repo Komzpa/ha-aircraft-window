@@ -1,6 +1,7 @@
 """Constants for the Aircraft Window integration."""
 
 DOMAIN = "aircraft_window"
+DEVICE_MANUFACTURER = "Aircraft Window"
 
 CONF_DUMP1090_URL = "dump1090_url"
 CONF_HOME_LATITUDE = "home_latitude"

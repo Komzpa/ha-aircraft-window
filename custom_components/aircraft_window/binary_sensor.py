@@ -7,6 +7,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import AircraftWindowConfigEntry
 from .const import (
+    DEVICE_MANUFACTURER,
     ENTITY_ID_CURTAIN_PREOPEN,
     ENTITY_ID_SCHEDULED_PREOPEN,
     ENTITY_ID_VISIBLE,
@@ -65,7 +66,7 @@ class AircraftWindowBaseBinarySensor(
         self._attr_device_info = {
             "identifiers": {(coordinator.entry.domain, coordinator.entry.entry_id)},
             "name": "Aircraft Window",
-            "manufacturer": "Komzpa",
+            "manufacturer": DEVICE_MANUFACTURER,
         }
 
 
@@ -145,7 +146,7 @@ class AircraftWindowScheduledDeparturePreopenBinarySensor(
         self._attr_device_info = {
             "identifiers": {(coordinator.entry.domain, coordinator.entry.entry_id)},
             "name": "Aircraft Window",
-            "manufacturer": "Komzpa",
+            "manufacturer": DEVICE_MANUFACTURER,
         }
 
     @property

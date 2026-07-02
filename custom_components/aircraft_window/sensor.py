@@ -9,6 +9,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import AircraftWindowConfigEntry
 from .const import (
+    DEVICE_MANUFACTURER,
     ENTITY_ID_CANDIDATE,
     ENTITY_ID_ENRICHMENT_PREFETCH,
     ENTITY_ID_SCHEDULE_PREOPEN,
@@ -47,7 +48,7 @@ class AircraftWindowCandidateSensor(CoordinatorEntity[AircraftWindowCoordinator]
         self._attr_device_info = {
             "identifiers": {(coordinator.entry.domain, coordinator.entry.entry_id)},
             "name": "Aircraft Window",
-            "manufacturer": "Komzpa",
+            "manufacturer": DEVICE_MANUFACTURER,
         }
 
     @property
@@ -79,7 +80,7 @@ class AircraftWindowPrefetchSensor(
         self._attr_device_info = {
             "identifiers": {(coordinator.entry.domain, coordinator.entry.entry_id)},
             "name": "Aircraft Window",
-            "manufacturer": "Komzpa",
+            "manufacturer": DEVICE_MANUFACTURER,
         }
 
     @property
@@ -118,7 +119,7 @@ class AircraftWindowSchedulePreopenSensor(
         self._attr_device_info = {
             "identifiers": {(coordinator.entry.domain, coordinator.entry.entry_id)},
             "name": "Aircraft Window",
-            "manufacturer": "Komzpa",
+            "manufacturer": DEVICE_MANUFACTURER,
         }
 
     @property
