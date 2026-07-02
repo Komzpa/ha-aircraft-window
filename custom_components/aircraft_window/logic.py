@@ -1248,12 +1248,15 @@ def spoken_flight(
     return tts_cyrillic_text(flight.strip())
 
 
-def has_callsign_prefix_speech_mapping(flight: str) -> bool:
+def has_callsign_prefix_speech_mapping(
+    flight: str,
+    *,
+    speech_pack: RussianSpeechPack = DEFAULT_RUSSIAN_SPEECH_PACK,
+) -> bool:
     """Return true when a long callsign prefix has explicit speech mapping."""
-    pack = DEFAULT_RUSSIAN_SPEECH_PACK
     token = flight.strip().replace(" ", "").upper()
     match = re.fullmatch(r"([A-Z]{4,})\d+", token)
-    return not match or match.group(1) in pack.callsign_prefix
+    return not match or match.group(1) in speech_pack.callsign_prefix
 
 
 def known_airline_for_callsign(flight: str) -> tuple[str, str]:
@@ -1416,68 +1419,84 @@ def normalized_airport_city(value: str) -> str:
     return " ".join(label.split()).title()
 
 
-def airport_detail_speech(airport: dict[str, Any]) -> str:
+def airport_detail_speech(
+    airport: dict[str, Any],
+    *,
+    speech_pack: RussianSpeechPack = DEFAULT_RUSSIAN_SPEECH_PACK,
+) -> str:
     """Return a specific airport name when route data identifies one."""
-    pack = DEFAULT_RUSSIAN_SPEECH_PACK
     code = str(airport.get("iata_code") or "").strip().upper()
-    if code in pack.airport_detail:
-        return pack.airport_detail[code]
+    if code in speech_pack.airport_detail:
+        return speech_pack.airport_detail[code]
     name = normalized_airport_city(str(airport.get("name") or ""))
-    return pack.airport_name_detail.get(name, "")
+    return speech_pack.airport_name_detail.get(name, "")
 
 
-def has_airline_speech_mapping(airline_name: str) -> bool:
+def has_airline_speech_mapping(
+    airline_name: str,
+    *,
+    speech_pack: RussianSpeechPack = DEFAULT_RUSSIAN_SPEECH_PACK,
+) -> bool:
     """Return true when an airline/operator has an explicit speech mapping."""
-    pack = DEFAULT_RUSSIAN_SPEECH_PACK
     name = " ".join(airline_name.strip().split())
     if not name:
         return True
     folded = _speech_lookup_key(name)
-    if name in pack.airline or folded in pack.airline_aliases:
+    if name in speech_pack.airline or folded in speech_pack.airline_aliases:
         return True
-    return any(_speech_lookup_key(known_name) == folded for known_name in pack.airline)
+    return any(_speech_lookup_key(known_name) == folded for known_name in speech_pack.airline)
 
 
-def has_airport_speech_mapping(airport: dict[str, Any] | None, *, direction: str) -> bool:
+def has_airport_speech_mapping(
+    airport: dict[str, Any] | None,
+    *,
+    direction: str,
+    speech_pack: RussianSpeechPack = DEFAULT_RUSSIAN_SPEECH_PACK,
+) -> bool:
     """Return true when an airport/city has an explicit Russian speech mapping."""
-    pack = DEFAULT_RUSSIAN_SPEECH_PACK
     if not isinstance(airport, dict):
         return True
     code = str(airport.get("iata_code") or airport.get("icao_code") or "").strip().upper()
     if direction == "route":
-        if code in pack.airport_code_route:
+        if code in speech_pack.airport_code_route:
             return True
-    elif code in (pack.airport_code_to if direction == "to" else pack.airport_code_from):
+    elif code in (
+        speech_pack.airport_code_to if direction == "to" else speech_pack.airport_code_from
+    ):
         return True
     municipality = normalized_airport_city(str(airport.get("municipality") or ""))
     name = normalized_airport_city(str(airport.get("name") or ""))
     city_map = (
-        pack.city_route
+        speech_pack.city_route
         if direction == "route"
-        else pack.city_to
+        else speech_pack.city_to
         if direction == "to"
-        else pack.city_from
+        else speech_pack.city_from
     )
     return any(label in city_map for label in (municipality, name)) or bool(
-        airport_detail_speech(airport)
+        airport_detail_speech(airport, speech_pack=speech_pack)
     )
 
 
-def airport_speech(airport: dict[str, Any] | None, *, direction: str) -> str:
+def airport_speech(
+    airport: dict[str, Any] | None,
+    *,
+    direction: str,
+    speech_pack: RussianSpeechPack = DEFAULT_RUSSIAN_SPEECH_PACK,
+) -> str:
     """Return a TTS-friendly city name for origin/destination."""
-    pack = DEFAULT_RUSSIAN_SPEECH_PACK
     if not isinstance(airport, dict):
         return ""
     code = str(airport.get("iata_code") or airport.get("icao_code") or "").strip().upper()
     code_speech = (
-        pack.airport_code_to if direction == "to" else pack.airport_code_from
+        speech_pack.airport_code_to if direction == "to" else speech_pack.airport_code_from
     ).get(code)
     if code_speech:
         return code_speech
     municipality = normalized_airport_city(str(airport.get("municipality") or ""))
     name = normalized_airport_city(str(airport.get("name") or ""))
-    city_map = pack.city_to if direction == "to" else pack.city_from
-    airport_detail = airport_detail_speech(airport)
+    city_map = speech_pack.city_to if direction == "to" else speech_pack.city_from
+    airport_detail = airport_detail_speech(airport, speech_pack=speech_pack)
     for label in (municipality, name):
         if label in city_map:
             city = city_map[label]
@@ -1489,18 +1508,21 @@ def airport_speech(airport: dict[str, Any] | None, *, direction: str) -> str:
     return municipality or name or code
 
 
-def airport_route_speech(airport: dict[str, Any] | None) -> str:
+def airport_route_speech(
+    airport: dict[str, Any] | None,
+    *,
+    speech_pack: RussianSpeechPack = DEFAULT_RUSSIAN_SPEECH_PACK,
+) -> str:
     """Return a neutral TTS-friendly airport label for route pairs."""
-    pack = DEFAULT_RUSSIAN_SPEECH_PACK
     if not isinstance(airport, dict):
         return ""
     code = str(airport.get("iata_code") or airport.get("icao_code") or "").strip().upper()
-    if code in pack.airport_code_route:
-        return pack.airport_code_route[code]
+    if code in speech_pack.airport_code_route:
+        return speech_pack.airport_code_route[code]
     municipality = normalized_airport_city(str(airport.get("municipality") or ""))
     name = normalized_airport_city(str(airport.get("name") or ""))
-    city_map = pack.city_route
-    airport_detail = airport_detail_speech(airport)
+    city_map = speech_pack.city_route
+    airport_detail = airport_detail_speech(airport, speech_pack=speech_pack)
     for label in (municipality, name):
         if label in city_map:
             city = city_map[label]
@@ -1520,7 +1542,12 @@ def has_aircraft_model_speech_mapping(model: str, aircraft_type: str = "") -> bo
     return spoken_model(raw, aircraft_type) != tts_cyrillic_text(raw)
 
 
-def route_endpoint_speech(enrichment: dict[str, Any], direction: str) -> str:
+def route_endpoint_speech(
+    enrichment: dict[str, Any],
+    direction: str,
+    *,
+    speech_pack: RussianSpeechPack = DEFAULT_RUSSIAN_SPEECH_PACK,
+) -> str:
     """Return a neutral route endpoint label."""
     name = str(enrichment.get(f"{direction}_name") or "").strip()
     iata = str(enrichment.get(f"{direction}_iata") or "").strip()
@@ -1529,23 +1556,32 @@ def route_endpoint_speech(enrichment: dict[str, Any], direction: str) -> str:
         "municipality": name,
         "name": name,
     }
-    return airport_route_speech(airport) or str(
+    return airport_route_speech(airport, speech_pack=speech_pack) or str(
         enrichment.get(f"{direction}_speech") or name
     ).strip()
 
 
-def route_pair_speech(enrichment: dict[str, Any]) -> str:
+def route_pair_speech(
+    enrichment: dict[str, Any],
+    *,
+    speech_pack: RussianSpeechPack = DEFAULT_RUSSIAN_SPEECH_PACK,
+) -> str:
     """Return a neutral route pair such as 'Ларнака - Кутаиси'."""
-    origin = route_endpoint_speech(enrichment, "origin")
-    destination = route_endpoint_speech(enrichment, "destination")
+    origin = route_endpoint_speech(enrichment, "origin", speech_pack=speech_pack)
+    destination = route_endpoint_speech(enrichment, "destination", speech_pack=speech_pack)
     return f"{origin} - {destination}" if origin and destination else ""
 
 
-def novelty_reason(enrichment: dict[str, Any], phase: str) -> str:
+def novelty_reason(
+    enrichment: dict[str, Any],
+    phase: str,
+    *,
+    speech_pack: RussianSpeechPack = DEFAULT_RUSSIAN_SPEECH_PACK,
+) -> str:
     """Return why a candidate should be announced as unusual."""
     reasons: list[str] = []
     airline_name = str(enrichment.get("airline_name") or "").strip()
-    if airline_name and airline_speech(airline_name) == airline_name:
+    if airline_name and airline_speech(airline_name, speech_pack=speech_pack) == airline_name:
         reasons.append(f"новая авиакомпания {airline_name}")
     model = str(enrichment.get("aircraft_model") or enrichment.get("aircraft_type") or "").strip()
     model_speech = str(enrichment.get("aircraft_model_speech") or "").strip()
@@ -1681,7 +1717,8 @@ def build_announcement(
     airline_name = str(
         enrichment.get("airline_name") or enrichment.get("registered_owner") or ""
     ).strip()
-    airline = airline_speech(airline_name)
+    speech_pack = settings.speech_pack
+    airline = airline_speech(airline_name, speech_pack=speech_pack)
     model = str(
         enrichment.get("aircraft_model_speech")
         or enrichment.get("aircraft_model")
@@ -1693,7 +1730,7 @@ def build_announcement(
     destination = str(
         enrichment.get("destination_speech") or enrichment.get("destination_name") or ""
     ).strip()
-    route_pair = route_pair_speech(enrichment)
+    route_pair = route_pair_speech(enrichment, speech_pack=speech_pack)
     flight_number = str(enrichment.get("spoken_flight") or label).strip()
     if _is_hex_token(flight_number):
         flight_number = ""
@@ -1784,7 +1821,7 @@ def build_announcement(
     else:
         identity = subject or fallback_label
         sentence = f"{base}: {identity}." if identity else f"{base}."
-    reason = novelty_reason(enrichment, phase)
+    reason = novelty_reason(enrichment, phase, speech_pack=speech_pack)
     if reason:
         sentence = f"Особое объявление. {sentence}"
 

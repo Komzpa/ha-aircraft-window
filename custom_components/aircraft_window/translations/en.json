@@ -39,6 +39,12 @@
           "scan_interval_seconds": "Polling interval, seconds",
           "enable_enrichment": "Enrich route, airline, model, and built year",
           "collect_mapping_review": "Collect visible unmapped speech values",
+          "speech_airline_overrides_json": "Airline speech overrides, JSON object",
+          "speech_airline_alias_overrides_json": "Airline alias speech overrides, JSON object",
+          "speech_airport_code_from_overrides_json": "Origin airport-code speech overrides, JSON object",
+          "speech_airport_code_to_overrides_json": "Destination airport-code speech overrides, JSON object",
+          "speech_airport_code_route_overrides_json": "Route airport-code speech overrides, JSON object",
+          "speech_callsign_prefix_overrides_json": "Callsign-prefix speech overrides, JSON object",
           "enrichment_timeout_seconds": "Enrichment request timeout, seconds"
         }
       }

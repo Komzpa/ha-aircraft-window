@@ -194,6 +194,12 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "orbit_min_ground_speed_kt": 70,
                 "orbit_max_ground_speed_kt": 210,
                 "terminal_suppression_enabled": False,
+                "speech_airline_overrides_json": '{"New Visible Air": "Нью Визибл"}',
+                "speech_airline_alias_overrides_json": '{"Visible Airways": "Визибл"}',
+                "speech_airport_code_from_overrides_json": '{"XYZ": "Иксвайзеда"}',
+                "speech_airport_code_to_overrides_json": '{"XYZ": "в Иксвайзед"}',
+                "speech_airport_code_route_overrides_json": '{"XYZ": "Иксвайзед"}',
+                "speech_callsign_prefix_overrides_json": '{"ABCD": "Абэцэдэ"}',
             }
         )
 
@@ -236,6 +242,32 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(runtime_settings.watch_policy.orbit_min_ground_speed_kt, 70)
         self.assertEqual(runtime_settings.watch_policy.orbit_max_ground_speed_kt, 210)
         self.assertFalse(runtime_settings.watch_policy.terminal_suppression_enabled)
+        self.assertEqual(
+            logic.airline_speech(
+                "New Visible Air",
+                speech_pack=runtime_settings.speech_pack,
+            ),
+            "Нью Визибл",
+        )
+        self.assertEqual(
+            logic.airline_speech(
+                "Visible Airways",
+                speech_pack=runtime_settings.speech_pack,
+            ),
+            "Визибл",
+        )
+        self.assertEqual(
+            logic.airport_speech(
+                {"iata_code": "XYZ"},
+                direction="from",
+                speech_pack=runtime_settings.speech_pack,
+            ),
+            "Иксвайзеда",
+        )
+        self.assertEqual(
+            logic.spoken_flight("ABCD89", speech_pack=runtime_settings.speech_pack),
+            "Абэцэдэ восемь девять",
+        )
 
     def test_runtime_settings_from_options_allows_empty_watch_airports(self) -> None:
         runtime_settings = settings_module.runtime_settings_from_options({"watch_airports": ""})
@@ -1849,6 +1881,22 @@ class AircraftWindowLogicTest(unittest.TestCase):
             logic.spoken_flight("EXA123", speech_pack=custom_pack),
             "Экза один два три",
         )
+        announcement_settings = replace(
+            logic.DEFAULT_RUNTIME_SETTINGS,
+            speech_pack=custom_pack,
+        )
+        announcement = logic.build_announcement(
+            {"hex": "abc123", "flight": "EXA123", "lat": 41.61, "lon": 41.61},
+            "special_interest",
+            0.9,
+            {
+                "airline_name": "Example Air",
+                "spoken_flight": logic.spoken_flight("EXA123", speech_pack=custom_pack),
+                "interest_label": "тестовый интерес",
+            },
+            settings=announcement_settings,
+        )
+        self.assertIn("Экзампл Эйр", announcement)
         cyrillic = logic.tts_cyrillic_text(
             "Кутаиси - Wrocław, Gökçen, Arnavutköy, Istanbul."
         )

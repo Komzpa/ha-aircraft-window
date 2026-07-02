@@ -1392,6 +1392,50 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             {(item["kind"], item["value"]) for item in items},
         )
 
+    def test_visible_mapping_review_respects_speech_overrides(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake.entry = types.SimpleNamespace(data={}, options={})
+        fake.hass = types.SimpleNamespace(
+            config=types.SimpleNamespace(latitude=41.62, longitude=41.62)
+        )
+        fake._runtime_settings = settings.runtime_settings_from_options(
+            {
+                "speech_airline_overrides_json": '{"New Visible Air": "Нью Визибл"}',
+                "speech_airport_code_from_overrides_json": '{"XYZ": "Иксвайзеда"}',
+                "speech_airport_code_route_overrides_json": '{"XYZ": "Иксвайзед"}',
+                "speech_callsign_prefix_overrides_json": '{"ABCD": "Абэцэдэ"}',
+            }
+        )
+
+        items = fake._mapping_review_items_for_visible_aircraft(
+            {
+                "hex": "abc123",
+                "flight": "ABCD89",
+                "lat": 41.61,
+                "lon": 41.60,
+                "seen": 1.0,
+                "seen_pos": 1.0,
+                "alt_baro": 1800,
+                "baro_rate": -500,
+                "gs": 160,
+                "track": 290,
+            },
+            {
+                "airline_name": "New Visible Air",
+                "origin_iata": "XYZ",
+                "origin_name": "New Place (XYZ)",
+                "route_summary": "XYZ → ATH",
+            },
+        )
+
+        kinds = {item["kind"] for item in items}
+        self.assertNotIn("airline", kinds)
+        self.assertNotIn("origin_airport", kinds)
+        self.assertNotIn("route_airport", kinds)
+        self.assertNotIn("callsign_prefix", kinds)
+
     async def test_mapping_review_record_prunes_resolved_items(self) -> None:
         fake = coordinator.AircraftWindowCoordinator.__new__(
             coordinator.AircraftWindowCoordinator

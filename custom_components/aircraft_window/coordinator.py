@@ -794,14 +794,17 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         await self._async_save_cache()
         return sorted_items
 
-    @staticmethod
-    def _mapping_review_item_still_unmapped(item: dict[str, Any]) -> bool:
+    def _mapping_review_item_still_unmapped(self, item: dict[str, Any]) -> bool:
         """Return true if a persisted review item still needs a speech mapping."""
+        speech_pack = self.runtime_settings.speech_pack
         kind = str(item.get("kind") or "")
         value = str(item.get("value") or "").strip()
         key = str(item.get("key") or "")
         if kind == "airline":
-            return bool(value) and not has_airline_speech_mapping(value)
+            return bool(value) and not has_airline_speech_mapping(
+                value,
+                speech_pack=speech_pack,
+            )
         if kind in {"origin_airport", "destination_airport", "route_airport"}:
             parts = key.split(":", 2)
             direction = parts[1] if len(parts) == 3 else "route"
@@ -811,11 +814,18 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             code = lookup.upper() if re.fullmatch(r"[A-Za-z]{3,4}", lookup) else ""
             name = value.split("(")[0].strip()
             airport = {"iata_code": code, "municipality": name, "name": name}
-            return not has_airport_speech_mapping(airport, direction=direction)
+            return not has_airport_speech_mapping(
+                airport,
+                direction=direction,
+                speech_pack=speech_pack,
+            )
         if kind == "aircraft_model":
             return bool(value) and not has_aircraft_model_speech_mapping(value)
         if kind == "callsign_prefix":
-            return bool(value) and not has_callsign_prefix_speech_mapping(value)
+            return bool(value) and not has_callsign_prefix_speech_mapping(
+                value,
+                speech_pack=speech_pack,
+            )
         return True
 
     def _mapping_review_items_for_visible_aircraft(
@@ -850,15 +860,22 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             "window_view_reason": str(view.get("window_view_reason") or ""),
         }
         items: list[dict[str, Any]] = []
+        speech_pack = self.runtime_settings.speech_pack
 
         airline_name = str(attrs.get("airline_name") or "").strip()
-        if airline_name and not has_airline_speech_mapping(airline_name):
+        if airline_name and not has_airline_speech_mapping(
+            airline_name,
+            speech_pack=speech_pack,
+        ):
             items.append(
                 {
                     "key": f"airline:{airline_name.casefold()}",
                     "kind": "airline",
                     "value": airline_name,
-                    "fallback_speech": airline_speech(airline_name),
+                    "fallback_speech": airline_speech(
+                        airline_name,
+                        speech_pack=speech_pack,
+                    ),
                     "suggested_table": "speech_ru.AIRLINE_SPEECH_RU",
                     **context,
                 }
@@ -870,7 +887,11 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             if not name and not code:
                 continue
             airport = {"iata_code": code, "municipality": name, "name": name}
-            if not has_airport_speech_mapping(airport, direction=speech_direction):
+            if not has_airport_speech_mapping(
+                airport,
+                direction=speech_direction,
+                speech_pack=speech_pack,
+            ):
                 value = _mapping_review_airport_value(name, code)
                 review_key = code or normalized_airport_city(name)
                 items.append(
@@ -881,6 +902,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         "fallback_speech": airport_speech(
                             airport,
                             direction=speech_direction,
+                            speech_pack=speech_pack,
                         ),
                         "suggested_table": (
                             "speech_ru.AIRPORT_CODE_FROM_RU/CITY_FROM_RU"
@@ -890,7 +912,11 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                         **context,
                     }
                 )
-            if not has_airport_speech_mapping(airport, direction="route"):
+            if not has_airport_speech_mapping(
+                airport,
+                direction="route",
+                speech_pack=speech_pack,
+            ):
                 value = _mapping_review_airport_value(name, code)
                 items.append(
                     {
@@ -920,8 +946,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             )
 
         if flight and re.fullmatch(r"[A-Z]{4,}\d+", flight):
-            spoken = spoken_flight(flight)
-            if not has_callsign_prefix_speech_mapping(flight):
+            spoken = spoken_flight(flight, speech_pack=speech_pack)
+            if not has_callsign_prefix_speech_mapping(flight, speech_pack=speech_pack):
                 items.append(
                     {
                         "key": f"callsign:{re.match(r'[A-Z]+', flight).group(0)}",
@@ -1154,6 +1180,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 "municipality": attrs["origin_name"].split(" (")[0],
             },
             direction="from",
+            speech_pack=self.runtime_settings.speech_pack,
         )
         attrs["destination_iata"] = destination_iata
         attrs["destination_name"] = airport_board_city(destination, "destination")
@@ -1163,6 +1190,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 "municipality": attrs["destination_name"].split(" (")[0],
             },
             direction="to",
+            speech_pack=self.runtime_settings.speech_pack,
         )
         if attrs["origin_iata"] and attrs["destination_iata"]:
             attrs["route_summary"] = f"{attrs['origin_iata']} → {attrs['destination_iata']}"
@@ -1409,7 +1437,10 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             "interest_reason": "",
             "novelty_reason": "",
             "unusual_aircraft": False,
-            "spoken_flight": spoken_flight(flight),
+            "spoken_flight": spoken_flight(
+                flight,
+                speech_pack=self.runtime_settings.speech_pack,
+            ),
             "adsb_category": str(aircraft.get("category") or "").strip().upper(),
             "service_type": "unknown",
             "service_type_confidence": 0.0,
@@ -1456,10 +1487,18 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 if self._route_matches_local_phase(phase, origin_iata, destination_iata):
                     attrs["origin_iata"] = origin_iata
                     attrs["origin_name"] = airport_label(origin)
-                    attrs["origin_speech"] = airport_speech(origin, direction="from")
+                    attrs["origin_speech"] = airport_speech(
+                        origin,
+                        direction="from",
+                        speech_pack=self.runtime_settings.speech_pack,
+                    )
                     attrs["destination_iata"] = destination_iata
                     attrs["destination_name"] = airport_label(destination)
-                    attrs["destination_speech"] = airport_speech(destination, direction="to")
+                    attrs["destination_speech"] = airport_speech(
+                        destination,
+                        direction="to",
+                        speech_pack=self.runtime_settings.speech_pack,
+                    )
                     if attrs["origin_iata"] and attrs["destination_iata"]:
                         attrs["route_summary"] = (
                             f"{attrs['origin_iata']} → {attrs['destination_iata']}"
@@ -1469,6 +1508,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     flight,
                     airline_icao=str(airline.get("icao") or ""),
                     airline_iata=str(airline.get("iata") or ""),
+                    speech_pack=self.runtime_settings.speech_pack,
                 )
                 if attrs["airline_name"] or attrs["route_summary"]:
                     self._add_enrichment_source(attrs, "adsbdb")
@@ -1479,7 +1519,11 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 attrs["airline_name"] = fallback_airline
                 self._add_enrichment_source(attrs, "callsign")
             if fallback_prefix:
-                attrs["spoken_flight"] = spoken_flight(flight, airline_icao=fallback_prefix)
+                attrs["spoken_flight"] = spoken_flight(
+                    flight,
+                    airline_icao=fallback_prefix,
+                    speech_pack=self.runtime_settings.speech_pack,
+                )
 
         fallback_route = known_route_for_callsign(flight)
         if fallback_route and not attrs["route_summary"]:
@@ -1514,6 +1558,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     attrs["spoken_flight"] = spoken_flight(
                         flight,
                         airline_icao=attrs["operator_flag_code"],
+                        speech_pack=self.runtime_settings.speech_pack,
                     )
                 attrs["owner_country"] = str(
                     aircraft_info.get("registered_owner_country_name") or ""
@@ -1551,6 +1596,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 attrs["spoken_flight"] = spoken_flight(
                     flight,
                     airline_icao=attrs["operator_flag_code"],
+                    speech_pack=self.runtime_settings.speech_pack,
                 )
             if attrs["aircraft_model"] or attrs["registration"]:
                 self._add_enrichment_source(attrs, "hexdb")

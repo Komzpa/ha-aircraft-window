@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import timedelta, timezone, tzinfo
 from typing import Any
@@ -24,6 +25,12 @@ from .const import (
     CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
     CONF_RUNWAY_STAGING_MAX_SPEED_KT,
     CONF_RUNWAY_STAGING_RADIUS_KM,
+    CONF_SPEECH_AIRLINE_ALIAS_OVERRIDES,
+    CONF_SPEECH_AIRLINE_OVERRIDES,
+    CONF_SPEECH_AIRPORT_CODE_FROM_OVERRIDES,
+    CONF_SPEECH_AIRPORT_CODE_ROUTE_OVERRIDES,
+    CONF_SPEECH_AIRPORT_CODE_TO_OVERRIDES,
+    CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES,
     CONF_TERMINAL_AREA_LATITUDE,
     CONF_TERMINAL_AREA_LONGITUDE,
     CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
@@ -34,6 +41,7 @@ from .const import (
     CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
     CONF_WINDOW_VIEW_RADIUS_KM,
 )
+from .speech_ru import DEFAULT_RUSSIAN_SPEECH_PACK, RussianSpeechPack
 
 BATUMI_WINDOW_VIEW_POLYGON_LON_LAT = (
     (41.5906258, 41.6211806),
@@ -153,6 +161,7 @@ class RuntimeSettings:
     window_view: WindowViewProfile
     watch_policy: WatchPolicy
     providers: ProviderSettings
+    speech_pack: RussianSpeechPack
 
 
 DEFAULT_BATUMI_RUNWAY_STAGING_AREA = RunwayStagingArea(
@@ -216,6 +225,7 @@ DEFAULT_RUNTIME_SETTINGS = RuntimeSettings(
             "ARRIVAL": "/en-EN/flights/arrival-flights",
         },
     ),
+    speech_pack=DEFAULT_RUSSIAN_SPEECH_PACK,
 )
 
 
@@ -250,6 +260,61 @@ def _watch_airports_from_option(value: Any) -> tuple[WatchAirport, ...]:
             )
         )
     return tuple(airports)
+
+
+def _json_string_map_option(options: dict[str, Any], key: str) -> dict[str, str]:
+    """Parse a JSON object option into a string-to-string mapping."""
+    raw = options.get(key, "")
+    if raw in (None, ""):
+        return {}
+    if isinstance(raw, dict):
+        parsed = raw
+    else:
+        try:
+            parsed = json.loads(str(raw))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {}
+    if not isinstance(parsed, dict):
+        return {}
+    result: dict[str, str] = {}
+    for raw_key, raw_value in parsed.items():
+        item_key = str(raw_key).strip()
+        item_value = str(raw_value).strip()
+        if item_key and item_value:
+            result[item_key] = item_value
+    return result
+
+
+def _speech_pack_from_options(options: dict[str, Any]) -> RussianSpeechPack:
+    """Return the built-in Russian speech pack plus user-maintained overrides."""
+    airline_aliases = {
+        key.casefold(): value
+        for key, value in _json_string_map_option(
+            options,
+            CONF_SPEECH_AIRLINE_ALIAS_OVERRIDES,
+        ).items()
+    }
+    upper_code_keys = (
+        CONF_SPEECH_AIRPORT_CODE_FROM_OVERRIDES,
+        CONF_SPEECH_AIRPORT_CODE_TO_OVERRIDES,
+        CONF_SPEECH_AIRPORT_CODE_ROUTE_OVERRIDES,
+        CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES,
+    )
+    normalized_maps = {
+        key: {
+            item_key.upper(): value
+            for item_key, value in _json_string_map_option(options, key).items()
+        }
+        for key in upper_code_keys
+    }
+    return DEFAULT_RUSSIAN_SPEECH_PACK.with_overrides(
+        airline=_json_string_map_option(options, CONF_SPEECH_AIRLINE_OVERRIDES),
+        airline_aliases=airline_aliases,
+        airport_code_from=normalized_maps[CONF_SPEECH_AIRPORT_CODE_FROM_OVERRIDES],
+        airport_code_to=normalized_maps[CONF_SPEECH_AIRPORT_CODE_TO_OVERRIDES],
+        airport_code_route=normalized_maps[CONF_SPEECH_AIRPORT_CODE_ROUTE_OVERRIDES],
+        callsign_prefix=normalized_maps[CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES],
+    )
 
 
 def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
@@ -419,4 +484,5 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
             watch_airports=watch_airports,
         ),
         providers=defaults.providers,
+        speech_pack=_speech_pack_from_options(options),
     )

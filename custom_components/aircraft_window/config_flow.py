@@ -40,6 +40,12 @@ from .const import (
     CONF_RUNWAY_STAGING_MAX_SPEED_KT,
     CONF_RUNWAY_STAGING_RADIUS_KM,
     CONF_SCAN_INTERVAL_SECONDS,
+    CONF_SPEECH_AIRLINE_ALIAS_OVERRIDES,
+    CONF_SPEECH_AIRLINE_OVERRIDES,
+    CONF_SPEECH_AIRPORT_CODE_FROM_OVERRIDES,
+    CONF_SPEECH_AIRPORT_CODE_ROUTE_OVERRIDES,
+    CONF_SPEECH_AIRPORT_CODE_TO_OVERRIDES,
+    CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES,
     CONF_TERMINAL_AREA_LATITUDE,
     CONF_TERMINAL_AREA_LONGITUDE,
     CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
@@ -280,6 +286,30 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
             CONF_COLLECT_MAPPING_REVIEW,
             default=defaults.get(CONF_COLLECT_MAPPING_REVIEW, DEFAULT_COLLECT_MAPPING_REVIEW),
         ): bool,
+        vol.Optional(
+            CONF_SPEECH_AIRLINE_OVERRIDES,
+            default=defaults.get(CONF_SPEECH_AIRLINE_OVERRIDES, "{}"),
+        ): str,
+        vol.Optional(
+            CONF_SPEECH_AIRLINE_ALIAS_OVERRIDES,
+            default=defaults.get(CONF_SPEECH_AIRLINE_ALIAS_OVERRIDES, "{}"),
+        ): str,
+        vol.Optional(
+            CONF_SPEECH_AIRPORT_CODE_FROM_OVERRIDES,
+            default=defaults.get(CONF_SPEECH_AIRPORT_CODE_FROM_OVERRIDES, "{}"),
+        ): str,
+        vol.Optional(
+            CONF_SPEECH_AIRPORT_CODE_TO_OVERRIDES,
+            default=defaults.get(CONF_SPEECH_AIRPORT_CODE_TO_OVERRIDES, "{}"),
+        ): str,
+        vol.Optional(
+            CONF_SPEECH_AIRPORT_CODE_ROUTE_OVERRIDES,
+            default=defaults.get(CONF_SPEECH_AIRPORT_CODE_ROUTE_OVERRIDES, "{}"),
+        ): str,
+        vol.Optional(
+            CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES,
+            default=defaults.get(CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES, "{}"),
+        ): str,
         vol.Required(
             CONF_ENRICHMENT_TIMEOUT_SECONDS,
             default=defaults.get(
