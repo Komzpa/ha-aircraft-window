@@ -1781,9 +1781,12 @@ def _has_holding_or_orbit_nav_mode(nav_modes: Any) -> bool:
     return False
 
 
-def _has_known_route_context(enrichment: dict[str, Any]) -> bool:
-    """Return true when route data explains ordinary terminal manoeuvres."""
-    return has_route_details(enrichment)
+def _has_routine_transport_context(enrichment: dict[str, Any]) -> bool:
+    """Return true when ordinary transport manoeuvres should not be special."""
+    service_type = str(enrichment.get("service_type") or "").strip()
+    if service_type == "passenger":
+        return True
+    return has_route_details(enrichment) or has_transport_aircraft_model(enrichment)
 
 
 def classify_special_interest(
@@ -1796,7 +1799,7 @@ def classify_special_interest(
     if vertical_rate is not None and vertical_rate <= -3500 and (
         altitude is None or altitude >= 1000
     ):
-        if _has_known_route_context(enrichment):
+        if _has_routine_transport_context(enrichment):
             return None
         label = "резкое снижение"
         return (
@@ -1823,7 +1826,7 @@ def classify_special_interest(
         and ground_speed is not None
         and 60 <= ground_speed <= 260
     ):
-        if _has_known_route_context(enrichment):
+        if _has_routine_transport_context(enrichment):
             return None
         return (
             "orbiting",

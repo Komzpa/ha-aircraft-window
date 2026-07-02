@@ -1007,6 +1007,29 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertIsNone(candidate)
 
+    def test_rapid_descent_on_transport_model_is_not_special_interest(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "501c55",
+                "flight": "ISR885",
+                "alt_baro": 4200,
+                "baro_rate": -4200,
+                "seen": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={
+                "aircraft_model": "A320 232",
+                "aircraft_type": "A320",
+                "aircraft_model_speech": "Аэробус триста двадцать",
+                "spoken_flight": "восемь восемь пять",
+                "service_type": "unknown",
+            },
+        )
+
+        self.assertIsNone(candidate)
+
     def test_rapid_descent_without_arrival_context_stays_special_interest(self) -> None:
         candidate = logic.interest_candidate(
             {
@@ -1101,6 +1124,30 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "destination_name": "Ho Chi Minh City",
                 "route_summary": "IST → SGN",
                 "service_type": "passenger",
+            },
+        )
+
+        self.assertIsNone(candidate)
+
+    def test_transport_model_turn_is_not_orbit_special_interest(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "501c55",
+                "flight": "ISR885",
+                "alt_baro": 5200,
+                "track_rate": 3.1,
+                "gs": 180,
+                "seen": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={
+                "aircraft_model": "A320 232",
+                "aircraft_type": "A320",
+                "aircraft_model_speech": "Аэробус триста двадцать",
+                "spoken_flight": "восемь восемь пять",
+                "service_type": "unknown",
             },
         )
 
