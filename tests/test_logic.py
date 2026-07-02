@@ -766,6 +766,27 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertEqual(callsign_prefix["SPAR"], "Спар")
 
+    def test_default_airport_speech_loads_from_package_data(self) -> None:
+        (
+            city_from,
+            city_to,
+            city_route,
+            airport_code_from,
+            airport_code_to,
+            airport_code_route,
+            airport_detail,
+            airport_name_detail,
+        ) = speech_ru_module.load_airport_speech_data()
+
+        self.assertEqual(city_from["Chisinau"], "Кишинёва")
+        self.assertEqual(city_to["Chișinău"], "Кишинёв")
+        self.assertEqual(city_route["Chişinău"], "Кишинёв")
+        self.assertEqual(airport_code_from["KIV"], "Кишинёва")
+        self.assertEqual(airport_code_to["KIV"], "Кишинёв")
+        self.assertEqual(airport_code_route["KIV"], "Кишинёв")
+        self.assertEqual(airport_detail["EVN"], "Звартноц")
+        self.assertEqual(airport_name_detail["Zvartnots International Airport"], "Звартноц")
+
     def test_runtime_settings_can_clear_default_polygon(self) -> None:
         runtime_settings = settings_module.runtime_settings_from_options(
             {"window_view_polygon_lon_lat_json": "[]"}

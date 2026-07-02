@@ -8,326 +8,71 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-CITY_FROM_RU = {
-    "Almaty": "Алматы",
-    "Amman": "Аммана",
-    "Amsterdam": "Амстердама",
-    "Ankara": "Анкары",
-    "Antalya": "Антальи",
-    "Arnavutköy, Istanbul": "Стамбула",
-    "Athens": "Афин",
-    "Astana": "Астаны",
-    "Atyrau": "Атырау",
-    "Ashgabat": "Ашхабада",
-    "Baku": "Баку",
-    "Bangkok": "Бангкока",
-    "Barcelona": "Барселоны",
-    "Batumi": "Батуми",
-    "Berlin": "Берлина",
-    "Beijing": "Пекина",
-    "Beirut": "Бейрута",
-    "Bodrum": "Бодрума",
-    "Brno": "Брно",
-    "Chelyabinsk": "Челябинска",
-    "Chişinău": "Кишинёва",
-    "Chișinău": "Кишинёва",
-    "Chisinau": "Кишинёва",
-    "Copenhagen": "Копенгагена",
-    "Dubai": "Дубая",
-    "Ekaterinburg": "Екатеринбурга",
-    "Eindhoven": "Эйндховена",
-    "Erbil": "Эрбиля",
-    "Frankfurt Am Main": "Франкфурта-на-Майне",
-    "Guangzhou": "Гуанчжоу",
-    "Hamburg": "Гамбурга",
-    "Hanoi": "Ханоя",
-    "Hong Kong": "Гонконга",
-    "Ho Chi Minh City": "Хошимина",
-    "Hurghada": "Хургады",
-    "Islamabad": "Исламабада",
-    "Istanbul": "Стамбула",
-    "Jakarta": "Джакарты",
-    "Jeddah": "Джидды",
-    "Katowice": "Катовиц",
-    "Kazan": "Казани",
-    "Konya": "Коньи",
-    "Kopitnari": "Кутаиси",
-    "Krasnodar International Airport": "Краснодара",
-    "Krakow": "Кракова",
-    "Kuwait": "Кувейта",
-    "Lahore": "Лахора",
-    "Larnaca": "Ларнаки",
-    "London": "Лондона",
-    "Madrid": "Мадрида",
-    "Milan": "Милана",
-    "Mineralnyye Vody": "Минеральных Вод",
-    "Minsk": "Минска",
-    "Moscow": "Москвы",
-    "Moscow Zhukovsky": "подмосковного Жуковского",
-    "Mumbai": "Мумбаи",
-    "Manchester": "Манчестера",
-    "Munich": "Мюнхена",
-    "Natakhtari": "Натахтари",
-    "New Delhi": "Нью-Дели",
-    "Novosibirsk": "Новосибирска",
-    "Nur Sultan": "Нур-Султана",
-    "Ordu": "Орду",
-    "Oslo": "Осло",
-    "Paris": "Парижа",
-    "Pendik, Istanbul": "Стамбула, Сабиха Гёкчен",
-    "Perm": "Перми",
-    "Riga": "Риги",
-    "Riyadh": "Эр-Рияда",
-    "Rome": "Рима",
-    "Saint Petersburg": "Санкт-Петербурга",
-    "Samara": "Самары",
-    "Saransk": "Саранска",
-    "Seoul": "Сеула",
-    "Sharm El Sheikh": "Шарм-эш-Шейха",
-    "Shiraz": "Шираза",
-    "Skopje": "Скопье",
-    "Shanghai": "Шанхая",
-    "Shanghai (Pudong)": "Шанхая, Пудун",
-    "Sochi": "Сочи",
-    "Sok Son, Hanoi": "Ханоя",
-    "St. Petersburg": "Санкт-Петербурга",
-    "Stockholm": "Стокгольма",
-    "Shymkent": "Шымкента",
-    "Stuttgart": "Штутгарта",
-    "Şanlıurfa": "Шанлыурфы",
-    "Tashkent": "Ташкента",
-    "Tbilisi": "Тбилиси",
-    "Tehran": "Тегерана",
-    "Tel Aviv": "Тель-Авива",
-    "Thessaloniki": "Салоник",
-    "Tirana": "Тираны",
-    "Tivat": "Тивата",
-    "Ufa": "Уфы",
-    "Ulaanbaatar": "Улан-Батора",
-    "Vienna": "Вены",
-    "Volgograd": "Волгограда",
-    "Warsaw": "Варшавы",
-    "Wrocław": "Вроцлава",
-    "Wroclaw": "Вроцлава",
-    "Yekaterinburg": "Екатеринбурга",
-    "Yerevan": "Еревана",
-    "Zurich": "Цюриха",
-    "Zhukovsky": "подмосковного Жуковского",
-}
+SPEECH_RU_AIRPORTS_DATA_FILE = "data/speech_ru_airports.json"
+SPEECH_RU_AIRLINES_DATA_FILE = "data/speech_ru_airlines.json"
 
-CITY_TO_RU = {
-    "Almaty": "Алматы",
-    "Amman": "Амман",
-    "Amsterdam": "Амстердам",
-    "Ankara": "Анкару",
-    "Antalya": "Анталью",
-    "Arnavutköy, Istanbul": "Стамбул",
-    "Athens": "Афины",
-    "Astana": "Астану",
-    "Atyrau": "Атырау",
-    "Ashgabat": "Ашхабад",
-    "Baku": "Баку",
-    "Bangkok": "Бангкок",
-    "Barcelona": "Барселону",
-    "Batumi": "Батуми",
-    "Berlin": "Берлин",
-    "Beijing": "Пекин",
-    "Beirut": "Бейрут",
-    "Bodrum": "Бодрум",
-    "Brno": "Брно",
-    "Chelyabinsk": "Челябинск",
-    "Chişinău": "Кишинёв",
-    "Chișinău": "Кишинёв",
-    "Chisinau": "Кишинёв",
-    "Copenhagen": "Копенгаген",
-    "Dubai": "Дубай",
-    "Ekaterinburg": "Екатеринбург",
-    "Eindhoven": "Эйндховен",
-    "Erbil": "Эрбиль",
-    "Frankfurt Am Main": "Франкфурт-на-Майне",
-    "Guangzhou": "Гуанчжоу",
-    "Hamburg": "Гамбург",
-    "Hanoi": "Ханой",
-    "Hong Kong": "Гонконг",
-    "Ho Chi Minh City": "Хошимин",
-    "Hurghada": "Хургаду",
-    "Islamabad": "Исламабад",
-    "Istanbul": "Стамбул",
-    "Jakarta": "Джакарту",
-    "Jeddah": "Джидду",
-    "Katowice": "Катовице",
-    "Kazan": "Казань",
-    "Konya": "Конью",
-    "Kopitnari": "Кутаиси",
-    "Krasnodar International Airport": "Краснодар",
-    "Krakow": "Краков",
-    "Kuwait": "Кувейт",
-    "Lahore": "Лахор",
-    "Larnaca": "Ларнаку",
-    "London": "Лондон",
-    "Madrid": "Мадрид",
-    "Milan": "Милан",
-    "Mineralnyye Vody": "Минеральные Воды",
-    "Minsk": "Минск",
-    "Moscow": "Москву",
-    "Moscow Zhukovsky": "подмосковный Жуковский",
-    "Mumbai": "Мумбаи",
-    "Manchester": "Манчестер",
-    "Munich": "Мюнхен",
-    "Natakhtari": "Натахтари",
-    "New Delhi": "Нью-Дели",
-    "Novosibirsk": "Новосибирск",
-    "Nur Sultan": "Нур-Султан",
-    "Ordu": "Орду",
-    "Oslo": "Осло",
-    "Paris": "Париж",
-    "Pendik, Istanbul": "Стамбул, Сабиха Гёкчен",
-    "Perm": "Пермь",
-    "Riga": "Ригу",
-    "Riyadh": "Эр-Рияд",
-    "Rome": "Рим",
-    "Saint Petersburg": "Санкт-Петербург",
-    "Samara": "Самару",
-    "Saransk": "Саранск",
-    "Seoul": "Сеул",
-    "Sharm El Sheikh": "Шарм-эш-Шейх",
-    "Shiraz": "Шираз",
-    "Skopje": "Скопье",
-    "Shanghai": "Шанхай",
-    "Shanghai (Pudong)": "Шанхай, Пудун",
-    "Sochi": "Сочи",
-    "Sok Son, Hanoi": "Ханой",
-    "St. Petersburg": "Санкт-Петербург",
-    "Stockholm": "Стокгольм",
-    "Shymkent": "Шымкент",
-    "Stuttgart": "Штутгарт",
-    "Şanlıurfa": "Шанлыурфу",
-    "Tashkent": "Ташкент",
-    "Tbilisi": "Тбилиси",
-    "Tehran": "Тегеран",
-    "Tel Aviv": "Тель-Авив",
-    "Thessaloniki": "Салоники",
-    "Tirana": "Тирану",
-    "Tivat": "Тиват",
-    "Ufa": "Уфу",
-    "Ulaanbaatar": "Улан-Батор",
-    "Vienna": "Вену",
-    "Volgograd": "Волгоград",
-    "Warsaw": "Варшаву",
-    "Wrocław": "Вроцлав",
-    "Wroclaw": "Вроцлав",
-    "Yekaterinburg": "Екатеринбург",
-    "Yerevan": "Ереван",
-    "Zurich": "Цюрих",
-    "Zhukovsky": "подмосковный Жуковский",
-}
 
-CITY_ROUTE_RU = {
-    "Almaty": "Алматы",
-    "Amman": "Амман",
-    "Amsterdam": "Амстердам",
-    "Ankara": "Анкара",
-    "Antalya": "Анталья",
-    "Arnavutköy, Istanbul": "Стамбул",
-    "Athens": "Афины",
-    "Astana": "Астана",
-    "Atyrau": "Атырау",
-    "Ashgabat": "Ашхабад",
-    "Baku": "Баку",
-    "Bangkok": "Бангкок",
-    "Barcelona": "Барселона",
-    "Batumi": "Батуми",
-    "Berlin": "Берлин",
-    "Beijing": "Пекин",
-    "Beirut": "Бейрут",
-    "Bodrum": "Бодрум",
-    "Brno": "Брно",
-    "Chelyabinsk": "Челябинск",
-    "Chişinău": "Кишинёв",
-    "Chișinău": "Кишинёв",
-    "Chisinau": "Кишинёв",
-    "Copenhagen": "Копенгаген",
-    "Dubai": "Дубай",
-    "Ekaterinburg": "Екатеринбург",
-    "Eindhoven": "Эйндховен",
-    "Erbil": "Эрбиль",
-    "Frankfurt Am Main": "Франкфурт-на-Майне",
-    "Guangzhou": "Гуанчжоу",
-    "Hamburg": "Гамбург",
-    "Hanoi": "Ханой",
-    "Hong Kong": "Гонконг",
-    "Ho Chi Minh City": "Хошимин",
-    "Hurghada": "Хургада",
-    "Islamabad": "Исламабад",
-    "Istanbul": "Стамбул",
-    "Jakarta": "Джакарта",
-    "Jeddah": "Джидда",
-    "Katowice": "Катовице",
-    "Kazan": "Казань",
-    "Konya": "Конья",
-    "Kopitnari": "Кутаиси",
-    "Krasnodar International Airport": "Краснодар",
-    "Krakow": "Краков",
-    "Kuwait": "Кувейт",
-    "Lahore": "Лахор",
-    "Larnaca": "Ларнака",
-    "London": "Лондон",
-    "Madrid": "Мадрид",
-    "Milan": "Милан",
-    "Mineralnyye Vody": "Минеральные Воды",
-    "Minsk": "Минск",
-    "Moscow": "Москва",
-    "Moscow Zhukovsky": "подмосковный Жуковский",
-    "Mumbai": "Мумбаи",
-    "Manchester": "Манчестер",
-    "Munich": "Мюнхен",
-    "Natakhtari": "Натахтари",
-    "New Delhi": "Нью-Дели",
-    "Novosibirsk": "Новосибирск",
-    "Nur Sultan": "Нур-Султан",
-    "Ordu": "Орду",
-    "Oslo": "Осло",
-    "Paris": "Париж",
-    "Pendik, Istanbul": "Стамбул, Сабиха Гёкчен",
-    "Perm": "Пермь",
-    "Riga": "Рига",
-    "Riyadh": "Эр-Рияд",
-    "Rome": "Рим",
-    "Saint Petersburg": "Санкт-Петербург",
-    "Samara": "Самара",
-    "Saransk": "Саранск",
-    "Seoul": "Сеул",
-    "Sharm El Sheikh": "Шарм-эш-Шейх",
-    "Shiraz": "Шираз",
-    "Skopje": "Скопье",
-    "Shanghai": "Шанхай",
-    "Shanghai (Pudong)": "Шанхай, Пудун",
-    "Sochi": "Сочи",
-    "Sok Son, Hanoi": "Ханой",
-    "St. Petersburg": "Санкт-Петербург",
-    "Stockholm": "Стокгольм",
-    "Shymkent": "Шымкент",
-    "Stuttgart": "Штутгарт",
-    "Şanlıurfa": "Шанлыурфа",
-    "Tashkent": "Ташкент",
-    "Tbilisi": "Тбилиси",
-    "Tehran": "Тегеран",
-    "Tel Aviv": "Тель-Авив",
-    "Thessaloniki": "Салоники",
-    "Tirana": "Тирана",
-    "Tivat": "Тиват",
-    "Ufa": "Уфа",
-    "Ulaanbaatar": "Улан-Батор",
-    "Vienna": "Вена",
-    "Volgograd": "Волгоград",
-    "Warsaw": "Варшава",
-    "Wrocław": "Вроцлав",
-    "Wroclaw": "Вроцлав",
-    "Yekaterinburg": "Екатеринбург",
-    "Yerevan": "Ереван",
-    "Zurich": "Цюрих",
-    "Zhukovsky": "подмосковный Жуковский",
-}
+def _load_speech_data_file(filename: str) -> Any:
+    """Load one packaged speech data JSON file."""
+    raw_text = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
+    return json.loads(raw_text)
+
+
+def _speech_string_map(raw: Any, *, fold_keys: bool = False) -> dict[str, str]:
+    """Return a string-to-string speech map loaded from packaged data."""
+    if not isinstance(raw, dict):
+        return {}
+    result: dict[str, str] = {}
+    for key, value in raw.items():
+        normalized_key = str(key).strip()
+        normalized_value = str(value).strip()
+        if not normalized_key or not normalized_value:
+            continue
+        if fold_keys:
+            normalized_key = normalized_key.casefold()
+        result[normalized_key] = normalized_value
+    return result
+
+
+def load_airport_speech_data(
+    filename: str = SPEECH_RU_AIRPORTS_DATA_FILE,
+) -> tuple[
+    dict[str, str],
+    dict[str, str],
+    dict[str, str],
+    dict[str, str],
+    dict[str, str],
+    dict[str, str],
+    dict[str, str],
+    dict[str, str],
+]:
+    """Load built-in Russian airport and city speech tables from packaged data."""
+    raw_data = _load_speech_data_file(filename)
+    if not isinstance(raw_data, dict):
+        return {}, {}, {}, {}, {}, {}, {}, {}
+    return (
+        _speech_string_map(raw_data.get("city_from")),
+        _speech_string_map(raw_data.get("city_to")),
+        _speech_string_map(raw_data.get("city_route")),
+        _speech_string_map(raw_data.get("airport_code_from")),
+        _speech_string_map(raw_data.get("airport_code_to")),
+        _speech_string_map(raw_data.get("airport_code_route")),
+        _speech_string_map(raw_data.get("airport_detail")),
+        _speech_string_map(raw_data.get("airport_name_detail")),
+    )
+
+
+(
+    CITY_FROM_RU,
+    CITY_TO_RU,
+    CITY_ROUTE_RU,
+    AIRPORT_CODE_FROM_RU,
+    AIRPORT_CODE_TO_RU,
+    AIRPORT_CODE_ROUTE_RU,
+    AIRPORT_DETAIL_SPEECH_RU,
+    AIRPORT_NAME_DETAIL_SPEECH_RU,
+) = load_airport_speech_data()
+
 
 DIGIT_RU = {
     "0": "ноль",
@@ -658,25 +403,6 @@ AIRPORT_NAME_DETAIL_SPEECH_RU = {
     "Zvartnots International Airport": "Звартноц",
 }
 
-SPEECH_RU_AIRLINES_DATA_FILE = "data/speech_ru_airlines.json"
-
-
-def _speech_string_map(raw: Any, *, fold_keys: bool = False) -> dict[str, str]:
-    """Return a string-to-string speech map loaded from packaged data."""
-    if not isinstance(raw, dict):
-        return {}
-    result: dict[str, str] = {}
-    for key, value in raw.items():
-        normalized_key = str(key).strip()
-        normalized_value = str(value).strip()
-        if not normalized_key or not normalized_value:
-            continue
-        if fold_keys:
-            normalized_key = normalized_key.casefold()
-        result[normalized_key] = normalized_value
-    return result
-
-
 def load_airline_speech_data(
     filename: str = SPEECH_RU_AIRLINES_DATA_FILE,
 ) -> tuple[dict[str, str], dict[str, str]]:
@@ -688,12 +414,6 @@ def load_airline_speech_data(
         _speech_string_map(raw_data.get("airline")),
         _speech_string_map(raw_data.get("airline_aliases"), fold_keys=True),
     )
-
-
-def _load_speech_data_file(filename: str) -> Any:
-    """Load one packaged speech data JSON file."""
-    raw_text = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
-    return json.loads(raw_text)
 
 
 def load_callsign_prefix_speech_data(

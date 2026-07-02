@@ -158,13 +158,13 @@ Target shape:
 
 Current assumptions and status:
 
-- Built-in Russian speech tables live in
-  `custom_components/aircraft_window/speech_ru.py`: city forms, airport forms,
-  operator forms, callsign prefixes, aircraft-model phrases, military phrases,
-  digits, years, and Latin transliteration. Built-in airline/operator-name
-  speech data and callsign-prefix speech now live in
-  `custom_components/aircraft_window/data/speech_ru_airlines.json`, loaded by
-  `speech_ru.py`.
+- Built-in Russian speech tables live partly in packaged data and partly in
+  `custom_components/aircraft_window/speech_ru.py`. City/airport forms live in
+  `custom_components/aircraft_window/data/speech_ru_airports.json`;
+  airline/operator-name speech data and callsign-prefix speech live in
+  `custom_components/aircraft_window/data/speech_ru_airlines.json`. Remaining
+  Python tables include aircraft-model phrases, military phrases, digits,
+  years, and Latin transliteration.
 - `RussianSpeechPack` now groups the Russian lookup tables and selected helpers
   accept a speech pack override, including aircraft-model speech rules.
 - `speech_locale` is an explicit runtime/config option. The only supported pack
@@ -195,10 +195,9 @@ Target shape:
 Migration path:
 
 1. Partly done for speech data: move speech constants into structured in-repo
-   modules without changing behavior; airline speech defaults now load from
-   packaged data, as do callsign-prefix speech defaults. Later slices can move
-   the remaining city/airport/model/year tables from Python modules into data
-   files.
+   modules without changing behavior; city/airport, airline, and callsign-prefix
+   speech defaults now load from packaged data. Later slices can move the
+   remaining model/year/military tables from Python modules into data files.
 2. Done: add lookup wrappers that merge built-in Russian pack plus user
    overrides.
 3. Only then expose user-editable override options or storage.
