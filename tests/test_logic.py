@@ -567,6 +567,30 @@ class AircraftWindowLogicTest(unittest.TestCase):
             [airport.iata for airport in runtime_settings.watch_policy.watch_airports],
             ["DEF"],
         )
+        self.assertEqual(
+            runtime_settings.watch_policy.watch_airports[0].phase,
+            "def_route",
+        )
+
+    def test_runtime_settings_does_not_reuse_kutaisi_phase_for_other_airport(
+        self,
+    ) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {"local_airport_iata": "ABC", "watch_airports": "KUT,DEF"}
+        )
+
+        watch_airport = runtime_settings.watch_policy.watch_airports[0]
+        self.assertEqual(watch_airport.iata, "KUT")
+        self.assertEqual(watch_airport.phase, "kut_route")
+
+    def test_runtime_settings_preserves_default_profile_watch_airport_phase(
+        self,
+    ) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options({})
+
+        watch_airport = runtime_settings.watch_policy.watch_airports[0]
+        self.assertEqual(watch_airport.iata, "KUT")
+        self.assertEqual(watch_airport.phase, "kutaisi_route")
 
     def test_runtime_settings_parses_structured_watch_airports(self) -> None:
         runtime_settings = settings_module.runtime_settings_from_options(

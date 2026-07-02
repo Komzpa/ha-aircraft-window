@@ -389,9 +389,14 @@ def _json_polygon_option(
     return tuple(points)
 
 
-def _watch_airports_from_option(value: Any) -> tuple[WatchAirport, ...]:
+def _watch_airports_from_option(
+    value: Any,
+    *,
+    default_airports: tuple[WatchAirport, ...] = (),
+) -> tuple[WatchAirport, ...]:
     """Parse a comma-separated watched-airport list."""
     airports: list[WatchAirport] = []
+    default_by_iata = {airport.iata: airport for airport in default_airports}
     seen: set[str] = set()
     for raw_token in str(value or "").split(","):
         iata = raw_token.strip().upper()
@@ -400,14 +405,14 @@ def _watch_airports_from_option(value: Any) -> tuple[WatchAirport, ...]:
         if not (3 <= len(iata) <= 4 and iata.isalnum()):
             continue
         seen.add(iata)
-        phase = f"{iata.lower()}_route"
-        if iata == "KUT":
-            phase = "kutaisi_route"
         airports.append(
-            WatchAirport(
-                iata=iata,
-                phase=phase,
-                reason_label=f"route includes {iata}",
+            default_by_iata.get(
+                iata,
+                WatchAirport(
+                    iata=iata,
+                    phase=f"{iata.lower()}_route",
+                    reason_label=f"route includes {iata}",
+                ),
             )
         )
     return tuple(airports)
@@ -894,16 +899,24 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
     default_watch_airports = (
         default_watch_airports_for_profile if default_local_airport else ""
     )
-    watch_airports = _watch_airports_from_json_option(
+    structured_watch_airports = _watch_airports_from_json_option(
         options.get(CONF_WATCH_AIRPORTS_JSON, "")
-    ) or _watch_airports_from_option(
-        options.get(CONF_WATCH_AIRPORTS, default_watch_airports),
     )
+    raw_watch_airports = options.get(CONF_WATCH_AIRPORTS, default_watch_airports)
     if (
         not default_local_airport
-        and watch_airports == defaults.watch_policy.watch_airports
+        and not structured_watch_airports
+        and str(raw_watch_airports or "").strip().upper()
+        == default_watch_airports_for_profile.upper()
     ):
         watch_airports = ()
+    else:
+        watch_airports = structured_watch_airports or _watch_airports_from_option(
+            raw_watch_airports,
+            default_airports=(
+                defaults.watch_policy.watch_airports if default_local_airport else ()
+            ),
+        )
     speech_locale = _speech_locale_from_options(options)
     return RuntimeSettings(
         local_airport=LocalAirportProfile(

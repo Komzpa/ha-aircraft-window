@@ -120,6 +120,9 @@ Current assumptions and status:
   branch in `interest_candidate`. It is only inherited by the default Batumi
   profile; other local-airport profiles start with no watched airports unless
   `watch_airports` is explicitly configured with a non-default value.
+- The comma-separated watched-airport parser is generic. The legacy
+  `kutaisi_route` phase comes from the Batumi default profile only; non-Batumi
+  profiles that include KUT in a custom list get the generic `kut_route` phase.
 - Kinematic-only thresholds and terminal suppression are now in `WatchPolicy`.
 - Watched route airport codes are configurable through Home Assistant
   config/options. Structured `watch_airports_json` entries can also provide
