@@ -37,6 +37,7 @@ from .const import (
     CONF_ROUTE_AIRLINE_PREFIX_OVERRIDES,
     CONF_ROUTE_CACHE_SECONDS,
     CONF_ROUTE_CALLSIGN_OVERRIDES,
+    CONF_RUNWAY_STAGING_AREAS_JSON,
     CONF_RUNWAY_STAGING_ENABLED,
     CONF_RUNWAY_STAGING_LATITUDE,
     CONF_RUNWAY_STAGING_LONGITUDE,
@@ -418,6 +419,62 @@ def _watch_airports_from_option(
     return tuple(airports)
 
 
+def _runway_staging_area_from_mapping(raw: Any) -> RunwayStagingArea | None:
+    """Return one runway staging area from JSON data."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        latitude = float(raw.get("latitude", raw.get("lat")))
+        longitude = float(raw.get("longitude", raw.get("lon")))
+        radius_km = float(raw["radius_km"])
+        max_altitude_ft = float(raw["max_altitude_ft"])
+        max_speed_kt = float(raw["max_speed_kt"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if (
+        not math.isfinite(latitude)
+        or not math.isfinite(longitude)
+        or not math.isfinite(radius_km)
+        or not math.isfinite(max_altitude_ft)
+        or not math.isfinite(max_speed_kt)
+        or not -90.0 <= latitude <= 90.0
+        or not -180.0 <= longitude <= 180.0
+        or not 0.0 <= radius_km <= 100.0
+        or not 0.0 <= max_altitude_ft <= 10000.0
+        or not 0.0 <= max_speed_kt <= 300.0
+    ):
+        return None
+    return RunwayStagingArea(
+        latitude=latitude,
+        longitude=longitude,
+        radius_km=radius_km,
+        max_altitude_ft=max_altitude_ft,
+        max_speed_kt=max_speed_kt,
+    )
+
+
+def _runway_staging_areas_from_json_option(
+    value: Any,
+) -> tuple[RunwayStagingArea, ...] | None:
+    """Parse a structured JSON list of runway staging areas."""
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if not isinstance(parsed, list):
+        return None
+    areas: list[RunwayStagingArea] = []
+    for item in parsed:
+        area = _runway_staging_area_from_mapping(item)
+        if area is None:
+            return None
+        areas.append(area)
+    return tuple(areas)
+
+
 def _watch_airport_from_mapping(
     iata: str,
     raw: Any,
@@ -769,40 +826,47 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
             (CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT, default_staging.max_altitude_ft),
             (CONF_RUNWAY_STAGING_MAX_SPEED_KT, default_staging.max_speed_kt),
         )
-    )
+    ) or bool(str(options.get(CONF_RUNWAY_STAGING_AREAS_JSON, "") or "").strip())
     runway_staging_enabled_default = default_local_airport or runway_staging_values_customized
     runway_staging_enabled = bool(
         options.get(CONF_RUNWAY_STAGING_ENABLED, runway_staging_enabled_default)
     )
+    structured_runway_staging_areas = _runway_staging_areas_from_json_option(
+        options.get(CONF_RUNWAY_STAGING_AREAS_JSON, "")
+    )
     runway_staging_areas = (
-        (
-            RunwayStagingArea(
-                latitude=_float_option(
-                    options,
-                    CONF_RUNWAY_STAGING_LATITUDE,
-                    default_staging.latitude,
+        structured_runway_staging_areas
+        if structured_runway_staging_areas is not None
+        else (
+            (
+                RunwayStagingArea(
+                    latitude=_float_option(
+                        options,
+                        CONF_RUNWAY_STAGING_LATITUDE,
+                        default_staging.latitude,
+                    ),
+                    longitude=_float_option(
+                        options,
+                        CONF_RUNWAY_STAGING_LONGITUDE,
+                        default_staging.longitude,
+                    ),
+                    radius_km=_float_option(
+                        options,
+                        CONF_RUNWAY_STAGING_RADIUS_KM,
+                        default_staging.radius_km,
+                    ),
+                    max_altitude_ft=_float_option(
+                        options,
+                        CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
+                        default_staging.max_altitude_ft,
+                    ),
+                    max_speed_kt=_float_option(
+                        options,
+                        CONF_RUNWAY_STAGING_MAX_SPEED_KT,
+                        default_staging.max_speed_kt,
+                    ),
                 ),
-                longitude=_float_option(
-                    options,
-                    CONF_RUNWAY_STAGING_LONGITUDE,
-                    default_staging.longitude,
-                ),
-                radius_km=_float_option(
-                    options,
-                    CONF_RUNWAY_STAGING_RADIUS_KM,
-                    default_staging.radius_km,
-                ),
-                max_altitude_ft=_float_option(
-                    options,
-                    CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
-                    default_staging.max_altitude_ft,
-                ),
-                max_speed_kt=_float_option(
-                    options,
-                    CONF_RUNWAY_STAGING_MAX_SPEED_KT,
-                    default_staging.max_speed_kt,
-                ),
-            ),
+            )
         )
         if runway_staging_enabled
         else ()

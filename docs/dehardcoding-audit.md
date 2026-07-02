@@ -102,6 +102,9 @@ Current assumptions and status:
   staging geometry unless `terminal_area_enabled` or `runway_staging_enabled`
   is set. Legacy non-Batumi entries with custom stored area coordinates are
   treated as enabled during migration.
+- `runway_staging_areas_json` can define multiple runway staging/preopen areas
+  for airports whose ground movement cannot be represented by one circle. The
+  scalar runway-staging fields remain the simple single-area fallback.
 
 Target shape:
 

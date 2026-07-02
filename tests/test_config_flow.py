@@ -283,6 +283,25 @@ class AircraftWindowConfigFlowTest(unittest.TestCase):
         self.assertTrue(_field_default(schema, const.CONF_TERMINAL_AREA_ENABLED))
         self.assertTrue(_field_default(schema, const.CONF_RUNWAY_STAGING_ENABLED))
 
+    def test_schema_enables_runway_staging_for_structured_areas(self) -> None:
+        schema = config_flow._schema(
+            {
+                const.CONF_LOCAL_AIRPORT_IATA: "ABC",
+                const.CONF_RUNWAY_STAGING_AREAS_JSON: (
+                    '[{"lat": 47.2, "lon": 29.0, "radius_km": 4, '
+                    '"max_altitude_ft": 600, "max_speed_kt": 50}]'
+                ),
+            },
+            include_home_coordinates=False,
+        )
+
+        self.assertTrue(_field_default(schema, const.CONF_RUNWAY_STAGING_ENABLED))
+        self.assertEqual(
+            _field_default(schema, const.CONF_RUNWAY_STAGING_AREAS_JSON),
+            '[{"lat": 47.2, "lon": 29.0, "radius_km": 4, '
+            '"max_altitude_ft": 600, "max_speed_kt": 50}]',
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

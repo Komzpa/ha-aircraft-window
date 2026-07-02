@@ -54,6 +54,7 @@ from .const import (
     CONF_ROUTE_AIRLINE_PREFIX_OVERRIDES,
     CONF_ROUTE_CACHE_SECONDS,
     CONF_ROUTE_CALLSIGN_OVERRIDES,
+    CONF_RUNWAY_STAGING_AREAS_JSON,
     CONF_RUNWAY_STAGING_ENABLED,
     CONF_RUNWAY_STAGING_LATITUDE,
     CONF_RUNWAY_STAGING_LONGITUDE,
@@ -188,7 +189,7 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
             (CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT, default_staging.max_altitude_ft),
             (CONF_RUNWAY_STAGING_MAX_SPEED_KT, default_staging.max_speed_kt),
         )
-    )
+    ) or bool(str(defaults.get(CONF_RUNWAY_STAGING_AREAS_JSON, "") or "").strip())
     terminal_area_enabled_default = defaults.get(
         CONF_TERMINAL_AREA_ENABLED,
         default_local_airport or terminal_area_values_customized,
@@ -335,6 +336,10 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
                 default_staging.max_speed_kt,
             ),
         ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=300.0)),
+        vol.Optional(
+            CONF_RUNWAY_STAGING_AREAS_JSON,
+            default=defaults.get(CONF_RUNWAY_STAGING_AREAS_JSON, ""),
+        ): str,
         vol.Required(
             CONF_WATCH_AIRPORTS,
             default=watch_airports_default,

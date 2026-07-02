@@ -556,6 +556,47 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(staging_area.max_altitude_ft, 600)
         self.assertEqual(staging_area.max_speed_kt, 50)
 
+    def test_runtime_settings_parses_structured_runway_staging_areas(self) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {
+                "local_airport_iata": "ABC",
+                "runway_staging_areas_json": (
+                    '[{"lat": 47.2, "lon": 29.0, "radius_km": 4, '
+                    '"max_altitude_ft": 600, "max_speed_kt": 50}, '
+                    '{"latitude": 47.4, "longitude": 29.2, "radius_km": 6, '
+                    '"max_altitude_ft": 800, "max_speed_kt": 70}]'
+                ),
+            }
+        )
+
+        staging_areas = runtime_settings.local_airport.runway_staging_areas
+        self.assertEqual(len(staging_areas), 2)
+        self.assertEqual(staging_areas[0].latitude, 47.2)
+        self.assertEqual(staging_areas[0].longitude, 29.0)
+        self.assertEqual(staging_areas[1].latitude, 47.4)
+        self.assertEqual(staging_areas[1].longitude, 29.2)
+
+    def test_runtime_settings_falls_back_on_invalid_runway_staging_areas_json(
+        self,
+    ) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {
+                "local_airport_iata": "ABC",
+                "runway_staging_enabled": True,
+                "runway_staging_latitude": 47.2,
+                "runway_staging_longitude": 29.0,
+                "runway_staging_radius_km": 4,
+                "runway_staging_max_altitude_ft": 600,
+                "runway_staging_max_speed_kt": 50,
+                "runway_staging_areas_json": '[{"lat": 999}]',
+            }
+        )
+
+        staging_areas = runtime_settings.local_airport.runway_staging_areas
+        self.assertEqual(len(staging_areas), 1)
+        self.assertEqual(staging_areas[0].latitude, 47.2)
+        self.assertEqual(staging_areas[0].longitude, 29.0)
+
     def test_runtime_settings_keeps_explicit_watch_airports_for_other_local_airport(
         self,
     ) -> None:
