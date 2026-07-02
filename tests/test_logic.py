@@ -194,6 +194,11 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "orbit_min_ground_speed_kt": 70,
                 "orbit_max_ground_speed_kt": 210,
                 "terminal_suppression_enabled": False,
+                "adsbdb_base_url": "https://example.invalid/adsbdb/",
+                "hexdb_base_url": "https://example.invalid/hexdb/",
+                "airplanes_live_base_url": "https://example.invalid/airplanes/",
+                "airport_board_cache_seconds": 42,
+                "batumi_airport_board_base_url": "https://example.invalid/board/",
                 "speech_airline_overrides_json": '{"New Visible Air": "Нью Визибл"}',
                 "speech_airline_alias_overrides_json": '{"Visible Airways": "Визибл"}',
                 "speech_airport_code_from_overrides_json": '{"XYZ": "Иксвайзеда"}',
@@ -255,6 +260,23 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(runtime_settings.watch_policy.orbit_min_ground_speed_kt, 70)
         self.assertEqual(runtime_settings.watch_policy.orbit_max_ground_speed_kt, 210)
         self.assertFalse(runtime_settings.watch_policy.terminal_suppression_enabled)
+        self.assertEqual(
+            runtime_settings.providers.adsbdb_base_url,
+            "https://example.invalid/adsbdb",
+        )
+        self.assertEqual(
+            runtime_settings.providers.hexdb_base_url,
+            "https://example.invalid/hexdb",
+        )
+        self.assertEqual(
+            runtime_settings.providers.airplanes_live_base_url,
+            "https://example.invalid/airplanes",
+        )
+        self.assertEqual(runtime_settings.providers.airport_board_cache_seconds, 42)
+        self.assertEqual(
+            runtime_settings.providers.batumi_airport_board_base_url,
+            "https://example.invalid/board",
+        )
         self.assertEqual(
             logic.airline_speech(
                 "New Visible Air",

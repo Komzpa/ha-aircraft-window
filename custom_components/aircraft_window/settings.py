@@ -8,8 +8,13 @@ from datetime import timedelta, timezone, tzinfo
 from typing import Any
 
 from .const import (
+    CONF_ADSBDB_BASE_URL,
+    CONF_AIRPLANES_LIVE_BASE_URL,
+    CONF_AIRPORT_BOARD_CACHE_SECONDS,
     CONF_AIRPORT_BOARD_PROVIDER,
+    CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
     CONF_DAY_HUMAN_VISIBLE_RADIUS_KM,
+    CONF_HEXDB_BASE_URL,
     CONF_LOCAL_AIRPORT_IATA,
     CONF_LOCAL_AIRPORT_NAME,
     CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
@@ -249,6 +254,22 @@ def _float_option(options: dict[str, Any], key: str, default: float) -> float:
     return value
 
 
+def _int_option(options: dict[str, Any], key: str, default: int) -> int:
+    """Return an integer option or its default."""
+    try:
+        return int(options.get(key, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _base_url_option(options: dict[str, Any], key: str, default: str) -> str:
+    """Return a base URL option, normalized for path joins."""
+    value = str(options.get(key, default) or "").strip()
+    if not value:
+        return default
+    return value.rstrip("/")
+
+
 def _watch_airports_from_option(value: Any) -> tuple[WatchAirport, ...]:
     """Parse a comma-separated watched-airport list."""
     airports: list[WatchAirport] = []
@@ -337,6 +358,42 @@ def _route_fallbacks_from_options(options: dict[str, Any]) -> RouteFallbacks:
     return DEFAULT_ROUTE_FALLBACKS.with_overrides(
         airline_by_callsign_prefix=prefix_overrides,
         route_by_callsign=_json_route_map_option(options, CONF_ROUTE_CALLSIGN_OVERRIDES),
+    )
+
+
+def _provider_settings_from_options(options: dict[str, Any]) -> ProviderSettings:
+    """Return external provider settings with user-maintained overrides."""
+    defaults = DEFAULT_RUNTIME_SETTINGS.providers
+    return ProviderSettings(
+        adsbdb_base_url=_base_url_option(
+            options,
+            CONF_ADSBDB_BASE_URL,
+            defaults.adsbdb_base_url,
+        ),
+        hexdb_base_url=_base_url_option(
+            options,
+            CONF_HEXDB_BASE_URL,
+            defaults.hexdb_base_url,
+        ),
+        airplanes_live_base_url=_base_url_option(
+            options,
+            CONF_AIRPLANES_LIVE_BASE_URL,
+            defaults.airplanes_live_base_url,
+        ),
+        airport_board_cache_seconds=max(
+            0,
+            _int_option(
+                options,
+                CONF_AIRPORT_BOARD_CACHE_SECONDS,
+                defaults.airport_board_cache_seconds,
+            ),
+        ),
+        batumi_airport_board_base_url=_base_url_option(
+            options,
+            CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
+            defaults.batumi_airport_board_base_url,
+        ),
+        batumi_airport_board_legs=defaults.batumi_airport_board_legs,
     )
 
 
@@ -578,7 +635,7 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
             ),
             watch_airports=watch_airports,
         ),
-        providers=defaults.providers,
+        providers=_provider_settings_from_options(options),
         speech_pack=_speech_pack_from_options(options),
         model_speech_overrides=_model_speech_overrides_from_options(options),
         route_fallbacks=_route_fallbacks_from_options(options),

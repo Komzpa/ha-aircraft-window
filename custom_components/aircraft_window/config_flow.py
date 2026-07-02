@@ -9,13 +9,18 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 
 from .const import (
+    CONF_ADSBDB_BASE_URL,
+    CONF_AIRPLANES_LIVE_BASE_URL,
+    CONF_AIRPORT_BOARD_CACHE_SECONDS,
     CONF_AIRPORT_BOARD_PROVIDER,
     CONF_BACKGROUND_INTERVAL_SECONDS,
+    CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
     CONF_COLLECT_MAPPING_REVIEW,
     CONF_DAY_HUMAN_VISIBLE_RADIUS_KM,
     CONF_DUMP1090_URL,
     CONF_ENABLE_ENRICHMENT,
     CONF_ENRICHMENT_TIMEOUT_SECONDS,
+    CONF_HEXDB_BASE_URL,
     CONF_HOME_LATITUDE,
     CONF_HOME_LONGITUDE,
     CONF_LOCAL_AIRPORT_IATA,
@@ -292,6 +297,41 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
             CONF_COLLECT_MAPPING_REVIEW,
             default=defaults.get(CONF_COLLECT_MAPPING_REVIEW, DEFAULT_COLLECT_MAPPING_REVIEW),
         ): bool,
+        vol.Optional(
+            CONF_ADSBDB_BASE_URL,
+            default=defaults.get(
+                CONF_ADSBDB_BASE_URL,
+                DEFAULT_RUNTIME_SETTINGS.providers.adsbdb_base_url,
+            ),
+        ): str,
+        vol.Optional(
+            CONF_HEXDB_BASE_URL,
+            default=defaults.get(
+                CONF_HEXDB_BASE_URL,
+                DEFAULT_RUNTIME_SETTINGS.providers.hexdb_base_url,
+            ),
+        ): str,
+        vol.Optional(
+            CONF_AIRPLANES_LIVE_BASE_URL,
+            default=defaults.get(
+                CONF_AIRPLANES_LIVE_BASE_URL,
+                DEFAULT_RUNTIME_SETTINGS.providers.airplanes_live_base_url,
+            ),
+        ): str,
+        vol.Optional(
+            CONF_AIRPORT_BOARD_CACHE_SECONDS,
+            default=defaults.get(
+                CONF_AIRPORT_BOARD_CACHE_SECONDS,
+                DEFAULT_RUNTIME_SETTINGS.providers.airport_board_cache_seconds,
+            ),
+        ): vol.All(vol.Coerce(int), vol.Range(min=0, max=86400)),
+        vol.Optional(
+            CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
+            default=defaults.get(
+                CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
+                DEFAULT_RUNTIME_SETTINGS.providers.batumi_airport_board_base_url,
+            ),
+        ): str,
         vol.Optional(
             CONF_SPEECH_AIRLINE_OVERRIDES,
             default=defaults.get(CONF_SPEECH_AIRLINE_OVERRIDES, "{}"),

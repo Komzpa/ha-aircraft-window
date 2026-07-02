@@ -24,10 +24,11 @@ Configuration surface today:
 - `config_flow.py` exposes receiver, observer coordinates, candidate
   thresholds, polling, enrichment, mapping-review options, local airport
   identity/timezone, window azimuth/radius profile, terminal area, runway
-  staging area, and watched route airport codes.
+  staging area, watched route airport codes, and provider base URL/cache
+  options.
 - `strings.json` and translations mirror that schema.
-- Options still do not expose polygon editing, provider URLs/TTLs, kinematic
-  thresholds, or speech locale.
+- Options still do not expose polygon editing, a generic airport-board provider
+  registry, or speech locale.
 
 ## Hardcoded Local Context
 
@@ -160,9 +161,11 @@ Migration path:
 
 Current assumptions:
 
-- ADSBDB, HexDB, Airplanes.live, airport-data.com, and Batumi airport board are
-  fixed provider URLs.
-- Cache TTLs are fixed per provider.
+- ADSBDB, HexDB, Airplanes.live, and Batumi airport board base URLs are
+  configurable through options. Airport-data.com is still a fixed lookup inside
+  the built-year helper.
+- Airport-board cache TTL is configurable. Other provider TTLs remain fixed per
+  helper/cache key.
 
 Target shape:
 
