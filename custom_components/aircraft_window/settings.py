@@ -289,6 +289,17 @@ def _base_url_option(options: dict[str, Any], key: str, default: str) -> str:
     return value.rstrip("/")
 
 
+def _option_differs_from_default(
+    options: dict[str, Any],
+    key: str,
+    default: float,
+) -> bool:
+    """Return true when a numeric option was explicitly changed from its default."""
+    if key not in options:
+        return False
+    return not math.isclose(_float_option(options, key, default), default)
+
+
 def _json_polygon_option(
     options: dict[str, Any],
     key: str,
@@ -601,54 +612,84 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
         default_view.polygon_lon_lat if local_iata == default_airport.iata.upper() else ()
     )
 
-    runway_staging = RunwayStagingArea(
-        latitude=_float_option(
-            options,
-            CONF_RUNWAY_STAGING_LATITUDE,
-            default_staging.latitude,
-        ),
-        longitude=_float_option(
-            options,
-            CONF_RUNWAY_STAGING_LONGITUDE,
-            default_staging.longitude,
-        ),
-        radius_km=_float_option(
-            options,
-            CONF_RUNWAY_STAGING_RADIUS_KM,
-            default_staging.radius_km,
-        ),
-        max_altitude_ft=_float_option(
-            options,
-            CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
-            default_staging.max_altitude_ft,
-        ),
-        max_speed_kt=_float_option(
-            options,
-            CONF_RUNWAY_STAGING_MAX_SPEED_KT,
-            default_staging.max_speed_kt,
-        ),
+    default_local_airport = local_iata == default_airport.iata.upper()
+    custom_runway_staging = default_local_airport or any(
+        _option_differs_from_default(options, key, default)
+        for key, default in (
+            (CONF_RUNWAY_STAGING_LATITUDE, default_staging.latitude),
+            (CONF_RUNWAY_STAGING_LONGITUDE, default_staging.longitude),
+            (CONF_RUNWAY_STAGING_RADIUS_KM, default_staging.radius_km),
+            (CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT, default_staging.max_altitude_ft),
+            (CONF_RUNWAY_STAGING_MAX_SPEED_KT, default_staging.max_speed_kt),
+        )
     )
-    terminal_area = TerminalArea(
-        latitude=_float_option(
-            options,
-            CONF_TERMINAL_AREA_LATITUDE,
-            default_terminal.latitude,
-        ),
-        longitude=_float_option(
-            options,
-            CONF_TERMINAL_AREA_LONGITUDE,
-            default_terminal.longitude,
-        ),
-        radius_km=_float_option(
-            options,
-            CONF_TERMINAL_AREA_RADIUS_KM,
-            default_terminal.radius_km,
-        ),
-        max_altitude_ft=_float_option(
-            options,
-            CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
-            default_terminal.max_altitude_ft,
-        ),
+    runway_staging_areas = (
+        (
+            RunwayStagingArea(
+                latitude=_float_option(
+                    options,
+                    CONF_RUNWAY_STAGING_LATITUDE,
+                    default_staging.latitude,
+                ),
+                longitude=_float_option(
+                    options,
+                    CONF_RUNWAY_STAGING_LONGITUDE,
+                    default_staging.longitude,
+                ),
+                radius_km=_float_option(
+                    options,
+                    CONF_RUNWAY_STAGING_RADIUS_KM,
+                    default_staging.radius_km,
+                ),
+                max_altitude_ft=_float_option(
+                    options,
+                    CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
+                    default_staging.max_altitude_ft,
+                ),
+                max_speed_kt=_float_option(
+                    options,
+                    CONF_RUNWAY_STAGING_MAX_SPEED_KT,
+                    default_staging.max_speed_kt,
+                ),
+            ),
+        )
+        if custom_runway_staging
+        else ()
+    )
+    custom_terminal_area = default_local_airport or any(
+        _option_differs_from_default(options, key, default)
+        for key, default in (
+            (CONF_TERMINAL_AREA_LATITUDE, default_terminal.latitude),
+            (CONF_TERMINAL_AREA_LONGITUDE, default_terminal.longitude),
+            (CONF_TERMINAL_AREA_RADIUS_KM, default_terminal.radius_km),
+            (CONF_TERMINAL_AREA_MAX_ALTITUDE_FT, default_terminal.max_altitude_ft),
+        )
+    )
+    terminal_area = (
+        TerminalArea(
+            latitude=_float_option(
+                options,
+                CONF_TERMINAL_AREA_LATITUDE,
+                default_terminal.latitude,
+            ),
+            longitude=_float_option(
+                options,
+                CONF_TERMINAL_AREA_LONGITUDE,
+                default_terminal.longitude,
+            ),
+            radius_km=_float_option(
+                options,
+                CONF_TERMINAL_AREA_RADIUS_KM,
+                default_terminal.radius_km,
+            ),
+            max_altitude_ft=_float_option(
+                options,
+                CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
+                default_terminal.max_altitude_ft,
+            ),
+        )
+        if custom_terminal_area
+        else None
     )
     window_view = WindowViewProfile(
         lead_seconds=_float_option(
@@ -712,7 +753,7 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
             timezone=timezone(timedelta(hours=timezone_offset_hours)),
             board_provider=board_provider,
             terminal_area=terminal_area,
-            runway_staging_areas=(runway_staging,),
+            runway_staging_areas=runway_staging_areas,
         ),
         window_view=window_view,
         watch_policy=WatchPolicy(

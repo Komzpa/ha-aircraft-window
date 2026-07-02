@@ -85,6 +85,9 @@ Current assumptions and status:
   Assistant config/options. The Batumi polygon is kept only for the default
   Batumi profile when the polygon option is empty; other local-airport profiles
   fall back to the azimuth/radius model unless a polygon is configured.
+- Batumi terminal-area and runway-staging defaults are also inherited only by
+  the default Batumi profile. Other local-airport profiles get no terminal or
+  staging geometry unless the stored values differ from the Batumi defaults.
 
 Target shape:
 
