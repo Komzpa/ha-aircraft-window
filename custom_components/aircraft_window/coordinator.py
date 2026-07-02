@@ -1353,7 +1353,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             "scheduled_preopen_before_seconds": SCHEDULED_PREOPEN_BEFORE_SECONDS,
             "scheduled_preopen_after_seconds": SCHEDULED_PREOPEN_AFTER_SECONDS,
             "scheduled_candidates": len(candidates),
-            "source": "batumi_airport_board",
+            "source": self.runtime_settings.local_airport.board_provider
+            or "airport_board",
             "updated_at": int(time.time()),
         }
 

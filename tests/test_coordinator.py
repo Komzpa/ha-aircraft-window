@@ -1684,6 +1684,36 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["scheduled_departure_local"], "12:03")
         self.assertEqual(result["seconds_until_departure"], 180)
 
+    def test_scheduled_preopen_result_uses_configured_provider_source(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake._runtime_settings = settings.runtime_settings_from_options(
+            {
+                "local_airport_iata": "ABC",
+                "airport_board_provider": "json_airport_board",
+                "json_airport_board_url": "https://example.invalid/board.json",
+            }
+        )
+        now = datetime(2026, 5, 20, 12, 0, tzinfo=coordinator.TBILISI_TIMEZONE)
+        board = {
+            "data": {
+                "flights": [
+                    {
+                        "airlineIata": "AB",
+                        "airlineIcao": "ABC",
+                        "flightNumber": "123",
+                        "flightLeg": "DEPARTURE",
+                        "stad": "2026-05-20T12:03:00",
+                    }
+                ],
+            }
+        }
+
+        result = fake._scheduled_preopen_result(board, now=now)
+
+        self.assertEqual(result["source"], "json_airport_board")
+
     async def test_deadline_miss_does_not_cache_airport_board_error(self) -> None:
         class FailingSession:
             def get(self, *_args: Any, **_kwargs: Any) -> object:
