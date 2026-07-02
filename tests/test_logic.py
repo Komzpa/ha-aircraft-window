@@ -39,6 +39,7 @@ def _load_component_module(name: str):
 settings_module = _load_component_module("settings")
 logic = _load_component_module("logic")
 route_fallbacks_module = sys.modules["aircraft_window.route_fallbacks"]
+speech_ru_module = sys.modules["aircraft_window.speech_ru"]
 
 
 class AircraftWindowLogicTest(unittest.TestCase):
@@ -752,6 +753,13 @@ class AircraftWindowLogicTest(unittest.TestCase):
             route_fallbacks.route_by_callsign["VAA021"]["route_summary"],
             "BUS → Natakhtari",
         )
+
+    def test_default_airline_speech_loads_from_package_data(self) -> None:
+        airline, aliases = speech_ru_module.load_airline_speech_data()
+
+        self.assertEqual(airline["Georgian Airways"], "Джорджиан Эйрвейз")
+        self.assertEqual(airline["Vanilla Sky"], "Ванилла Скай")
+        self.assertEqual(aliases["red wings airlines"], "Ред Вингс")
 
     def test_runtime_settings_can_clear_default_polygon(self) -> None:
         runtime_settings = settings_module.runtime_settings_from_options(

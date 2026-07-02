@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 CITY_FROM_RU = {
     "Almaty": "Алматы",
@@ -655,116 +658,40 @@ AIRPORT_NAME_DETAIL_SPEECH_RU = {
     "Zvartnots International Airport": "Звартноц",
 }
 
-AIRLINE_SPEECH_RU = {
-    "Air Astana": "Эйр Астана",
-    "Air Baltic": "Эйр Балтик",
-    "Air Cairo": "Эйр Каиро",
-    "Aeroflot": "Аэрофлот",
-    "Aeroflot Russian Airlines": "Аэрофлот",
-    "AnadoluJet": "АнадолуДжет",
-    "Arkia Israel Airlines": "Аркия",
-    "Arkia Israeli Airlines": "Аркия",
-    "ARKIA ISRAEL AIRLINES": "Аркия",
-    "Armenian Airlines": "Армениан Эйрлайнс",
-    "Asiana Airlines": "Азиана",
-    "Atlantis European Airways": "Атлантис Европиан Эйрвейз",
-    "Austrian Airlines": "Австрийские авиалинии",
-    "Azov Avia Airlines": "Азов Авиа",
-    "Azerbaijan Airlines": "Азербайджанские авиалинии",
-    "Azerbaijan Airlines (Buta Airways)": "Азербайджанские авиалинии",
-    "AZAL": "Азал",
-    "Azimuth": "Азимут",
-    "Azimuth Airlines": "Азимут",
-    "Air Samarkand": "Эйр Самарканд",
-    "Belavia": "Белавиа",
-    "Belavia Belarusian Airlines": "Белавиа",
-    "Carpatair": "Карпатэйр",
-    "Centrum Air": "Центрум Эйр",
-    "Cathay Pacific": "Катай Пасифик",
-    "China Southern Airlines": "Чайна Саузерн",
-    "EL AL": "Эль Аль",
-    "EL-AL ISRAEL AIRLINES": "Эль Аль",
-    "El Al Israel Airlines": "Эль Аль",
-    "El-Al Israel Airlines": "Эль Аль",
-    "El Al": "Эль Аль",
-    "FlyArystan": "Флай Арыстан",
-    "Fly One": "Флай Уан",
-    "Fly One Armenia": "Флай Уан Армения",
-    "flydubai": "Флай Дубай",
-    "Flydubai": "Флай Дубай",
-    "Fly Lili": "Флай Лили",
-    "Flynas": "Флай Нас",
-    "FlyOne Armenia": "Флай Уан Армения",
-    "Emirates": "Эмирейтс",
-    "Genel Havacilik": "Генел Хаваджылык",
-    "Georgian Airways": "Джорджиан Эйрвейз",
-    "Georgian Wings": "Джорджиан Вингс",
-    "Iran Aseman Airlines": "Иран Асеман",
-    "Iraq Airways": "Иракские авиалинии",
-    "Iraqi Airways": "Иракские авиалинии",
-    "Israir": "Исра Эйр",
-    "Israir Airlines": "Исра Эйр",
-    "Jazeera Airways": "Джазира",
-    "Jordan Aviation": "Джордан Авиейшен",
-    "Jordanian Aviation": "Джорданиан Авиейшен",
-    "Kish Air": "Киш Эйр",
-    "KLM Royal Dutch Airlines": "Кей-Эл-Эм",
-    "Korean Air": "Кореан Эйр",
-    "Nas Air": "Флай Нас",
-    "Oneclick": "УанКлик",
-    "OneClick Airways": "УанКлик",
-    "Pars Air": "Парс Эйр",
-    "Pegasus Airlines": "Пегасус",
-    "Qeshm Air": "Кешм Эйр",
-    "Red Wings": "Ред Вингс",
-    "Red Wings Airlines": "Ред Вингс",
-    "Rossiya - Russian Airlines": "Россия",
-    "S7 Airlines": "Эс-семь",
-    "S7 Airlines (Siberia Airlines)": "Эс-семь",
-    "SCAT Air Company": "Скат",
-    "SCAT Airlines": "Скат",
-    "Scat": "Скат",
-    "Scandinavian Airlines System": "Скандинавские авиалинии",
-    "Silk Way Airlines": "Силк Вей",
-    "Silk Way West Airlines": "Силк Вей",
-    "Southwind Air Corporation": "Саутвинд",
-    "SunExpress": "Санэкспресс",
-    "Swiss International Air Lines": "Свисс",
-    "Tarkim Havacilik": "Тарким Хаваджылык",
-    "Thai Airways International": "Тайские авиалинии",
-    "Trade Air": "Трейд Эйр",
-    "Turkish Airlines": "Туркиш",
-    "Turkmenistan Airlines": "Туркменистанские авиалинии",
-    "Uzbekistan Airways": "Узбекистон",
-    "Varesh Airlines": "Вареш",
-    "Van Air Europe": "Ван Эйр",
-    "Vanilla Sky": "Ванилла Скай",
-    "Virgin Atlantic Airways": "Вёрджин Атлантик",
-    "Wizz Air": "Визз Эйр",
-    "Bonair Havacilik": "Бонэйр Хаваджылык",
-    "Gulf Wings": "Галф Вингс",
-    "Hyperion Aviation": "Хайперион Авиэйшн",
-    "Lufthansa": "Люфтганза",
-    "New Example Air": "Нью Экзампл Эйр",
-    "Polish Air Force": "Польские ВВС",
-    "Redstar Aviation": "Редстар Авиэйшн",
-    "South West Air Corporation": "Саутвест Эйр",
-    "Speedwings Executive Jet GmbH": "Спидвингс Экзекьютив Джет",
-    "Tyrol Air Ambulance": "Тироль Эйр Амбуланс",
-    "Ural Airlines": "Уральские авиалинии",
-}
+SPEECH_RU_AIRLINES_DATA_FILE = "data/speech_ru_airlines.json"
 
-AIRLINE_SPEECH_ALIASES_RU = {
-    "aeroflot russian airlines": "Аэрофлот",
-    "arkia israel  airlines": "Аркия",
-    "georgian airways": "Джорджиан Эйрвейз",
-    "klm royal dutch airlines": "Кей-Эл-Эм",
-    "red wings airlines": "Ред Вингс",
-    "rossiya - russian airlines": "Россия",
-    "s7 airlines (siberia airlines)": "Эс-семь",
-    "scat air company": "Скат",
-    "speedwings executive jet gmbh": "Спидвингс Экзекьютив Джет",
-}
+
+def _speech_string_map(raw: Any, *, fold_keys: bool = False) -> dict[str, str]:
+    """Return a string-to-string speech map loaded from packaged data."""
+    if not isinstance(raw, dict):
+        return {}
+    result: dict[str, str] = {}
+    for key, value in raw.items():
+        normalized_key = str(key).strip()
+        normalized_value = str(value).strip()
+        if not normalized_key or not normalized_value:
+            continue
+        if fold_keys:
+            normalized_key = normalized_key.casefold()
+        result[normalized_key] = normalized_value
+    return result
+
+
+def load_airline_speech_data(
+    filename: str = SPEECH_RU_AIRLINES_DATA_FILE,
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Load built-in Russian airline speech tables from packaged data."""
+    raw_text = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
+    raw_data = json.loads(raw_text)
+    if not isinstance(raw_data, dict):
+        return {}, {}
+    return (
+        _speech_string_map(raw_data.get("airline")),
+        _speech_string_map(raw_data.get("airline_aliases"), fold_keys=True),
+    )
+
+
+AIRLINE_SPEECH_RU, AIRLINE_SPEECH_ALIASES_RU = load_airline_speech_data()
 
 MILITARY_OPERATOR_SPEECH_RU = {
     "PLF": "Польские ВВС",

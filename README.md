@@ -240,7 +240,8 @@ and aircraft model speech. Speech examples: `{"XYZ": "Иксвайзед"}`,
 `{"ABC123": {"origin_iata": "XYZ", "destination_iata": "DEF",
 "route_summary": "XYZ → DEF"}}`. Repeatable defaults can later be promoted to
 the built-in speech pack tables in `custom_components/aircraft_window/speech_ru.py`,
-route fallback data in
+airline speech data in
+`custom_components/aircraft_window/data/speech_ru_airlines.json`, route fallback data in
 `custom_components/aircraft_window/data/route_fallbacks_ru.json`, and the shared
 TTS stress lexicon. Each mapping-review item includes `suggested_option`,
 `suggested_key`, and `suggested_value` fields so a user can copy the
