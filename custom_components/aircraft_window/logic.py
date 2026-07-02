@@ -1129,6 +1129,69 @@ KNOWN_BUILT_YEAR_BY_REGISTRATION: dict[str, int] = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class RussianSpeechPack:
+    """Russian speech lookup tables used by announcement rendering."""
+
+    city_from: dict[str, str]
+    city_to: dict[str, str]
+    city_route: dict[str, str]
+    airport_code_from: dict[str, str]
+    airport_code_to: dict[str, str]
+    airport_code_route: dict[str, str]
+    airport_detail: dict[str, str]
+    airport_name_detail: dict[str, str]
+    airline: dict[str, str]
+    airline_aliases: dict[str, str]
+    callsign_prefix: dict[str, str]
+    military_operator: dict[str, str]
+    year: dict[int, str]
+
+    def with_overrides(
+        self,
+        *,
+        airline: dict[str, str] | None = None,
+        airline_aliases: dict[str, str] | None = None,
+        airport_code_from: dict[str, str] | None = None,
+        airport_code_to: dict[str, str] | None = None,
+        airport_code_route: dict[str, str] | None = None,
+        callsign_prefix: dict[str, str] | None = None,
+    ) -> RussianSpeechPack:
+        """Return a pack with user-maintained override tables merged in."""
+        return RussianSpeechPack(
+            city_from=self.city_from,
+            city_to=self.city_to,
+            city_route=self.city_route,
+            airport_code_from={**self.airport_code_from, **(airport_code_from or {})},
+            airport_code_to={**self.airport_code_to, **(airport_code_to or {})},
+            airport_code_route={**self.airport_code_route, **(airport_code_route or {})},
+            airport_detail=self.airport_detail,
+            airport_name_detail=self.airport_name_detail,
+            airline={**self.airline, **(airline or {})},
+            airline_aliases={**self.airline_aliases, **(airline_aliases or {})},
+            callsign_prefix={**self.callsign_prefix, **(callsign_prefix or {})},
+            military_operator=self.military_operator,
+            year=self.year,
+        )
+
+
+DEFAULT_RUSSIAN_SPEECH_PACK = RussianSpeechPack(
+    city_from=CITY_FROM_RU,
+    city_to=CITY_TO_RU,
+    city_route=CITY_ROUTE_RU,
+    airport_code_from=AIRPORT_CODE_FROM_RU,
+    airport_code_to=AIRPORT_CODE_TO_RU,
+    airport_code_route=AIRPORT_CODE_ROUTE_RU,
+    airport_detail=AIRPORT_DETAIL_SPEECH_RU,
+    airport_name_detail=AIRPORT_NAME_DETAIL_SPEECH_RU,
+    airline=AIRLINE_SPEECH_RU,
+    airline_aliases=AIRLINE_SPEECH_ALIASES_RU,
+    callsign_prefix=CALLSIGN_PREFIX_SPEECH_RU,
+    military_operator=MILITARY_OPERATOR_SPEECH_RU,
+    year=YEAR_RU,
+)
+
+
 @dataclass(slots=True)
 class AircraftCandidate:
     """Current aircraft candidate exposed by the integration."""
@@ -1698,11 +1761,12 @@ def is_helicopter(aircraft: dict[str, Any], enrichment: dict[str, Any]) -> bool:
 
 def is_military_aircraft(enrichment: dict[str, Any]) -> bool:
     """Return true when public owner/operator metadata identifies military traffic."""
+    pack = DEFAULT_RUSSIAN_SPEECH_PACK
     owner = str(
         enrichment.get("registered_owner") or enrichment.get("airline_name") or ""
     ).lower()
     operator = str(enrichment.get("operator_flag_code") or "").upper()
-    if operator in MILITARY_OPERATOR_SPEECH_RU:
+    if operator in pack.military_operator:
         return True
     return _has_standalone_token(owner, MILITARY_OWNER_TOKENS)
 
@@ -1964,9 +2028,10 @@ def service_object_word(enrichment: dict[str, Any]) -> str:
 
 def military_operator_speech(enrichment: dict[str, Any]) -> str:
     """Return a Russian label for a military operator when known."""
+    pack = DEFAULT_RUSSIAN_SPEECH_PACK
     operator = str(enrichment.get("operator_flag_code") or "").upper()
-    if operator in MILITARY_OPERATOR_SPEECH_RU:
-        return MILITARY_OPERATOR_SPEECH_RU[operator]
+    if operator in pack.military_operator:
+        return pack.military_operator[operator]
     owner = str(enrichment.get("registered_owner") or "").strip()
     owner_speech = MILITARY_OWNER_SPEECH_RU.get(owner.casefold())
     if owner_speech:
@@ -2050,12 +2115,18 @@ def _speech_lookup_key(value: str) -> str:
     return " ".join(without_marks.casefold().split())
 
 
-def spoken_flight(flight: str, airline_icao: str = "", airline_iata: str = "") -> str:
+def spoken_flight(
+    flight: str,
+    airline_icao: str = "",
+    airline_iata: str = "",
+    *,
+    speech_pack: RussianSpeechPack = DEFAULT_RUSSIAN_SPEECH_PACK,
+) -> str:
     """Turn AIZ414/RWZ553 into a short TTS-friendly flight number."""
     token = flight.strip().replace(" ", "").upper()
     if token in {"", "UNKNOWN"}:
         return ""
-    for prefix, prefix_speech in CALLSIGN_PREFIX_SPEECH_RU.items():
+    for prefix, prefix_speech in speech_pack.callsign_prefix.items():
         if token.startswith(prefix) and token[len(prefix) :].isdigit():
             number = " ".join(DIGIT_RU.get(char, char) for char in token[len(prefix) :])
             return f"{prefix_speech} {number}".strip()
@@ -2074,9 +2145,10 @@ def spoken_flight(flight: str, airline_icao: str = "", airline_iata: str = "") -
 
 def has_callsign_prefix_speech_mapping(flight: str) -> bool:
     """Return true when a long callsign prefix has explicit speech mapping."""
+    pack = DEFAULT_RUSSIAN_SPEECH_PACK
     token = flight.strip().replace(" ", "").upper()
     match = re.fullmatch(r"([A-Z]{4,})\d+", token)
-    return not match or match.group(1) in CALLSIGN_PREFIX_SPEECH_RU
+    return not match or match.group(1) in pack.callsign_prefix
 
 
 def known_airline_for_callsign(flight: str) -> tuple[str, str]:
@@ -2095,17 +2167,21 @@ def known_route_for_callsign(flight: str) -> dict[str, str]:
     return dict(route) if route is not None else {}
 
 
-def airline_speech(airline_name: str) -> str:
+def airline_speech(
+    airline_name: str,
+    *,
+    speech_pack: RussianSpeechPack = DEFAULT_RUSSIAN_SPEECH_PACK,
+) -> str:
     """Return a TTS-friendly airline name when we know one."""
     name = " ".join(airline_name.strip().split())
     if not name:
         return ""
-    if name in AIRLINE_SPEECH_RU:
-        return AIRLINE_SPEECH_RU[name]
+    if name in speech_pack.airline:
+        return speech_pack.airline[name]
     folded = _speech_lookup_key(name)
-    if folded in AIRLINE_SPEECH_ALIASES_RU:
-        return AIRLINE_SPEECH_ALIASES_RU[folded]
-    for known_name, speech in AIRLINE_SPEECH_RU.items():
+    if folded in speech_pack.airline_aliases:
+        return speech_pack.airline_aliases[folded]
+    for known_name, speech in speech_pack.airline.items():
         if _speech_lookup_key(known_name) == folded:
             return speech
     return tts_cyrillic_text(name)
@@ -2214,7 +2290,7 @@ def spoken_year(year: int | None) -> str:
     """Return a Russian TTS-friendly year phrase."""
     if year is None:
         return ""
-    return YEAR_RU.get(year, f"{year} года")
+    return DEFAULT_RUSSIAN_SPEECH_PACK.year.get(year, f"{year} года")
 
 
 def airport_label(airport: dict[str, Any] | None) -> str:
@@ -2237,42 +2313,45 @@ def normalized_airport_city(value: str) -> str:
 
 def airport_detail_speech(airport: dict[str, Any]) -> str:
     """Return a specific airport name when route data identifies one."""
+    pack = DEFAULT_RUSSIAN_SPEECH_PACK
     code = str(airport.get("iata_code") or "").strip().upper()
-    if code in AIRPORT_DETAIL_SPEECH_RU:
-        return AIRPORT_DETAIL_SPEECH_RU[code]
+    if code in pack.airport_detail:
+        return pack.airport_detail[code]
     name = normalized_airport_city(str(airport.get("name") or ""))
-    return AIRPORT_NAME_DETAIL_SPEECH_RU.get(name, "")
+    return pack.airport_name_detail.get(name, "")
 
 
 def has_airline_speech_mapping(airline_name: str) -> bool:
     """Return true when an airline/operator has an explicit speech mapping."""
+    pack = DEFAULT_RUSSIAN_SPEECH_PACK
     name = " ".join(airline_name.strip().split())
     if not name:
         return True
     folded = _speech_lookup_key(name)
-    if name in AIRLINE_SPEECH_RU or folded in AIRLINE_SPEECH_ALIASES_RU:
+    if name in pack.airline or folded in pack.airline_aliases:
         return True
-    return any(_speech_lookup_key(known_name) == folded for known_name in AIRLINE_SPEECH_RU)
+    return any(_speech_lookup_key(known_name) == folded for known_name in pack.airline)
 
 
 def has_airport_speech_mapping(airport: dict[str, Any] | None, *, direction: str) -> bool:
     """Return true when an airport/city has an explicit Russian speech mapping."""
+    pack = DEFAULT_RUSSIAN_SPEECH_PACK
     if not isinstance(airport, dict):
         return True
     code = str(airport.get("iata_code") or airport.get("icao_code") or "").strip().upper()
     if direction == "route":
-        if code in AIRPORT_CODE_ROUTE_RU:
+        if code in pack.airport_code_route:
             return True
-    elif code in (AIRPORT_CODE_TO_RU if direction == "to" else AIRPORT_CODE_FROM_RU):
+    elif code in (pack.airport_code_to if direction == "to" else pack.airport_code_from):
         return True
     municipality = normalized_airport_city(str(airport.get("municipality") or ""))
     name = normalized_airport_city(str(airport.get("name") or ""))
     city_map = (
-        CITY_ROUTE_RU
+        pack.city_route
         if direction == "route"
-        else CITY_TO_RU
+        else pack.city_to
         if direction == "to"
-        else CITY_FROM_RU
+        else pack.city_from
     )
     return any(label in city_map for label in (municipality, name)) or bool(
         airport_detail_speech(airport)
@@ -2281,17 +2360,18 @@ def has_airport_speech_mapping(airport: dict[str, Any] | None, *, direction: str
 
 def airport_speech(airport: dict[str, Any] | None, *, direction: str) -> str:
     """Return a TTS-friendly city name for origin/destination."""
+    pack = DEFAULT_RUSSIAN_SPEECH_PACK
     if not isinstance(airport, dict):
         return ""
     code = str(airport.get("iata_code") or airport.get("icao_code") or "").strip().upper()
     code_speech = (
-        AIRPORT_CODE_TO_RU if direction == "to" else AIRPORT_CODE_FROM_RU
+        pack.airport_code_to if direction == "to" else pack.airport_code_from
     ).get(code)
     if code_speech:
         return code_speech
     municipality = normalized_airport_city(str(airport.get("municipality") or ""))
     name = normalized_airport_city(str(airport.get("name") or ""))
-    city_map = CITY_TO_RU if direction == "to" else CITY_FROM_RU
+    city_map = pack.city_to if direction == "to" else pack.city_from
     airport_detail = airport_detail_speech(airport)
     for label in (municipality, name):
         if label in city_map:
@@ -2306,14 +2386,15 @@ def airport_speech(airport: dict[str, Any] | None, *, direction: str) -> str:
 
 def airport_route_speech(airport: dict[str, Any] | None) -> str:
     """Return a neutral TTS-friendly airport label for route pairs."""
+    pack = DEFAULT_RUSSIAN_SPEECH_PACK
     if not isinstance(airport, dict):
         return ""
     code = str(airport.get("iata_code") or airport.get("icao_code") or "").strip().upper()
-    if code in AIRPORT_CODE_ROUTE_RU:
-        return AIRPORT_CODE_ROUTE_RU[code]
+    if code in pack.airport_code_route:
+        return pack.airport_code_route[code]
     municipality = normalized_airport_city(str(airport.get("municipality") or ""))
     name = normalized_airport_city(str(airport.get("name") or ""))
-    city_map = CITY_ROUTE_RU
+    city_map = pack.city_route
     airport_detail = airport_detail_speech(airport)
     for label in (municipality, name):
         if label in city_map:
@@ -2414,7 +2495,7 @@ def suppress_unhelpful_flight_label(
     prefix_match = re.fullmatch(r"([A-Z]{4,})[0-9A-Z]+", token)
     return bool(
         prefix_match
-        and prefix_match.group(1) not in CALLSIGN_PREFIX_SPEECH_RU
+        and prefix_match.group(1) not in DEFAULT_RUSSIAN_SPEECH_PACK.callsign_prefix
         and is_military_aircraft(enrichment)
     )
 

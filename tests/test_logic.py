@@ -1779,6 +1779,23 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(logic.spoken_flight("SPAR89"), "Спар восемь девять")
         self.assertTrue(logic.has_callsign_prefix_speech_mapping("SPAR89"))
         self.assertFalse(logic.has_callsign_prefix_speech_mapping("ABCD89"))
+        custom_pack = logic.DEFAULT_RUSSIAN_SPEECH_PACK.with_overrides(
+            airline={"Example Air": "Экзампл Эйр"},
+            airline_aliases={"example airways": "Экзампл Эйрвейз"},
+            callsign_prefix={"EXA": "Экза"},
+        )
+        self.assertEqual(
+            logic.airline_speech("Example Air", speech_pack=custom_pack),
+            "Экзампл Эйр",
+        )
+        self.assertEqual(
+            logic.airline_speech("Example Airways", speech_pack=custom_pack),
+            "Экзампл Эйрвейз",
+        )
+        self.assertEqual(
+            logic.spoken_flight("EXA123", speech_pack=custom_pack),
+            "Экза один два три",
+        )
         cyrillic = logic.tts_cyrillic_text(
             "Кутаиси - Wrocław, Gökçen, Arnavutköy, Istanbul."
         )

@@ -114,11 +114,14 @@ Target shape:
 
 ## Hardcoded Speech And Locale
 
-Current assumptions:
+Current assumptions and status:
 
 - Russian speech tables live in `logic.py`:
   city forms, airport forms, airline/operator forms, callsign prefixes, model
   names, military phrases, digits, years, and Latin transliteration.
+- `RussianSpeechPack` now groups the Russian lookup tables and selected helpers
+  accept a speech pack override, but the built-in tables still physically live
+  in `logic.py`.
 - Mapping review is designed to fill Python tables, not a user-owned lexicon.
 - README points maintainers at code tables such as `AIRLINE_SPEECH_RU`.
 
@@ -183,7 +186,9 @@ Target shape:
    `airport_board_provider`; a full provider abstraction is still pending.
 4. Done: expose configured `watch_airports`, local airport, and basic view
    profile through config/options.
-5. Move speech tables into a Russian speech pack and add override merge points.
+5. Partly done: add `RussianSpeechPack` and override merge points. Moving the
+   built-in tables out of `logic.py` and adding user-owned storage/options are
+   still pending.
 6. Done for README and entity docstrings: rename Batumi-specific schedule
    wording to configured-airport wording while preserving existing entity IDs.
 
