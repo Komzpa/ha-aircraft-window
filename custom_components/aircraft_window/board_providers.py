@@ -80,7 +80,7 @@ BATUMI_AIRPORT_BOARD_CACHE_PREFIX = (
         BATUMI_AIRPORT_BOARD_PROVIDER,
         AirportBoardProvider(BATUMI_AIRPORT_BOARD_PROVIDER, ""),
     ).cache_prefix
-    or "batumi-airport-board:"
+    or "airport-board:"
 )
 GENERIC_AIRPORT_BOARD_CACHE_PREFIX = (
     AIRPORT_BOARD_PROVIDERS_BY_ID.get(
