@@ -1364,6 +1364,13 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(logic.airline_speech("Genel Havacilik"), "Генел Хаваджылык")
         self.assertEqual(logic.airline_speech("Silk Way Airlines"), "Силк Вей")
         self.assertEqual(logic.airline_speech("JAZEERA AİRWAYS"), "Джазира")
+        self.assertEqual(
+            logic.airline_speech("Atlantis European Airways"),
+            "Атлантис Европиан Эйрвейз",
+        )
+        self.assertEqual(logic.airline_speech("Austrian Airlines"), "Австрийские авиалинии")
+        self.assertEqual(logic.airline_speech("Virgin Atlantic Airways"), "Вёрджин Атлантик")
+        self.assertEqual(logic.airline_speech("South West Air Corporation"), "Саутвест Эйр")
         self.assertTrue(logic.has_airline_speech_mapping("JAZEERA AİRWAYS"))
         self.assertEqual(logic.airline_speech("Carpatair"), "Карпатэйр")
         self.assertEqual(
@@ -1569,6 +1576,23 @@ class AircraftWindowLogicTest(unittest.TestCase):
             ),
             "Кувейт",
         )
+        live_gap_airports = [
+            ("TIV", "Tivat", "Тивата", "Тиват", "Тиват"),
+            ("VOG", "Volgograd", "Волгограда", "Волгоград", "Волгоград"),
+            ("OGU", "Ordu", "Орду", "Орду", "Орду"),
+            ("LHE", "Lahore", "Лахора", "Лахор", "Лахор"),
+            ("ISB", "Islamabad", "Исламабада", "Исламабад", "Исламабад"),
+            ("KEJ", "Kemerovo", "Кемерова", "Кемерово", "Кемерово"),
+            ("LHR", "London", "Лондона, Хитроу", "Лондон, Хитроу", "Лондон, Хитроу"),
+            ("CIT", "Shymkent", "Шымкента", "Шымкент", "Шымкент"),
+            ("VIE", "Vienna", "Вены", "Вену", "Вена"),
+        ]
+        for code, city, from_speech, to_speech, route_speech in live_gap_airports:
+            with self.subTest(code=code):
+                airport = {"iata_code": code, "municipality": city, "name": city}
+                self.assertEqual(logic.airport_speech(airport, direction="from"), from_speech)
+                self.assertEqual(logic.airport_speech(airport, direction="to"), to_speech)
+                self.assertEqual(logic.airport_route_speech(airport), route_speech)
         chisinau_airport = {
             "iata_code": "KIV",
             "municipality": "Chisinau",
@@ -1806,6 +1830,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(
             logic.spoken_model("Airbus A320-232", "A320"),
             "Аэробус триста двадцать",
+        )
+        self.assertEqual(
+            logic.spoken_model("A350 1041 A35K", "A35K"),
+            "Аэробус триста пятьдесят",
         )
         self.assertEqual(
             logic.spoken_model("BOEING 737-800", "B738"),
