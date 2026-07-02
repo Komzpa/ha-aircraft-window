@@ -31,6 +31,7 @@
           "runway_staging_max_altitude_ft": "Runway staging maximum altitude, ft",
           "runway_staging_max_speed_kt": "Runway staging maximum speed, kt",
           "watch_airports": "Watched route airports, comma-separated IATA codes",
+          "watch_airports_json": "Structured watched route airports, JSON",
           "rapid_descent_fpm": "Rapid descent threshold, fpm",
           "rapid_descent_min_altitude_ft": "Rapid descent minimum altitude, ft",
           "orbit_track_rate_degrees_per_second": "Orbit turn-rate threshold, degrees/s",

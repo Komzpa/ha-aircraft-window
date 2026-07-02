@@ -120,14 +120,15 @@ Current assumptions and status:
   `watch_airports` is explicitly configured with a non-default value.
 - Kinematic-only thresholds and terminal suppression are now in `WatchPolicy`.
 - Watched route airport codes are configurable through Home Assistant
-  config/options. Kinematic thresholds and terminal suppression are also
-  configurable through Home Assistant config/options.
+  config/options. Structured `watch_airports_json` entries can also provide
+  custom phase names and reason labels. Kinematic thresholds and terminal
+  suppression are also configurable through Home Assistant config/options.
 
 Target shape:
 
-- Add `watch_airports[]` / `watch_routes[]`, each with a reason label and phase
-  name. Default can include `KUT` for the current Batumi install, but a new
-  local airport should not inherit it silently.
+- Continue improving `watch_airports[]` / `watch_routes[]` editing beyond the
+  current structured JSON option. Default can include `KUT` for the current
+  Batumi install, but a new local airport should not inherit it silently.
 - Add a `special_interest_policy` object:
   kinematic thresholds, terminal suppression enabled/disabled, and optional
   per-airport overrides.

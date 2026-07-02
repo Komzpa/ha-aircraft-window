@@ -59,6 +59,7 @@ from .const import (
     CONF_TERMINAL_AREA_RADIUS_KM,
     CONF_TERMINAL_SUPPRESSION_ENABLED,
     CONF_WATCH_AIRPORTS,
+    CONF_WATCH_AIRPORTS_JSON,
     CONF_WINDOW_VIEW_AZIMUTH_DEGREES,
     CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
     CONF_WINDOW_VIEW_LEAD_SECONDS,
@@ -383,6 +384,52 @@ def _watch_airports_from_option(value: Any) -> tuple[WatchAirport, ...]:
                 reason_label=f"route includes {iata}",
             )
         )
+    return tuple(airports)
+
+
+def _watch_airport_from_mapping(
+    iata: str,
+    raw: Any,
+) -> WatchAirport | None:
+    """Return one structured watched airport from JSON data."""
+    if not isinstance(raw, dict):
+        return None
+    token = str(raw.get("iata", iata) or "").strip().upper()
+    if not (3 <= len(token) <= 4 and token.isalnum()):
+        return None
+    phase = str(raw.get("phase") or f"{token.lower()}_route").strip()
+    reason_label = str(raw.get("reason_label") or f"route includes {token}").strip()
+    if not phase or not reason_label:
+        return None
+    return WatchAirport(iata=token, phase=phase, reason_label=reason_label)
+
+
+def _watch_airports_from_json_option(value: Any) -> tuple[WatchAirport, ...] | None:
+    """Parse structured watched-airport JSON, or return None for fallback."""
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    items: list[tuple[str, Any]]
+    if isinstance(parsed, dict):
+        items = [(str(key), value) for key, value in parsed.items()]
+    elif isinstance(parsed, list):
+        items = [("", item) for item in parsed]
+    else:
+        return None
+    airports: list[WatchAirport] = []
+    seen: set[str] = set()
+    for iata, item in items:
+        airport = _watch_airport_from_mapping(iata, item)
+        if airport is None:
+            return None
+        if airport.iata in seen:
+            continue
+        seen.add(airport.iata)
+        airports.append(airport)
     return tuple(airports)
 
 
@@ -816,8 +863,10 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
     default_watch_airports = (
         default_watch_airports_for_profile if default_local_airport else ""
     )
-    watch_airports = _watch_airports_from_option(
-        options.get(CONF_WATCH_AIRPORTS, default_watch_airports)
+    watch_airports = _watch_airports_from_json_option(
+        options.get(CONF_WATCH_AIRPORTS_JSON, "")
+    ) or _watch_airports_from_option(
+        options.get(CONF_WATCH_AIRPORTS, default_watch_airports),
     )
     if (
         not default_local_airport

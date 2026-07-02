@@ -193,6 +193,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "runway_staging_max_altitude_ft": 444,
                 "runway_staging_max_speed_kt": 55,
                 "watch_airports": "abc, def, abc",
+                "watch_airports_json": (
+                    '[{"iata": "ghi", "phase": "custom_route", '
+                    '"reason_label": "custom route watch"}]'
+                ),
                 "rapid_descent_fpm": -4200,
                 "rapid_descent_min_altitude_ft": 1500,
                 "orbit_track_rate_degrees_per_second": 3.5,
@@ -268,7 +272,15 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(staging_area.max_speed_kt, 55)
         self.assertEqual(
             [airport.iata for airport in runtime_settings.watch_policy.watch_airports],
-            ["ABC", "DEF"],
+            ["GHI"],
+        )
+        self.assertEqual(
+            runtime_settings.watch_policy.watch_airports[0].phase,
+            "custom_route",
+        )
+        self.assertEqual(
+            runtime_settings.watch_policy.watch_airports[0].reason_label,
+            "custom route watch",
         )
         self.assertEqual(runtime_settings.watch_policy.rapid_descent_fpm, -4200)
         self.assertEqual(runtime_settings.watch_policy.rapid_descent_min_altitude_ft, 1500)
@@ -528,6 +540,37 @@ class AircraftWindowLogicTest(unittest.TestCase):
             [airport.iata for airport in runtime_settings.watch_policy.watch_airports],
             ["DEF"],
         )
+
+    def test_runtime_settings_parses_structured_watch_airports(self) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {
+                "local_airport_iata": "ABC",
+                "watch_airports_json": (
+                    '{"def": {"phase": "custom_arrival_watch", '
+                    '"reason_label": "custom DEF arrival"}}'
+                ),
+            }
+        )
+
+        watch_airport = runtime_settings.watch_policy.watch_airports[0]
+        self.assertEqual(watch_airport.iata, "DEF")
+        self.assertEqual(watch_airport.phase, "custom_arrival_watch")
+        self.assertEqual(watch_airport.reason_label, "custom DEF arrival")
+
+    def test_runtime_settings_falls_back_on_invalid_structured_watch_airports(
+        self,
+    ) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {
+                "local_airport_iata": "ABC",
+                "watch_airports": "ghi",
+                "watch_airports_json": '[{"iata": "too-long", "phase": "bad"}]',
+            }
+        )
+
+        watch_airport = runtime_settings.watch_policy.watch_airports[0]
+        self.assertEqual(watch_airport.iata, "GHI")
+        self.assertEqual(watch_airport.phase, "ghi_route")
 
     def test_runtime_settings_keeps_explicit_route_fallback_for_other_airport(
         self,

@@ -73,6 +73,7 @@ from .const import (
     CONF_TERMINAL_AREA_RADIUS_KM,
     CONF_TERMINAL_SUPPRESSION_ENABLED,
     CONF_WATCH_AIRPORTS,
+    CONF_WATCH_AIRPORTS_JSON,
     CONF_WINDOW_VIEW_AZIMUTH_DEGREES,
     CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
     CONF_WINDOW_VIEW_LEAD_SECONDS,
@@ -322,6 +323,10 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
         vol.Required(
             CONF_WATCH_AIRPORTS,
             default=watch_airports_default,
+        ): str,
+        vol.Optional(
+            CONF_WATCH_AIRPORTS_JSON,
+            default=defaults.get(CONF_WATCH_AIRPORTS_JSON, ""),
         ): str,
         vol.Required(
             CONF_RAPID_DESCENT_FPM,

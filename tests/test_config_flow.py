@@ -140,6 +140,7 @@ class AircraftWindowConfigFlowTest(unittest.TestCase):
                 const.CONF_LOCAL_AIRPORT_NAME: "Custom Airport",
                 const.CONF_AIRPORT_BOARD_PROVIDER: "json_airport_board",
                 const.CONF_WATCH_AIRPORTS: "DEF",
+                const.CONF_WATCH_AIRPORTS_JSON: '{"ghi": {"phase": "ghi_watch"}}',
             },
             include_home_coordinates=False,
         )
@@ -153,6 +154,10 @@ class AircraftWindowConfigFlowTest(unittest.TestCase):
             "json_airport_board",
         )
         self.assertEqual(_field_default(schema, const.CONF_WATCH_AIRPORTS), "DEF")
+        self.assertEqual(
+            _field_default(schema, const.CONF_WATCH_AIRPORTS_JSON),
+            '{"ghi": {"phase": "ghi_watch"}}',
+        )
 
     def test_schema_limits_airport_board_provider_choices(self) -> None:
         schema = config_flow._schema({}, include_home_coordinates=False)

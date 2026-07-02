@@ -53,6 +53,9 @@ public owner or operator metadata can produce route-watch and
 The default Batumi profile keeps `KUT` as a watched airport for compatibility;
 other local airports start with no watched route airport unless `watch_airports`
 is set to a non-default value.
+Use `watch_airports_json` when a watched route endpoint needs a custom phase or
+reason label, for example
+`[{"iata": "DEF", "phase": "def_arrival_watch", "reason_label": "route includes DEF"}]`.
 If the local airport IATA is changed away from `BUS` and no custom local airport
 name is configured, the display name falls back to that IATA code instead of
 reusing Batumi.
