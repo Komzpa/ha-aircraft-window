@@ -1864,6 +1864,8 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         result = fake._scheduled_preopen_result(board, now=now)
 
         self.assertEqual(result["source"], "json_airport_board")
+        self.assertEqual(result["local_airport_iata"], "ABC")
+        self.assertEqual(result["local_airport_name"], "ABC")
 
     async def test_deadline_miss_does_not_cache_airport_board_error(self) -> None:
         class FailingSession:

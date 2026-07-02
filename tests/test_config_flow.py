@@ -122,12 +122,14 @@ class AircraftWindowConfigFlowTest(unittest.TestCase):
         schema = config_flow._schema(
             {
                 const.CONF_LOCAL_AIRPORT_IATA: "ABC",
+                const.CONF_LOCAL_AIRPORT_NAME: "Batumi",
                 const.CONF_AIRPORT_BOARD_PROVIDER: "batumi_airport_board",
                 const.CONF_WATCH_AIRPORTS: "KUT",
             },
             include_home_coordinates=False,
         )
 
+        self.assertEqual(_field_default(schema, const.CONF_LOCAL_AIRPORT_NAME), "ABC")
         self.assertEqual(_field_default(schema, const.CONF_AIRPORT_BOARD_PROVIDER), "")
         self.assertEqual(_field_default(schema, const.CONF_WATCH_AIRPORTS), "")
 
@@ -135,12 +137,17 @@ class AircraftWindowConfigFlowTest(unittest.TestCase):
         schema = config_flow._schema(
             {
                 const.CONF_LOCAL_AIRPORT_IATA: "ABC",
+                const.CONF_LOCAL_AIRPORT_NAME: "Custom Airport",
                 const.CONF_AIRPORT_BOARD_PROVIDER: "json_airport_board",
                 const.CONF_WATCH_AIRPORTS: "DEF",
             },
             include_home_coordinates=False,
         )
 
+        self.assertEqual(
+            _field_default(schema, const.CONF_LOCAL_AIRPORT_NAME),
+            "Custom Airport",
+        )
         self.assertEqual(
             _field_default(schema, const.CONF_AIRPORT_BOARD_PROVIDER),
             "json_airport_board",

@@ -393,6 +393,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
 
         self.assertEqual(runtime_settings.local_airport.iata, "ABC")
+        self.assertEqual(runtime_settings.local_airport.name, "ABC")
         self.assertEqual(runtime_settings.local_airport.board_provider, "")
         self.assertIsNone(runtime_settings.local_airport.terminal_area)
         self.assertEqual(runtime_settings.local_airport.runway_staging_areas, ())
@@ -418,6 +419,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         runtime_settings = settings_module.runtime_settings_from_options(
             {
                 "local_airport_iata": "ABC",
+                "local_airport_name": default_airport.name,
                 "airport_board_provider": default_airport.board_provider,
                 "terminal_area_latitude": default_terminal.latitude,
                 "terminal_area_longitude": default_terminal.longitude,
@@ -435,6 +437,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         )
 
         self.assertEqual(runtime_settings.local_airport.iata, "ABC")
+        self.assertEqual(runtime_settings.local_airport.name, "ABC")
         self.assertEqual(runtime_settings.local_airport.board_provider, "")
         self.assertIsNone(runtime_settings.local_airport.terminal_area)
         self.assertEqual(runtime_settings.local_airport.runway_staging_areas, ())

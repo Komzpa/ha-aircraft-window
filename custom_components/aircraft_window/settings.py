@@ -607,11 +607,14 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
         options.get(CONF_LOCAL_AIRPORT_IATA, default_airport.iata)
         or default_airport.iata
     ).strip().upper()
-    local_name = str(
-        options.get(CONF_LOCAL_AIRPORT_NAME, default_airport.name)
-        or default_airport.name
-    ).strip()
     default_local_airport = local_iata == default_airport.iata.upper()
+    local_name_default = default_airport.name if default_local_airport else local_iata
+    local_name = str(
+        options.get(CONF_LOCAL_AIRPORT_NAME, local_name_default)
+        or local_name_default
+    ).strip()
+    if not default_local_airport and local_name == default_airport.name:
+        local_name = local_iata
     board_provider_default = (
         default_airport.board_provider if default_local_airport else ""
     )

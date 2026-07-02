@@ -53,6 +53,9 @@ public owner or operator metadata can produce route-watch and
 The default Batumi profile keeps `KUT` as a watched airport for compatibility;
 other local airports start with no watched route airport unless `watch_airports`
 is set to a non-default value.
+If the local airport IATA is changed away from `BUS` and no custom local airport
+name is configured, the display name falls back to that IATA code instead of
+reusing Batumi.
 Built-in route-by-callsign fallbacks for local Batumi shuttle routes are also
 loaded only for the default Batumi profile; other local airports use only their
 explicit `route_callsign_overrides_json` route fallbacks.
@@ -198,6 +201,8 @@ For airport boards beyond the built-in Batumi provider, set the
 `{"data": {"flights": [...]}}` or `{"flights": [...]}` using the same row fields
 as the built-in board path. The provider option is limited to disabled,
 `batumi_airport_board`, or `json_airport_board`.
+The schedule preopen sensor and binary sensor attributes include the configured
+local airport IATA/name and the board provider source used for the decision.
 
 The same enrichment is used for special-interest matching and service
 classification. Military detection is best-effort and conservative: it uses

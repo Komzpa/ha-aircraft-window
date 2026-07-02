@@ -122,6 +122,15 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
         or default_airport.iata
     ).strip().upper()
     default_local_airport = default_profile_iata == default_airport.iata.upper()
+    local_airport_name_default = defaults.get(
+        CONF_LOCAL_AIRPORT_NAME,
+        default_airport.name if default_local_airport else default_profile_iata,
+    )
+    if (
+        not default_local_airport
+        and str(local_airport_name_default).strip() == default_airport.name
+    ):
+        local_airport_name_default = default_profile_iata
     airport_board_provider_default = defaults.get(
         CONF_AIRPORT_BOARD_PROVIDER,
         default_airport.board_provider if default_local_airport else "",
@@ -178,7 +187,7 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
         ): str,
         vol.Required(
             CONF_LOCAL_AIRPORT_NAME,
-            default=defaults.get(CONF_LOCAL_AIRPORT_NAME, default_airport.name),
+            default=local_airport_name_default,
         ): str,
         vol.Required(
             CONF_LOCAL_TIMEZONE_OFFSET_HOURS,

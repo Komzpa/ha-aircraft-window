@@ -42,7 +42,8 @@ Current assumptions and status:
   `BATUMI_AIRPORT_BOARD_LEGS`, and `TBILISI_TIMEZONE`, but runtime reads go
   through `runtime_settings`.
 - Basic local airport IATA/name/timezone are configurable through Home
-  Assistant config/options.
+  Assistant config/options. Non-Batumi profiles without a custom name fall back
+  to their configured IATA code instead of inheriting the Batumi display name.
 - `airport_board_provider` is a constrained option backed by the provider
   registry in `board_providers.py`. It can be disabled for generic installs.
   The Batumi board is only used when that provider is `batumi_airport_board`;
@@ -51,7 +52,8 @@ Current assumptions and status:
   endpoint, so non-Batumi installs can integrate their own adapter/proxy without
   patching Python.
 - Schedule sensor/binary-sensor docstrings and README now say configured-airport
-  departure while keeping the existing entity IDs.
+  departure while keeping the existing entity IDs, and schedule attributes expose
+  the configured local airport IATA/name plus provider source.
 - Batumi board callsign-prefix mapping and row matching now live in
   `custom_components/aircraft_window/board_providers.py`.
 - Built-in callsign and known-route fallbacks live in
@@ -204,7 +206,8 @@ Target shape:
 
 - Keep existing entity IDs for compatibility.
 - Update names/docs to say "configured airport" where possible.
-- Surface configured airport IATA/name in schedule entity attributes.
+- Keep configured airport IATA/name/provider visible in schedule entity
+  attributes.
 
 ## Recommended Refactor Order
 
