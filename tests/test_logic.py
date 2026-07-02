@@ -1001,6 +1001,80 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(candidate.phase, "special_interest")
         self.assertEqual(candidate.interest_type, "rapid_descent")
 
+    def test_batumi_arrival_turn_is_not_orbit_special_interest(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "738285",
+                "flight": "ISR885",
+                "alt_baro": 5200,
+                "track_rate": 3.1,
+                "gs": 180,
+                "seen": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={
+                "airline_name": "Israir Airlines",
+                "origin_iata": "TLV",
+                "origin_name": "Tel Aviv",
+                "destination_iata": "BUS",
+                "destination_name": "Batumi (BUS)",
+                "destination_speech": "Батуми",
+                "route_summary": "TLV → BUS",
+                "service_type": "passenger",
+            },
+        )
+
+        self.assertIsNone(candidate)
+
+    def test_batumi_departure_turn_is_not_orbit_special_interest(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "738285",
+                "flight": "ISR414",
+                "alt_baro": 5200,
+                "track_rate": -3.1,
+                "gs": 180,
+                "seen": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={
+                "airline_name": "Israir Airlines",
+                "origin_iata": "BUS",
+                "origin_name": "Batumi (BUS)",
+                "origin_speech": "Батуми",
+                "destination_iata": "TLV",
+                "destination_name": "Tel Aviv",
+                "route_summary": "BUS → TLV",
+                "service_type": "passenger",
+            },
+        )
+
+        self.assertIsNone(candidate)
+
+    def test_non_batumi_turn_stays_orbit_special_interest(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "abc123",
+                "flight": "TST123",
+                "alt_baro": 5200,
+                "track_rate": 3.1,
+                "gs": 180,
+                "seen": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={"service_type": "unknown"},
+        )
+
+        assert candidate is not None
+        self.assertEqual(candidate.phase, "special_interest")
+        self.assertEqual(candidate.interest_type, "orbiting")
+
     def test_emergency_squawk_on_batumi_arrival_stays_special_interest(self) -> None:
         candidate = logic.interest_candidate(
             {
