@@ -1030,6 +1030,26 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertIsNone(candidate)
 
+    def test_rapid_descent_in_local_terminal_area_is_not_special_interest(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "abc123",
+                "flight": "TST123",
+                "lat": 41.68,
+                "lon": 41.68,
+                "alt_baro": 4200,
+                "baro_rate": -4200,
+                "seen": 1.0,
+                "seen_pos": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={"service_type": "unknown"},
+        )
+
+        self.assertIsNone(candidate)
+
     def test_rapid_descent_without_arrival_context_stays_special_interest(self) -> None:
         candidate = logic.interest_candidate(
             {
@@ -1149,6 +1169,27 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "spoken_flight": "восемь восемь пять",
                 "service_type": "unknown",
             },
+        )
+
+        self.assertIsNone(candidate)
+
+    def test_turn_in_local_terminal_area_is_not_orbit_special_interest(self) -> None:
+        candidate = logic.interest_candidate(
+            {
+                "hex": "abc123",
+                "flight": "TST123",
+                "lat": 41.68,
+                "lon": 41.68,
+                "alt_baro": 5200,
+                "track_rate": 3.1,
+                "gs": 180,
+                "seen": 1.0,
+                "seen_pos": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            enrichment={"service_type": "unknown"},
         )
 
         self.assertIsNone(candidate)

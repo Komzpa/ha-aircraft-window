@@ -985,6 +985,8 @@ BATUMI_RUNWAY_STAGING_LON = 41.6004
 DEFAULT_RUNWAY_STAGING_RADIUS_KM = 3.0
 DEFAULT_RUNWAY_STAGING_MAX_ALTITUDE_FT = 500.0
 DEFAULT_RUNWAY_STAGING_MAX_SPEED_KT = 45.0
+DEFAULT_TERMINAL_AREA_RADIUS_KM = 55.0
+DEFAULT_TERMINAL_AREA_MAX_ALTITUDE_FT = 10000.0
 FEET_TO_KILOMETERS = 0.0003048
 WINDOW_VIEW_POLYGON_LON_LAT = (
     (41.5906258, 41.6211806),
@@ -1789,6 +1791,29 @@ def _has_routine_transport_context(enrichment: dict[str, Any]) -> bool:
     return has_route_details(enrichment) or has_transport_aircraft_model(enrichment)
 
 
+def _is_local_terminal_area(aircraft: dict[str, Any]) -> bool:
+    """Return true when the aircraft is in the normal local terminal area."""
+    lat = parse_float(aircraft.get("lat"))
+    lon = parse_float(aircraft.get("lon"))
+    altitude = altitude_ft(aircraft)
+    if lat is None or lon is None or altitude is None:
+        return False
+    if altitude > DEFAULT_TERMINAL_AREA_MAX_ALTITUDE_FT:
+        return False
+    return (
+        haversine_km(BATUMI_RUNWAY_STAGING_LAT, BATUMI_RUNWAY_STAGING_LON, lat, lon)
+        <= DEFAULT_TERMINAL_AREA_RADIUS_KM
+    )
+
+
+def _has_routine_terminal_context(
+    aircraft: dict[str, Any],
+    enrichment: dict[str, Any],
+) -> bool:
+    """Return true when a kinematic-only signal is expected terminal traffic."""
+    return _has_routine_transport_context(enrichment) or _is_local_terminal_area(aircraft)
+
+
 def classify_special_interest(
     aircraft: dict[str, Any],
     enrichment: dict[str, Any],
@@ -1799,7 +1824,7 @@ def classify_special_interest(
     if vertical_rate is not None and vertical_rate <= -3500 and (
         altitude is None or altitude >= 1000
     ):
-        if _has_routine_transport_context(enrichment):
+        if _has_routine_terminal_context(aircraft, enrichment):
             return None
         label = "резкое снижение"
         return (
@@ -1826,7 +1851,7 @@ def classify_special_interest(
         and ground_speed is not None
         and 60 <= ground_speed <= 260
     ):
-        if _has_routine_transport_context(enrichment):
+        if _has_routine_terminal_context(aircraft, enrichment):
             return None
         return (
             "orbiting",
