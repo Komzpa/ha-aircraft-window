@@ -219,7 +219,9 @@ as the built-in board path. The provider option is limited to disabled,
 provider id still contain `batumi` for Home Assistant storage compatibility; the
 bundled provider defaults live in `data/default_airport_profile.json`, and new
 installations should treat them as one profile's board provider, not as a generic
-airport template.
+airport template. Provider titles, cache prefixes, and built-in callsign-prefix
+to board-airline mappings live in
+`custom_components/aircraft_window/data/airport_board_providers.json`.
 The schedule preopen sensor and binary sensor attributes include the configured
 local airport IATA/name and the board provider source used for the decision.
 

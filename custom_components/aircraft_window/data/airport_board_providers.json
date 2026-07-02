@@ -1,0 +1,34 @@
+{
+  "providers": [
+    {
+      "provider_id": "",
+      "title": "Disabled"
+    },
+    {
+      "provider_id": "batumi_airport_board",
+      "title": "Built-in airport board",
+      "cache_prefix": "batumi-airport-board:",
+      "callsign_prefix_to_board_airline": {
+        "AIZ": "IZ",
+        "AHY": "J2",
+        "BRU": "B2",
+        "ELY": "LY",
+        "FDB": "FZ",
+        "FIA": "3F",
+        "FIE": "3F",
+        "ISR": "6H",
+        "PGT": "PC",
+        "RWZ": "WZ",
+        "THY": "TK",
+        "TGZ": "A9",
+        "VAA": "V9",
+        "WZZ": "W6"
+      }
+    },
+    {
+      "provider_id": "json_airport_board",
+      "title": "Canonical JSON airport board",
+      "cache_prefix": "airport-board:"
+    }
+  ]
+}

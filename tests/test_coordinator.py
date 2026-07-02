@@ -83,6 +83,7 @@ _stub_homeassistant_modules()
 _load_component_module("const")
 settings = _load_component_module("settings")
 _load_component_module("logic")
+board_providers = _load_component_module("board_providers")
 coordinator = _load_component_module("coordinator")
 
 
@@ -1212,6 +1213,22 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(coordinator.is_airport_board_provider("json_airport_board"))
         self.assertFalse(coordinator.is_airport_board_provider(""))
         self.assertFalse(coordinator.is_airport_board_provider("unknown_board"))
+
+    def test_airport_board_providers_load_from_package_data(self) -> None:
+        providers = board_providers.load_airport_board_providers_from_data_file()
+        provider_by_id = {provider.provider_id: provider for provider in providers}
+
+        self.assertEqual(
+            provider_by_id["batumi_airport_board"].title,
+            "Built-in airport board",
+        )
+        self.assertEqual(
+            provider_by_id["batumi_airport_board"].callsign_prefix_to_board_airline[
+                "FIE"
+            ],
+            "3F",
+        )
+        self.assertEqual(provider_by_id["json_airport_board"].cache_prefix, "airport-board:")
 
     def test_batumi_board_match_maps_flyone_callsign_prefix_to_board_code(self) -> None:
         board = {

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from .logic import normalized_airport_city
@@ -11,12 +13,7 @@ from .logic import normalized_airport_city
 BATUMI_AIRPORT_BOARD_PROVIDER = "batumi_airport_board"
 JSON_AIRPORT_BOARD_PROVIDER = "json_airport_board"
 DISABLED_AIRPORT_BOARD_PROVIDER = ""
-BATUMI_AIRPORT_BOARD_CACHE_PREFIX = "batumi-airport-board:"
-GENERIC_AIRPORT_BOARD_CACHE_PREFIX = "airport-board:"
-AIRPORT_BOARD_CACHE_PREFIXES = (
-    BATUMI_AIRPORT_BOARD_CACHE_PREFIX,
-    GENERIC_AIRPORT_BOARD_CACHE_PREFIX,
-)
+AIRPORT_BOARD_PROVIDERS_DATA_FILE = "data/airport_board_providers.json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,37 +22,87 @@ class AirportBoardProvider:
 
     provider_id: str
     title: str
+    cache_prefix: str = ""
+    callsign_prefix_to_board_airline: dict[str, str] | None = None
 
 
-AIRPORT_BOARD_PROVIDERS = (
-    AirportBoardProvider(DISABLED_AIRPORT_BOARD_PROVIDER, "Disabled"),
-    AirportBoardProvider(BATUMI_AIRPORT_BOARD_PROVIDER, "Built-in airport board"),
-    AirportBoardProvider(JSON_AIRPORT_BOARD_PROVIDER, "Canonical JSON airport board"),
-)
+def _load_board_provider_data_file(filename: str) -> Any:
+    """Load one packaged airport-board provider data JSON file."""
+    raw_text = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
+    return json.loads(raw_text)
+
+
+def load_airport_board_providers_from_data_file(
+    filename: str = AIRPORT_BOARD_PROVIDERS_DATA_FILE,
+) -> tuple[AirportBoardProvider, ...]:
+    """Load built-in airport-board provider descriptors from packaged data."""
+    raw_data = _load_board_provider_data_file(filename)
+    if not isinstance(raw_data, dict):
+        return ()
+    raw_providers = raw_data.get("providers")
+    if not isinstance(raw_providers, list):
+        return ()
+    providers: list[AirportBoardProvider] = []
+    for raw_provider in raw_providers:
+        if not isinstance(raw_provider, dict):
+            continue
+        provider_id = str(raw_provider.get("provider_id", "")).strip()
+        title = str(raw_provider.get("title") or provider_id or "Disabled").strip()
+        raw_prefix_map = raw_provider.get("callsign_prefix_to_board_airline")
+        prefix_map = (
+            {
+                str(key).strip().upper(): str(value).strip().upper()
+                for key, value in raw_prefix_map.items()
+                if str(key).strip() and str(value).strip()
+            }
+            if isinstance(raw_prefix_map, dict)
+            else {}
+        )
+        providers.append(
+            AirportBoardProvider(
+                provider_id=provider_id,
+                title=title,
+                cache_prefix=str(raw_provider.get("cache_prefix") or "").strip(),
+                callsign_prefix_to_board_airline=prefix_map,
+            )
+        )
+    return tuple(providers)
+
+
+AIRPORT_BOARD_PROVIDERS = load_airport_board_providers_from_data_file()
 AIRPORT_BOARD_PROVIDER_IDS = tuple(provider.provider_id for provider in AIRPORT_BOARD_PROVIDERS)
+AIRPORT_BOARD_PROVIDERS_BY_ID = {
+    provider.provider_id: provider for provider in AIRPORT_BOARD_PROVIDERS
+}
+BATUMI_AIRPORT_BOARD_CACHE_PREFIX = (
+    AIRPORT_BOARD_PROVIDERS_BY_ID.get(
+        BATUMI_AIRPORT_BOARD_PROVIDER,
+        AirportBoardProvider(BATUMI_AIRPORT_BOARD_PROVIDER, ""),
+    ).cache_prefix
+    or "batumi-airport-board:"
+)
+GENERIC_AIRPORT_BOARD_CACHE_PREFIX = (
+    AIRPORT_BOARD_PROVIDERS_BY_ID.get(
+        JSON_AIRPORT_BOARD_PROVIDER,
+        AirportBoardProvider(JSON_AIRPORT_BOARD_PROVIDER, ""),
+    ).cache_prefix
+    or "airport-board:"
+)
+AIRPORT_BOARD_CACHE_PREFIXES = tuple(
+    dict.fromkeys(
+        prefix
+        for prefix in (
+            *(provider.cache_prefix for provider in AIRPORT_BOARD_PROVIDERS),
+            GENERIC_AIRPORT_BOARD_CACHE_PREFIX,
+        )
+        if prefix
+    )
+)
 
 
 def is_airport_board_provider(provider_id: str) -> bool:
     """Return true when the provider id is supported and enabled."""
-    return provider_id in {BATUMI_AIRPORT_BOARD_PROVIDER, JSON_AIRPORT_BOARD_PROVIDER}
-
-
-BATUMI_CALLSIGN_PREFIX_TO_BOARD_AIRLINE = {
-    "AIZ": "IZ",
-    "AHY": "J2",
-    "BRU": "B2",
-    "ELY": "LY",
-    "FDB": "FZ",
-    "FIA": "3F",
-    "FIE": "3F",
-    "ISR": "6H",
-    "PGT": "PC",
-    "RWZ": "WZ",
-    "THY": "TK",
-    "TGZ": "A9",
-    "VAA": "V9",
-    "WZZ": "W6",
-}
+    return bool(provider_id) and provider_id in AIRPORT_BOARD_PROVIDERS_BY_ID
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,11 +184,9 @@ def match_airport_board_row(
     if not match:
         return {}
     prefix, number = match.groups()
-    board_airline = (
-        BATUMI_CALLSIGN_PREFIX_TO_BOARD_AIRLINE.get(prefix, prefix)
-        if provider_id == BATUMI_AIRPORT_BOARD_PROVIDER
-        else prefix
-    )
+    provider = AIRPORT_BOARD_PROVIDERS_BY_ID.get(provider_id)
+    prefix_map = provider.callsign_prefix_to_board_airline if provider else {}
+    board_airline = (prefix_map or {}).get(prefix, prefix)
     rows = (((payload.get("data") or {}).get("flights")) or [])
     if not isinstance(rows, list):
         return {}
