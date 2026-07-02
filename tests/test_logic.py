@@ -1380,6 +1380,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "Скандинавские авиалинии",
         )
         self.assertEqual(logic.airline_speech("Asiana Airlines"), "Азиана")
+        self.assertEqual(logic.airline_speech("Korean Air"), "Кореан Эйр")
         self.assertTrue(logic.has_airline_speech_mapping("JAZEERA AİRWAYS"))
         self.assertEqual(logic.airline_speech("Carpatair"), "Карпатэйр")
         self.assertEqual(
@@ -1586,6 +1587,23 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "Кувейт",
         )
         live_gap_airports = [
+            ("PVG", "Shanghai (Pudong)", "Шанхая, Пудун", "Шанхай, Пудун", "Шанхай, Пудун"),
+            ("ULN", "Ulaanbaatar", "Улан-Батора", "Улан-Батор", "Улан-Батор"),
+            (
+                "CDG",
+                "Paris",
+                "Парижа, Шарль-де-Голль",
+                "Париж, Шарль-де-Голль",
+                "Париж, Шарль-де-Голль",
+            ),
+            (
+                "MRV",
+                "Mineralnyye Vody",
+                "Минеральных Вод",
+                "Минеральные Воды",
+                "Минеральные Воды",
+            ),
+            ("UFA", "Ufa", "Уфы", "Уфу", "Уфа"),
             ("ICN", "Seoul", "Сеула", "Сеул", "Сеул"),
             ("CPH", "Copenhagen", "Копенгагена", "Копенгаген", "Копенгаген"),
             ("TIA", "Tirana", "Тираны", "Тирану", "Тирана"),
