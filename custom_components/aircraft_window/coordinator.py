@@ -19,6 +19,15 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
+from .board_providers import (
+    AIRPORT_BOARD_CACHE_PREFIXES,
+    BATUMI_AIRPORT_BOARD_PROVIDER,
+    airport_board_cache_key,
+    airport_board_city,
+    airport_board_leg_for_phase,
+    batumi_airport_board_leg_request,
+    match_airport_board_row,
+)
 from .const import (
     CONF_BACKGROUND_INTERVAL_SECONDS,
     CONF_COLLECT_MAPPING_REVIEW,
@@ -113,7 +122,7 @@ def _cache_entry_ttl_seconds(key: str, entry: dict[str, Any]) -> int | None:
     """Return the effective TTL for a persistent cache entry."""
     if key == MAPPING_REVIEW_CACHE_KEY:
         return None
-    if key.startswith("batumi-airport-board:"):
+    if key.startswith(AIRPORT_BOARD_CACHE_PREFIXES):
         return AIRPORT_BOARD_CACHE_SECONDS
     if key.startswith("airport-data-year:"):
         return BUILT_YEAR_CACHE_SECONDS
@@ -199,24 +208,6 @@ def _mapping_review_airport_value(name: str, code: str) -> str:
     if code and name and f"({code})" not in name.upper():
         return f"{name} ({code})"
     return name or code
-
-
-CALLSIGN_PREFIX_TO_BOARD_AIRLINE = {
-    "AIZ": "IZ",
-    "AHY": "J2",
-    "BRU": "B2",
-    "ELY": "LY",
-    "FDB": "FZ",
-    "FIA": "3F",
-    "FIE": "3F",
-    "ISR": "6H",
-    "PGT": "PC",
-    "RWZ": "WZ",
-    "THY": "TK",
-    "TGZ": "A9",
-    "VAA": "V9",
-    "WZZ": "W6",
-}
 
 
 @dataclass(slots=True)
@@ -1002,18 +993,21 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         await self._async_save_cache()
         return payload
 
-    async def _async_batumi_airport_board_leg(
+    async def _async_airport_board_leg(
         self,
         session: aiohttp.ClientSession,
         *,
+        provider_id: str,
         today: str,
         flight_leg: str,
         request_raw_url: str,
         cache_only: bool = False,
         deadline: float | None = None,
     ) -> dict[str, Any]:
-        """Return one Batumi Airport live-board leg."""
-        cache_key = f"batumi-airport-board:{today}:{flight_leg.lower()}"
+        """Return one live-board leg for the configured provider."""
+        if provider_id != BATUMI_AIRPORT_BOARD_PROVIDER:
+            return {}
+        cache_key = airport_board_cache_key(provider_id, today, flight_leg)
         cache = await self._async_cache()
         now = int(time.time())
         cached = cache.get(cache_key)
@@ -1033,24 +1027,18 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             if remaining < MIN_EXTERNAL_LOOKUP_TIMEOUT_SECONDS:
                 return {}
             request_timeout = min(request_timeout, remaining)
-        params = {
-            "flightLeg": flight_leg,
-            "date": today,
-            "destination": "",
-            "airline": "",
-            "requestRawUrl": request_raw_url,
-        }
         providers = self.runtime_settings.providers
+        request = batumi_airport_board_leg_request(
+            base_url=providers.batumi_airport_board_base_url,
+            today=today,
+            flight_leg=flight_leg,
+            request_raw_url=request_raw_url,
+        )
         try:
             async with session.get(
-                providers.batumi_airport_board_base_url,
-                params=params,
-                headers={
-                    "Accept": "application/json, text/javascript, */*; q=0.01",
-                    "Referer": f"https://batumiairport.com{request_raw_url}",
-                    "User-Agent": "HomeAssistantAircraftWindow/1.0",
-                    "X-Requested-With": "XMLHttpRequest",
-                },
+                request.url,
+                params=request.params,
+                headers=request.headers,
                 timeout=aiohttp.ClientTimeout(total=request_timeout),
             ) as response:
                 response.raise_for_status()
@@ -1061,15 +1049,16 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         await self._async_save_cache()
         return payload
 
-    async def _async_batumi_airport_board(
+    async def _async_airport_board(
         self,
         session: aiohttp.ClientSession,
         *,
         cache_only: bool = False,
         deadline: float | None = None,
     ) -> dict[str, Any]:
-        """Return the current Batumi Airport live board for arrivals and departures."""
-        if self.runtime_settings.local_airport.board_provider != "batumi_airport_board":
+        """Return the current configured airport live board."""
+        provider_id = self.runtime_settings.local_airport.board_provider
+        if provider_id != BATUMI_AIRPORT_BOARD_PROVIDER:
             return {}
         today = datetime.now(self.runtime_settings.local_airport.timezone).strftime("%d.%m.%Y")
         flights: list[dict[str, Any]] = []
@@ -1077,8 +1066,9 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         for flight_leg, request_raw_url in (
             self.runtime_settings.providers.batumi_airport_board_legs.items()
         ):
-            payload = await self._async_batumi_airport_board_leg(
+            payload = await self._async_airport_board_leg(
                 session,
+                provider_id=provider_id,
                 today=today,
                 flight_leg=flight_leg,
                 request_raw_url=request_raw_url,
@@ -1100,75 +1090,23 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         *,
         preferred_leg: str = "",
     ) -> dict[str, Any]:
-        """Match a callsign to a Batumi Airport board row."""
-        token = flight.strip().replace(" ", "").upper()
-        match = re.fullmatch(r"([A-Z]{2,3})([A-Z0-9]+)", token)
-        if not match:
-            return {}
-        prefix, number = match.groups()
-        board_airline = CALLSIGN_PREFIX_TO_BOARD_AIRLINE.get(prefix, prefix)
-        rows = (((payload.get("data") or {}).get("flights")) or [])
-        if not isinstance(rows, list):
-            return {}
-        matches: list[dict[str, Any]] = []
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            if str(row.get("flightNumber") or "").strip().upper().lstrip("0") != number.lstrip("0"):
-                continue
-            airline_iata = str(row.get("airlineIata") or "").strip().upper()
-            airline_icao = str(row.get("airlineIcao") or "").strip().upper()
-            if board_airline not in {airline_iata, airline_icao} and prefix not in {
-                airline_iata,
-                airline_icao,
-            }:
-                continue
-            matches.append(row)
-        if preferred_leg:
-            for row in matches:
-                if str(row.get("flightLeg") or "").strip().upper() == preferred_leg:
-                    return row
-        if matches:
-            if preferred_leg:
-                return {}
-            for row in matches:
-                if str(row.get("flightLeg") or "").strip().upper() == "DEPARTURE":
-                    return row
-            return matches[0]
-
-        suffix_has_digits = any(char.isdigit() for char in number)
-        suffix_is_numeric = number.isdigit()
-        if suffix_has_digits and not suffix_is_numeric and preferred_leg:
-            airline_leg_matches = [
-                row
-                for row in rows
-                if isinstance(row, dict)
-                and str(row.get("flightLeg") or "").strip().upper() == preferred_leg
-                and (
-                    board_airline
-                    in {
-                        str(row.get("airlineIata") or "").strip().upper(),
-                        str(row.get("airlineIcao") or "").strip().upper(),
-                    }
-                    or prefix
-                    in {
-                        str(row.get("airlineIata") or "").strip().upper(),
-                        str(row.get("airlineIcao") or "").strip().upper(),
-                    }
-                )
-            ]
-            if len(airline_leg_matches) == 1:
-                return airline_leg_matches[0]
-        return {}
+        """Match a callsign to a configured airport board row."""
+        provider_id = getattr(
+            getattr(self.runtime_settings, "local_airport", None),
+            "board_provider",
+            BATUMI_AIRPORT_BOARD_PROVIDER,
+        )
+        return match_airport_board_row(
+            payload,
+            flight,
+            provider_id=provider_id or BATUMI_AIRPORT_BOARD_PROVIDER,
+            preferred_leg=preferred_leg,
+        )
 
     @staticmethod
     def _airport_board_leg_for_phase(phase: str) -> str:
         """Return the board leg that matches a candidate movement phase."""
-        if phase in {"positioned_landing", "positioned_approach"}:
-            return "ARRIVAL"
-        if phase == "positioned_takeoff":
-            return "DEPARTURE"
-        return ""
+        return airport_board_leg_for_phase(phase)
 
     def _route_matches_local_phase(
         self,
@@ -1186,16 +1124,6 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             return origin == local_iata
         return True
 
-    @staticmethod
-    def _airport_board_city(data: dict[str, Any], key: str, suffix: str) -> str:
-        """Return a compact city label from Batumi Airport board path data."""
-        value = str(data.get(f"{key}En") or data.get(f"{key}Iata") or "").strip()
-        if not value:
-            return ""
-        city = normalized_airport_city(value)
-        iata = str(data.get(f"{key}Iata") or "").strip()
-        return f"{city} ({iata})" if iata and iata not in city else city
-
     def _apply_airport_board_route(
         self,
         attrs: dict[str, Any],
@@ -1203,7 +1131,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         *,
         phase: str = "",
     ) -> None:
-        """Apply route fields from a matched Batumi Airport board row."""
+        """Apply route fields from a matched airport board row."""
         path = row.get("path") if isinstance(row.get("path"), dict) else {}
         origin = path.get("origin") if isinstance(path.get("origin"), dict) else {}
         destination = path.get("destination") if isinstance(path.get("destination"), dict) else {}
@@ -1219,7 +1147,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             return
         attrs["airline_name"] = str(row.get("airlineName") or attrs["airline_name"]).strip()
         attrs["origin_iata"] = origin_iata
-        attrs["origin_name"] = self._airport_board_city(origin, "origin", "from")
+        attrs["origin_name"] = airport_board_city(origin, "origin")
         attrs["origin_speech"] = airport_speech(
             {
                 "iata_code": attrs["origin_iata"],
@@ -1228,7 +1156,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
             direction="from",
         )
         attrs["destination_iata"] = destination_iata
-        attrs["destination_name"] = self._airport_board_city(destination, "destination", "to")
+        attrs["destination_name"] = airport_board_city(destination, "destination")
         attrs["destination_speech"] = airport_speech(
             {
                 "iata_code": attrs["destination_iata"],
@@ -1238,7 +1166,9 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         )
         if attrs["origin_iata"] and attrs["destination_iata"]:
             attrs["route_summary"] = f"{attrs['origin_iata']} → {attrs['destination_iata']}"
-        attrs["route_source"] = "batumi_airport_board"
+        attrs["route_source"] = (
+            self.runtime_settings.local_airport.board_provider or "airport_board"
+        )
         attrs["scheduled_departure_local"] = str(row.get("stad") or "")[11:16]
         attrs["airport_board_remark"] = str((row.get("remark") or {}).get("remarkEn") or "")
         attrs["airport_board_estimated_local"] = str(row.get("etad") or "")
@@ -1246,7 +1176,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
 
     @staticmethod
     def _row_iata(row: dict[str, Any], direction: str) -> str:
-        """Return origin or destination IATA from a Batumi Airport board row."""
+        """Return origin or destination IATA from an airport board row."""
         path = row.get("path") if isinstance(row.get("path"), dict) else {}
         data = path.get(direction) if isinstance(path.get(direction), dict) else {}
         key = f"{direction}Iata"
@@ -1254,7 +1184,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
 
     @staticmethod
     def _row_airport_name(row: dict[str, Any], direction: str) -> str:
-        """Return origin or destination label from a Batumi Airport board row."""
+        """Return origin or destination label from an airport board row."""
         path = row.get("path") if isinstance(row.get("path"), dict) else {}
         data = path.get(direction) if isinstance(path.get(direction), dict) else {}
         key = f"{direction}En"
@@ -1488,7 +1418,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
 
         session = async_get_clientsession(self.hass)
         if flight and flight != "UNKNOWN" and not flight.lower().startswith(hex_id.lower()):
-            board = await self._async_batumi_airport_board(
+            board = await self._async_airport_board(
                 session,
                 cache_only=cache_only,
                 deadline=deadline,
@@ -1513,7 +1443,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 deadline=deadline,
             )
             route = ((route_payload or {}).get("response") or {}).get("flightroute")
-            if isinstance(route, dict) and attrs["route_source"] != "batumi_airport_board":
+            board_source = self.runtime_settings.local_airport.board_provider or "airport_board"
+            if isinstance(route, dict) and attrs["route_source"] != board_source:
                 airline = route.get("airline") if isinstance(route.get("airline"), dict) else {}
                 origin = route.get("origin") if isinstance(route.get("origin"), dict) else {}
                 destination = (
@@ -1768,7 +1699,7 @@ class EnrichmentPrefetchCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             else await self.aircraft._async_mapping_review_items()
         )
         elapsed_ms = round((time.monotonic() - started) * 1000)
-        board = await self.aircraft._async_batumi_airport_board(
+        board = await self.aircraft._async_airport_board(
             session,
             cache_only=False,
             deadline=deadline,

@@ -874,21 +874,22 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(events[0][1]["announcement"], with_route.announcement)
         self.assertNotIn("Дополнение", events[0][1]["announcement"])
 
-    async def test_batumi_board_fetches_arrival_and_departure_rows(self) -> None:
+    async def test_airport_board_fetches_arrival_and_departure_rows(self) -> None:
         calls: list[str] = []
 
         class FakeCoordinator(coordinator.AircraftWindowCoordinator):
-            async def _async_batumi_airport_board_leg(
+            async def _async_airport_board_leg(
                 self,
                 _session: object,
                 *,
+                provider_id: str,
                 today: str,
                 flight_leg: str,
                 request_raw_url: str,
                 cache_only: bool = False,
                 deadline: float | None = None,
             ) -> dict[str, Any]:
-                calls.append(f"{flight_leg}:{request_raw_url}:{today}")
+                calls.append(f"{provider_id}:{flight_leg}:{request_raw_url}:{today}")
                 return {
                     "data": {
                         "currentTime": "10.05.2026 15:00",
@@ -904,11 +905,19 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
                 }
 
         fake = FakeCoordinator.__new__(FakeCoordinator)
-        board = await fake._async_batumi_airport_board(object())
+        board = await fake._async_airport_board(object())
 
         self.assertEqual(len(calls), 2)
-        self.assertTrue(calls[0].startswith("DEPARTURE:/en-EN/flights/departure-flights:"))
-        self.assertTrue(calls[1].startswith("ARRIVAL:/en-EN/flights/arrival-flights:"))
+        self.assertTrue(
+            calls[0].startswith(
+                "batumi_airport_board:DEPARTURE:/en-EN/flights/departure-flights:"
+            )
+        )
+        self.assertTrue(
+            calls[1].startswith(
+                "batumi_airport_board:ARRIVAL:/en-EN/flights/arrival-flights:"
+            )
+        )
         self.assertEqual(len(board["data"]["flights"]), 2)
         self.assertEqual(
             fake._airport_board_match(board, "RWZ568", preferred_leg="DEPARTURE")["flightLeg"],
@@ -928,7 +937,7 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             ),
         )
 
-        board = await fake._async_batumi_airport_board(object())
+        board = await fake._async_airport_board(object())
 
         self.assertEqual(board, {})
 
@@ -1110,7 +1119,7 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         ) -> None:
             return None
 
-        fake._async_batumi_airport_board = board
+        fake._async_airport_board = board
         fake._async_get_json = get_json
         fake._async_airport_data_year = built_year
 
@@ -1482,8 +1491,9 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         fake._async_cache = load_cache
         fake._async_save_cache = save_cache
 
-        result = await fake._async_batumi_airport_board_leg(
+        result = await fake._async_airport_board_leg(
             FailingSession(),
+            provider_id="batumi_airport_board",
             today="20.05.2026",
             flight_leg="DEPARTURE",
             request_raw_url="/en-EN/flights/departure-flights",

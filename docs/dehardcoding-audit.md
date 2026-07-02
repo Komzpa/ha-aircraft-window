@@ -46,7 +46,8 @@ Current assumptions and status:
   board is only used when that provider is `batumi_airport_board`.
 - Schedule sensor/binary-sensor docstrings and README now say configured-airport
   departure while keeping the existing entity IDs.
-- `CALLSIGN_PREFIX_TO_BOARD_AIRLINE` is tuned for the Batumi airport board.
+- Batumi board callsign-prefix mapping and row matching now live in
+  `custom_components/aircraft_window/board_providers.py`.
 - Built-in callsign and known-route fallbacks live in
   `custom_components/aircraft_window/route_fallbacks.py`; the current default
   data still includes Vanilla Sky `BUS <-> Natakhtari`.
@@ -185,7 +186,9 @@ Target shape:
    provider URL, timezone, and local airport IATA reads through those settings
    helpers while keeping current defaults.
 3. Partly done: Batumi airport board usage is optional through
-   `airport_board_provider`; a full provider abstraction is still pending.
+   `airport_board_provider`, and provider-specific row matching/fetch helpers
+   are split into `board_providers.py`. A fully generic multi-provider
+   registry/config surface is still pending.
 4. Done: expose configured `watch_airports`, local airport, and basic view
    profile through config/options.
 5. Partly done: add `RussianSpeechPack`, override merge points, and move the
