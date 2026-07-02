@@ -209,6 +209,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "airport_board_cache_seconds": 42,
                 "batumi_airport_board_base_url": "https://example.invalid/board/",
                 "json_airport_board_url": "https://example.invalid/canonical-board/",
+                "speech_locale": "ru",
                 "speech_airline_overrides_json": '{"New Visible Air": "Нью Визибл"}',
                 "speech_airline_alias_overrides_json": '{"Visible Airways": "Визибл"}',
                 "speech_airport_code_from_overrides_json": '{"XYZ": "Иксвайзеда"}',
@@ -233,6 +234,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertEqual(runtime_settings.local_airport.iata, "ABC")
         self.assertEqual(runtime_settings.local_airport.name, "Config Airport")
+        self.assertEqual(runtime_settings.speech_locale, "ru")
         self.assertEqual(runtime_settings.local_airport.board_provider, "custom_board")
         self.assertEqual(
             runtime_settings.local_airport.timezone.utcoffset(None).total_seconds(),
@@ -386,6 +388,13 @@ class AircraftWindowLogicTest(unittest.TestCase):
         runtime_settings = settings_module.runtime_settings_from_options({"watch_airports": ""})
 
         self.assertEqual(runtime_settings.watch_policy.watch_airports, ())
+
+    def test_runtime_settings_falls_back_to_supported_speech_locale(self) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {"speech_locale": "en"}
+        )
+
+        self.assertEqual(runtime_settings.speech_locale, "ru")
 
     def test_runtime_settings_disable_default_board_for_other_local_airport(self) -> None:
         runtime_settings = settings_module.runtime_settings_from_options(

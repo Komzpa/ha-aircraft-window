@@ -54,6 +54,7 @@
           "airport_board_cache_seconds": "Airport board cache TTL, seconds",
           "batumi_airport_board_base_url": "Batumi airport board base URL",
           "json_airport_board_url": "Canonical JSON airport board URL",
+          "speech_locale": "Speech locale",
           "speech_airline_overrides_json": "Airline speech overrides, JSON object",
           "speech_airline_alias_overrides_json": "Airline alias speech overrides, JSON object",
           "speech_airport_code_from_overrides_json": "Origin airport-code speech overrides, JSON object",

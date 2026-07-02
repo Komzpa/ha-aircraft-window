@@ -25,10 +25,10 @@ Configuration surface today:
   thresholds, polling, enrichment, mapping-review options, local airport
   identity/timezone, window azimuth/radius/projection profile, optional raw
   window polygon JSON, terminal area, runway staging area, watched route airport
-  codes, and provider base URL/cache options.
+  codes, speech locale, and provider base URL/cache options.
 - `strings.json` and translations mirror that schema.
 - Options still do not expose a friendly polygon editor, a multi-provider
-  airport-board registry, or speech locale.
+  airport-board registry, or non-Russian speech packs.
 
 ## Hardcoded Local Context
 
@@ -147,6 +147,9 @@ Current assumptions and status:
   phrases, digits, years, and Latin transliteration.
 - `RussianSpeechPack` now groups the Russian lookup tables and selected helpers
   accept a speech pack override, including aircraft-model speech rules.
+- `speech_locale` is an explicit runtime/config option. The only supported pack
+  today is `ru`, so stale/unsupported stored values fall back to Russian instead
+  of creating a hidden mixed-locale state.
 - Home Assistant options expose JSON-object overrides for airline names,
   airline aliases, origin/destination/route airport codes, and callsign
   prefixes, airport city labels, plus aircraft model/type speech. Options also
@@ -158,9 +161,8 @@ Current assumptions and status:
 
 Target shape:
 
-- Introduce a speech profile:
-  `speech_locale = "ru"` initially, with built-in Russian pack loaded from data
-  files rather than scattered constants.
+- Add more speech profiles beyond the initial `speech_locale = "ru"` option,
+  with built-in packs loaded from data files rather than Python constants.
 - Extend the first options surface into a friendlier editor than raw JSON
   fields.
 - Keep text human-readable in integration output; TTS stress marks stay outside

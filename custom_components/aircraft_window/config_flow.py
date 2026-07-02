@@ -63,6 +63,7 @@ from .const import (
     CONF_SPEECH_CITY_FROM_OVERRIDES,
     CONF_SPEECH_CITY_ROUTE_OVERRIDES,
     CONF_SPEECH_CITY_TO_OVERRIDES,
+    CONF_SPEECH_LOCALE,
     CONF_SPEECH_MODEL_OVERRIDES,
     CONF_TERMINAL_AREA_ENABLED,
     CONF_TERMINAL_AREA_LATITUDE,
@@ -88,7 +89,9 @@ from .const import (
     DEFAULT_PREFETCH_BUDGET_SECONDS,
     DEFAULT_PREFETCH_LIMIT,
     DEFAULT_SCAN_INTERVAL_SECONDS,
+    DEFAULT_SPEECH_LOCALE,
     DOMAIN,
+    SUPPORTED_SPEECH_LOCALES,
 )
 from .settings import DEFAULT_RUNTIME_SETTINGS
 
@@ -149,6 +152,11 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
         and str(watch_airports_default).strip().upper() == DEFAULT_WATCH_AIRPORTS
     ):
         watch_airports_default = ""
+    speech_locale_default = str(
+        defaults.get(CONF_SPEECH_LOCALE, DEFAULT_SPEECH_LOCALE) or DEFAULT_SPEECH_LOCALE
+    ).strip().lower()
+    if speech_locale_default not in SUPPORTED_SPEECH_LOCALES:
+        speech_locale_default = DEFAULT_SPEECH_LOCALE
     terminal_area_values_customized = any(
         _default_value_changed(defaults, key, default)
         for key, default in (
@@ -470,6 +478,10 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
                 DEFAULT_RUNTIME_SETTINGS.providers.json_airport_board_url,
             ),
         ): str,
+        vol.Required(
+            CONF_SPEECH_LOCALE,
+            default=speech_locale_default,
+        ): vol.In(SUPPORTED_SPEECH_LOCALES),
         vol.Optional(
             CONF_SPEECH_AIRLINE_OVERRIDES,
             default=defaults.get(CONF_SPEECH_AIRLINE_OVERRIDES, "{}"),

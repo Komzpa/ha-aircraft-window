@@ -48,6 +48,7 @@ from .const import (
     CONF_SPEECH_CITY_FROM_OVERRIDES,
     CONF_SPEECH_CITY_ROUTE_OVERRIDES,
     CONF_SPEECH_CITY_TO_OVERRIDES,
+    CONF_SPEECH_LOCALE,
     CONF_SPEECH_MODEL_OVERRIDES,
     CONF_TERMINAL_AREA_ENABLED,
     CONF_TERMINAL_AREA_LATITUDE,
@@ -62,6 +63,8 @@ from .const import (
     CONF_WINDOW_VIEW_POLYGON_JSON,
     CONF_WINDOW_VIEW_PROJECTION_STEP_SECONDS,
     CONF_WINDOW_VIEW_RADIUS_KM,
+    DEFAULT_SPEECH_LOCALE,
+    SUPPORTED_SPEECH_LOCALES,
 )
 from .route_fallbacks import DEFAULT_ROUTE_FALLBACKS, RouteFallbacks
 from .speech_ru import DEFAULT_RUSSIAN_SPEECH_PACK, RussianSpeechPack
@@ -189,6 +192,7 @@ class RuntimeSettings:
     window_view: WindowViewProfile
     watch_policy: WatchPolicy
     providers: ProviderSettings
+    speech_locale: str
     speech_pack: RussianSpeechPack
     model_speech_overrides: dict[str, str]
     route_fallbacks: RouteFallbacks
@@ -260,6 +264,7 @@ DEFAULT_RUNTIME_SETTINGS = RuntimeSettings(
             "ARRIVAL": "/en-EN/flights/arrival-flights",
         },
     ),
+    speech_locale=DEFAULT_SPEECH_LOCALE,
     speech_pack=DEFAULT_RUSSIAN_SPEECH_PACK,
     model_speech_overrides={},
     route_fallbacks=DEFAULT_ROUTE_FALLBACKS,
@@ -550,8 +555,24 @@ def _city_speech_overrides_from_options(
     }
 
 
-def _speech_pack_from_options(options: dict[str, Any]) -> RussianSpeechPack:
+def _speech_locale_from_options(options: dict[str, Any]) -> str:
+    """Return the configured speech locale, constrained to supported packs."""
+    locale = str(
+        options.get(CONF_SPEECH_LOCALE, DEFAULT_SPEECH_LOCALE) or DEFAULT_SPEECH_LOCALE
+    ).strip().lower()
+    if locale in SUPPORTED_SPEECH_LOCALES:
+        return locale
+    return DEFAULT_SPEECH_LOCALE
+
+
+def _speech_pack_from_options(
+    options: dict[str, Any],
+    *,
+    speech_locale: str = DEFAULT_SPEECH_LOCALE,
+) -> RussianSpeechPack:
     """Return the built-in Russian speech pack plus user-maintained overrides."""
+    if speech_locale != DEFAULT_SPEECH_LOCALE:
+        return DEFAULT_RUSSIAN_SPEECH_PACK
     airline_aliases = {
         key.casefold(): value
         for key, value in _json_string_map_option(
@@ -779,6 +800,7 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
         and watch_airports == defaults.watch_policy.watch_airports
     ):
         watch_airports = ()
+    speech_locale = _speech_locale_from_options(options)
     return RuntimeSettings(
         local_airport=LocalAirportProfile(
             iata=local_iata,
@@ -824,7 +846,8 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
             watch_airports=watch_airports,
         ),
         providers=_provider_settings_from_options(options),
-        speech_pack=_speech_pack_from_options(options),
+        speech_locale=speech_locale,
+        speech_pack=_speech_pack_from_options(options, speech_locale=speech_locale),
         model_speech_overrides=_model_speech_overrides_from_options(options),
         route_fallbacks=_route_fallbacks_from_options(
             options,

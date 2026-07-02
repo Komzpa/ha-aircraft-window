@@ -164,6 +164,17 @@ class AircraftWindowConfigFlowTest(unittest.TestCase):
             ("", "batumi_airport_board", "json_airport_board"),
         )
 
+    def test_schema_limits_speech_locale_choices(self) -> None:
+        schema = config_flow._schema(
+            {const.CONF_SPEECH_LOCALE: "en"},
+            include_home_coordinates=False,
+        )
+
+        validator = _field_validator(schema, const.CONF_SPEECH_LOCALE)
+
+        self.assertEqual(_field_default(schema, const.CONF_SPEECH_LOCALE), "ru")
+        self.assertEqual(validator.container, ("ru",))
+
     def test_schema_defaults_area_flags_by_profile(self) -> None:
         default_schema = config_flow._schema({}, include_home_coordinates=False)
         other_schema = config_flow._schema(

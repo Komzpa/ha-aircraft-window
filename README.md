@@ -217,7 +217,9 @@ maintenance. When enabled, `sensor.aircraft_window_enrichment_prefetch` records
 recent visible/projected/runway-staging aircraft whose operator, airport/city,
 callsign prefix, or aircraft model used fallback speech. This queue is meant for
 proactively filling speech overrides before the next spoken announcement sounds
-wrong. The options flow accepts JSON-object overrides for airline names, airline
+wrong. The `speech_locale` option is explicit and currently supports the
+built-in Russian pack, `ru`. The options flow accepts JSON-object overrides for
+airline names, airline
 aliases, origin/destination/route airport codes, callsign prefixes, airline
 fallbacks by callsign prefix, route fallbacks by callsign, airport city labels,
 and aircraft model speech. Speech examples: `{"XYZ": "Иксвайзед"}`,
