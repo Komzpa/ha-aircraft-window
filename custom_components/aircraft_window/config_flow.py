@@ -10,6 +10,7 @@ from homeassistant.core import callback
 
 from .const import (
     CONF_ADSBDB_BASE_URL,
+    CONF_AIRCRAFT_CACHE_SECONDS,
     CONF_AIRPLANES_LIVE_BASE_URL,
     CONF_AIRPORT_BOARD_CACHE_SECONDS,
     CONF_AIRPORT_BOARD_PROVIDER,
@@ -42,6 +43,7 @@ from .const import (
     CONF_RAPID_DESCENT_FPM,
     CONF_RAPID_DESCENT_MIN_ALTITUDE_FT,
     CONF_ROUTE_AIRLINE_PREFIX_OVERRIDES,
+    CONF_ROUTE_CACHE_SECONDS,
     CONF_ROUTE_CALLSIGN_OVERRIDES,
     CONF_RUNWAY_STAGING_LATITUDE,
     CONF_RUNWAY_STAGING_LONGITUDE,
@@ -348,6 +350,20 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
                 DEFAULT_RUNTIME_SETTINGS.providers.airport_data_base_url,
             ),
         ): str,
+        vol.Optional(
+            CONF_ROUTE_CACHE_SECONDS,
+            default=defaults.get(
+                CONF_ROUTE_CACHE_SECONDS,
+                DEFAULT_RUNTIME_SETTINGS.providers.route_cache_seconds,
+            ),
+        ): vol.All(vol.Coerce(int), vol.Range(min=0, max=30 * 24 * 60 * 60)),
+        vol.Optional(
+            CONF_AIRCRAFT_CACHE_SECONDS,
+            default=defaults.get(
+                CONF_AIRCRAFT_CACHE_SECONDS,
+                DEFAULT_RUNTIME_SETTINGS.providers.aircraft_cache_seconds,
+            ),
+        ): vol.All(vol.Coerce(int), vol.Range(min=0, max=30 * 24 * 60 * 60)),
         vol.Optional(
             CONF_BUILT_YEAR_CACHE_SECONDS,
             default=defaults.get(

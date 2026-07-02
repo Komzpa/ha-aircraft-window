@@ -46,6 +46,8 @@
           "hexdb_base_url": "HexDB base URL",
           "airplanes_live_base_url": "Airplanes.live base URL",
           "airport_data_base_url": "Airport-data.com base URL",
+          "route_cache_seconds": "Route lookup cache TTL, seconds",
+          "aircraft_cache_seconds": "Aircraft lookup cache TTL, seconds",
           "built_year_cache_seconds": "Built-year cache TTL, seconds",
           "airport_board_cache_seconds": "Airport board cache TTL, seconds",
           "batumi_airport_board_base_url": "Batumi airport board base URL",

@@ -10,6 +10,7 @@ from typing import Any
 
 from .const import (
     CONF_ADSBDB_BASE_URL,
+    CONF_AIRCRAFT_CACHE_SECONDS,
     CONF_AIRPLANES_LIVE_BASE_URL,
     CONF_AIRPORT_BOARD_CACHE_SECONDS,
     CONF_AIRPORT_BOARD_PROVIDER,
@@ -29,6 +30,7 @@ from .const import (
     CONF_RAPID_DESCENT_FPM,
     CONF_RAPID_DESCENT_MIN_ALTITUDE_FT,
     CONF_ROUTE_AIRLINE_PREFIX_OVERRIDES,
+    CONF_ROUTE_CACHE_SECONDS,
     CONF_ROUTE_CALLSIGN_OVERRIDES,
     CONF_RUNWAY_STAGING_LATITUDE,
     CONF_RUNWAY_STAGING_LONGITUDE,
@@ -167,6 +169,8 @@ class ProviderSettings:
     hexdb_base_url: str
     airplanes_live_base_url: str
     airport_data_base_url: str
+    route_cache_seconds: int
+    aircraft_cache_seconds: int
     built_year_cache_seconds: int
     airport_board_cache_seconds: int
     batumi_airport_board_base_url: str
@@ -241,6 +245,8 @@ DEFAULT_RUNTIME_SETTINGS = RuntimeSettings(
         hexdb_base_url="https://hexdb.io/api/v1",
         airplanes_live_base_url="https://api.airplanes.live/v2",
         airport_data_base_url="https://airport-data.com",
+        route_cache_seconds=6 * 60 * 60,
+        aircraft_cache_seconds=24 * 60 * 60,
         built_year_cache_seconds=30 * 24 * 60 * 60,
         airport_board_cache_seconds=5 * 60,
         batumi_airport_board_base_url="https://batumiairport.com/Home/searchFlights",
@@ -441,6 +447,22 @@ def _provider_settings_from_options(options: dict[str, Any]) -> ProviderSettings
             options,
             CONF_AIRPORT_DATA_BASE_URL,
             defaults.airport_data_base_url,
+        ),
+        route_cache_seconds=max(
+            0,
+            _int_option(
+                options,
+                CONF_ROUTE_CACHE_SECONDS,
+                defaults.route_cache_seconds,
+            ),
+        ),
+        aircraft_cache_seconds=max(
+            0,
+            _int_option(
+                options,
+                CONF_AIRCRAFT_CACHE_SECONDS,
+                defaults.aircraft_cache_seconds,
+            ),
         ),
         built_year_cache_seconds=max(
             0,

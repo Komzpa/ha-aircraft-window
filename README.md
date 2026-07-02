@@ -180,8 +180,8 @@ network errors.
 
 Provider base URLs for ADSBDB, HexDB, Airplanes.live, Airport-data.com, and the
 built-in Batumi airport board, plus the built-year and airport-board cache TTLs,
-can be changed in the options flow while keeping the public defaults for normal
-installs.
+and route/aircraft lookup cache TTLs, can be changed in the options flow while
+keeping the public defaults for normal installs.
 
 The same enrichment is used for special-interest matching and service
 classification. Military detection is best-effort and conservative: it uses

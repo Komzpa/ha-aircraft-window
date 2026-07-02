@@ -1071,6 +1071,13 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         )
         fake.entry = types.SimpleNamespace(data={}, options={})
         fake.hass = types.SimpleNamespace()
+        fake._runtime_settings = settings.runtime_settings_from_options(
+            {
+                "route_cache_seconds": 11,
+                "aircraft_cache_seconds": 22,
+            }
+        )
+        ttl_by_cache_key: dict[str, int] = {}
 
         async def board(
             _session: object,
@@ -1083,8 +1090,9 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         async def get_json(
             _session: object,
             url: str,
-            **_kwargs: Any,
+            **kwargs: Any,
         ) -> dict[str, Any]:
+            ttl_by_cache_key[str(kwargs["cache_key"])] = int(kwargs["ttl_seconds"])
             if "/callsign/PGT458N" not in url:
                 return {}
             return {
@@ -1133,6 +1141,10 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(attrs["origin_speech"], "Стамбула, Сабиха Гёкчен")
         self.assertEqual(attrs["spoken_flight"], "четыре пять восемь эн")
         self.assertNotRegex(attrs["spoken_flight"], r"[A-Za-z]")
+        self.assertEqual(ttl_by_cache_key["callsign:PGT458N"], 11)
+        self.assertEqual(ttl_by_cache_key["aircraft:4BB862"], 22)
+        self.assertEqual(ttl_by_cache_key["hexdb-aircraft:4BB862"], 22)
+        self.assertEqual(ttl_by_cache_key["airplanes-live-aircraft:4BB862"], 22)
 
     async def test_route_fallback_overrides_fill_missing_public_route(self) -> None:
         fake = coordinator.AircraftWindowCoordinator.__new__(

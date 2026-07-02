@@ -203,6 +203,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "hexdb_base_url": "https://example.invalid/hexdb/",
                 "airplanes_live_base_url": "https://example.invalid/airplanes/",
                 "airport_data_base_url": "https://example.invalid/airport-data/",
+                "route_cache_seconds": 11,
+                "aircraft_cache_seconds": 22,
                 "built_year_cache_seconds": 99,
                 "airport_board_cache_seconds": 42,
                 "batumi_airport_board_base_url": "https://example.invalid/board/",
@@ -288,6 +290,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
             runtime_settings.providers.airport_data_base_url,
             "https://example.invalid/airport-data",
         )
+        self.assertEqual(runtime_settings.providers.route_cache_seconds, 11)
+        self.assertEqual(runtime_settings.providers.aircraft_cache_seconds, 22)
         self.assertEqual(runtime_settings.providers.built_year_cache_seconds, 99)
         self.assertEqual(runtime_settings.providers.airport_board_cache_seconds, 42)
         self.assertEqual(

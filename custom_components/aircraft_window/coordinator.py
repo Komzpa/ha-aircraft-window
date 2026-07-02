@@ -100,8 +100,8 @@ ADSBDB_BASE_URL = DEFAULT_RUNTIME_SETTINGS.providers.adsbdb_base_url
 HEXDB_BASE_URL = DEFAULT_RUNTIME_SETTINGS.providers.hexdb_base_url
 AIRPLANES_LIVE_BASE_URL = DEFAULT_RUNTIME_SETTINGS.providers.airplanes_live_base_url
 LOCAL_AIRPORT_IATA = DEFAULT_RUNTIME_SETTINGS.local_airport.iata
-ROUTE_CACHE_SECONDS = 6 * 60 * 60
-AIRCRAFT_CACHE_SECONDS = 24 * 60 * 60
+ROUTE_CACHE_SECONDS = DEFAULT_RUNTIME_SETTINGS.providers.route_cache_seconds
+AIRCRAFT_CACHE_SECONDS = DEFAULT_RUNTIME_SETTINGS.providers.aircraft_cache_seconds
 BUILT_YEAR_CACHE_SECONDS = DEFAULT_RUNTIME_SETTINGS.providers.built_year_cache_seconds
 AIRPORT_BOARD_CACHE_SECONDS = DEFAULT_RUNTIME_SETTINGS.providers.airport_board_cache_seconds
 ROUTINE_HEX_HOLD_SECONDS = 10.0
@@ -1487,7 +1487,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 session,
                 f"{providers.adsbdb_base_url}/callsign/{quote(flight)}",
                 cache_key=f"callsign:{flight}",
-                ttl_seconds=ROUTE_CACHE_SECONDS,
+                ttl_seconds=providers.route_cache_seconds,
                 timeout=timeout,
                 cache_only=cache_only,
                 deadline=deadline,
@@ -1565,7 +1565,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 session,
                 f"{providers.adsbdb_base_url}/aircraft/{quote(hex_id)}",
                 cache_key=f"aircraft:{hex_id}",
-                ttl_seconds=AIRCRAFT_CACHE_SECONDS,
+                ttl_seconds=providers.aircraft_cache_seconds,
                 timeout=timeout,
                 cache_only=cache_only,
                 deadline=deadline,
@@ -1597,7 +1597,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 session,
                 f"{providers.hexdb_base_url}/aircraft/{quote(hex_id)}",
                 cache_key=f"hexdb-aircraft:{hex_id}",
-                ttl_seconds=AIRCRAFT_CACHE_SECONDS,
+                ttl_seconds=providers.aircraft_cache_seconds,
                 timeout=timeout,
                 cache_only=cache_only,
                 deadline=deadline,
@@ -1632,7 +1632,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 session,
                 f"{providers.airplanes_live_base_url}/hex/{quote(hex_id)}",
                 cache_key=f"airplanes-live-aircraft:{hex_id}",
-                ttl_seconds=AIRCRAFT_CACHE_SECONDS,
+                ttl_seconds=providers.aircraft_cache_seconds,
                 timeout=timeout,
                 cache_only=cache_only,
                 deadline=deadline,
