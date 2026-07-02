@@ -597,22 +597,24 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
         options.get(CONF_LOCAL_AIRPORT_NAME, default_airport.name)
         or default_airport.name
     ).strip()
+    default_local_airport = local_iata == default_airport.iata.upper()
     board_provider_default = (
-        default_airport.board_provider if local_iata == default_airport.iata.upper() else ""
+        default_airport.board_provider if default_local_airport else ""
     )
     board_provider = str(
         options.get(CONF_AIRPORT_BOARD_PROVIDER, board_provider_default) or ""
     ).strip()
+    if not default_local_airport and board_provider == default_airport.board_provider:
+        board_provider = ""
     timezone_offset_hours = _float_option(
         options,
         CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
         default_airport.timezone.utcoffset(None).total_seconds() / 3600.0,
     )
     default_polygon = (
-        default_view.polygon_lon_lat if local_iata == default_airport.iata.upper() else ()
+        default_view.polygon_lon_lat if default_local_airport else ()
     )
 
-    default_local_airport = local_iata == default_airport.iata.upper()
     custom_runway_staging = default_local_airport or any(
         _option_differs_from_default(options, key, default)
         for key, default in (
@@ -738,14 +740,20 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
             default_polygon,
         ),
     )
+    default_watch_airports_for_profile = ",".join(
+        airport.iata for airport in defaults.watch_policy.watch_airports
+    )
     default_watch_airports = (
-        ",".join(airport.iata for airport in defaults.watch_policy.watch_airports)
-        if local_iata == default_airport.iata.upper()
-        else ""
+        default_watch_airports_for_profile if default_local_airport else ""
     )
     watch_airports = _watch_airports_from_option(
         options.get(CONF_WATCH_AIRPORTS, default_watch_airports)
     )
+    if (
+        not default_local_airport
+        and watch_airports == defaults.watch_policy.watch_airports
+    ):
+        watch_airports = ()
     return RuntimeSettings(
         local_airport=LocalAirportProfile(
             iata=local_iata,

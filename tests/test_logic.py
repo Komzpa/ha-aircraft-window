@@ -406,10 +406,12 @@ class AircraftWindowLogicTest(unittest.TestCase):
         default_terminal = default_airport.terminal_area
         assert default_terminal is not None
         default_staging = default_airport.runway_staging_areas[0]
+        default_watch_policy = settings_module.DEFAULT_RUNTIME_SETTINGS.watch_policy
 
         runtime_settings = settings_module.runtime_settings_from_options(
             {
                 "local_airport_iata": "ABC",
+                "airport_board_provider": default_airport.board_provider,
                 "terminal_area_latitude": default_terminal.latitude,
                 "terminal_area_longitude": default_terminal.longitude,
                 "terminal_area_radius_km": default_terminal.radius_km,
@@ -419,12 +421,17 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "runway_staging_radius_km": default_staging.radius_km,
                 "runway_staging_max_altitude_ft": default_staging.max_altitude_ft,
                 "runway_staging_max_speed_kt": default_staging.max_speed_kt,
+                "watch_airports": ",".join(
+                    airport.iata for airport in default_watch_policy.watch_airports
+                ),
             }
         )
 
         self.assertEqual(runtime_settings.local_airport.iata, "ABC")
+        self.assertEqual(runtime_settings.local_airport.board_provider, "")
         self.assertIsNone(runtime_settings.local_airport.terminal_area)
         self.assertEqual(runtime_settings.local_airport.runway_staging_areas, ())
+        self.assertEqual(runtime_settings.watch_policy.watch_airports, ())
 
     def test_runtime_settings_keeps_custom_terminal_for_other_airport(self) -> None:
         runtime_settings = settings_module.runtime_settings_from_options(

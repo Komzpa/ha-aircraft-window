@@ -44,7 +44,8 @@ Current assumptions and status:
 - Basic local airport IATA/name/timezone are configurable through Home
   Assistant config/options.
 - `airport_board_provider` can be cleared for generic installs. The Batumi
-  board is only used when that provider is `batumi_airport_board`.
+  board is only used when that provider is `batumi_airport_board`; non-Batumi
+  profiles treat the stored Batumi provider default as unset.
 - A `json_airport_board` provider can fetch a user-supplied canonical board JSON
   endpoint, so non-Batumi installs can integrate their own adapter/proxy without
   patching Python.
@@ -108,7 +109,7 @@ Current assumptions and status:
 - Kutaisi is now the default `WatchAirport` in `settings.py`, not a literal
   branch in `interest_candidate`. It is only inherited by the default Batumi
   profile; other local-airport profiles start with no watched airports unless
-  `watch_airports` is explicitly configured.
+  `watch_airports` is explicitly configured with a non-default value.
 - Kinematic-only thresholds and terminal suppression are now in `WatchPolicy`.
 - Watched route airport codes are configurable through Home Assistant
   config/options. Kinematic thresholds and terminal suppression are also
