@@ -280,6 +280,9 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
         CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
         default_airport.timezone.utcoffset(None).total_seconds() / 3600.0,
     )
+    default_polygon = (
+        default_view.polygon_lon_lat if local_iata == default_airport.iata.upper() else ()
+    )
 
     runway_staging = RunwayStagingArea(
         latitude=_float_option(
@@ -363,7 +366,7 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
             CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
             default_view.half_angle_degrees,
         ),
-        polygon_lon_lat=default_view.polygon_lon_lat,
+        polygon_lon_lat=default_polygon,
     )
     watch_airports = _watch_airports_from_option(
         options.get(

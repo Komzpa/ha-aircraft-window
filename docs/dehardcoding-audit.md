@@ -76,8 +76,10 @@ Current assumptions and status:
   constants, but visibility, projection, staging, and terminal suppression reads
   can take a `RuntimeSettings` object.
 - Basic azimuth, half-angle, radius, terminal area, and runway staging values
-  are configurable through Home Assistant config/options. The polygon remains a
-  built-in default until a real list editor/validator is designed.
+  are configurable through Home Assistant config/options. The Batumi polygon is
+  kept only for the default Batumi profile; other local-airport profiles fall
+  back to the azimuth/radius model until a real polygon editor/validator is
+  designed.
 
 Target shape:
 

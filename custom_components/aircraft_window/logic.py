@@ -518,6 +518,8 @@ def compass_ru(bearing: float) -> str:
 
 def point_in_polygon(lon: float, lat: float, polygon: tuple[tuple[float, float], ...]) -> bool:
     """Return true when lon/lat is inside the configured window view polygon."""
+    if not polygon:
+        return True
     inside = False
     j = len(polygon) - 1
     for i, (xi, yi) in enumerate(polygon):
@@ -684,6 +686,7 @@ def window_view_attrs(
         if altitude is not None and distance_km > 0
         else None
     )
+    polygon_configured = bool(view_profile.polygon_lon_lat)
     inside_polygon = point_in_polygon(lon, lat, view_profile.polygon_lon_lat)
     inside_azimuth = inside_window_azimuth(bearing, view_profile=view_profile)
     inside_radius = distance_km <= radius_km
@@ -734,7 +737,11 @@ def window_view_attrs(
     if stale_history_position:
         reason_parts.append(f"stale SkyAware history position {position_age_seconds:.0f}s old")
     elif visible:
-        reason_parts.append("inside window view polygon")
+        reason_parts.append(
+            "inside window view polygon"
+            if polygon_configured
+            else "inside configured window view"
+        )
     if projected_visible and not visible:
         reason_parts.append(f"projected into window view in {projected_lead_seconds:.0f}s")
     if runway_staging and not visible and not projected_visible:
@@ -747,7 +754,11 @@ def window_view_attrs(
     if (inside_polygon or projected_visible) and not inside_radius:
         reason_parts.append(f"outside human-visible {radius_km:.0f} km window radius")
     if not reason_parts:
-        reason_parts.append("outside window view polygon")
+        reason_parts.append(
+            "outside window view polygon"
+            if polygon_configured
+            else "outside configured window view"
+        )
     if visible:
         projected_lead_seconds = 0.0
 

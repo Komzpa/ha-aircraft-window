@@ -77,6 +77,34 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertTrue(attrs["window_visible"])
         self.assertEqual(attrs["window_view_lead_seconds"], 0.0)
 
+    def test_empty_window_polygon_uses_azimuth_and_radius_only(self) -> None:
+        custom_settings = replace(
+            logic.DEFAULT_RUNTIME_SETTINGS,
+            window_view=replace(
+                logic.DEFAULT_RUNTIME_SETTINGS.window_view,
+                azimuth_degrees=90.0,
+                half_angle_degrees=30.0,
+                polygon_lon_lat=(),
+                default_radius_km=100.0,
+            ),
+        )
+
+        attrs = logic.window_view_attrs(
+            {
+                "lat": 51.0,
+                "lon": 0.2,
+                "alt_baro": 2000,
+                "seen": 0.2,
+                "seen_pos": 0.3,
+            },
+            home_latitude=51.0,
+            home_longitude=0.0,
+            settings=custom_settings,
+        )
+
+        self.assertTrue(attrs["window_visible"])
+        self.assertEqual(attrs["window_view_reason"], "inside configured window view")
+
     def test_custom_watch_airport_replaces_kutaisi_route_policy(self) -> None:
         custom_settings = replace(
             logic.DEFAULT_RUNTIME_SETTINGS,
@@ -182,6 +210,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(runtime_settings.window_view.day_radius_km, 11)
         self.assertEqual(runtime_settings.window_view.low_light_radius_km, 22)
         self.assertEqual(runtime_settings.window_view.night_radius_km, 33)
+        self.assertEqual(runtime_settings.window_view.polygon_lon_lat, ())
         terminal_area = runtime_settings.local_airport.terminal_area
         assert terminal_area is not None
         self.assertEqual(terminal_area.latitude, 10.1)
@@ -220,6 +249,15 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertEqual(runtime_settings.local_airport.iata, "ABC")
         self.assertEqual(runtime_settings.local_airport.board_provider, "")
+        self.assertEqual(runtime_settings.window_view.polygon_lon_lat, ())
+
+    def test_runtime_settings_keeps_default_polygon_for_default_airport(self) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options({})
+
+        self.assertEqual(
+            runtime_settings.window_view.polygon_lon_lat,
+            settings_module.BATUMI_WINDOW_VIEW_POLYGON_LON_LAT,
+        )
 
     def test_landing_announcement_contains_route_model_and_year(self) -> None:
         aircraft = {
