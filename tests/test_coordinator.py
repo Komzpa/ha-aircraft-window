@@ -915,6 +915,23 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
             "DEPARTURE",
         )
 
+    async def test_airport_board_disabled_for_non_batumi_provider(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake._runtime_settings = replace(
+            settings.DEFAULT_RUNTIME_SETTINGS,
+            local_airport=replace(
+                settings.DEFAULT_RUNTIME_SETTINGS.local_airport,
+                iata="ABC",
+                board_provider="",
+            ),
+        )
+
+        board = await fake._async_batumi_airport_board(object())
+
+        self.assertEqual(board, {})
+
     def test_batumi_board_match_prefers_candidate_leg(self) -> None:
         board = {
             "data": {

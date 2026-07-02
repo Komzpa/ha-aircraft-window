@@ -141,6 +141,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "local_airport_iata": "abc",
                 "local_airport_name": "Config Airport",
                 "local_timezone_offset_hours": 2,
+                "airport_board_provider": "custom_board",
                 "window_view_azimuth_degrees": 120,
                 "window_view_half_angle_degrees": 25,
                 "window_view_radius_km": 44,
@@ -162,6 +163,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
 
         self.assertEqual(runtime_settings.local_airport.iata, "ABC")
         self.assertEqual(runtime_settings.local_airport.name, "Config Airport")
+        self.assertEqual(runtime_settings.local_airport.board_provider, "custom_board")
         self.assertEqual(
             runtime_settings.local_airport.timezone.utcoffset(None).total_seconds(),
             7200,
@@ -193,6 +195,14 @@ class AircraftWindowLogicTest(unittest.TestCase):
         runtime_settings = settings_module.runtime_settings_from_options({"watch_airports": ""})
 
         self.assertEqual(runtime_settings.watch_policy.watch_airports, ())
+
+    def test_runtime_settings_disable_default_board_for_other_local_airport(self) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {"local_airport_iata": "ABC"}
+        )
+
+        self.assertEqual(runtime_settings.local_airport.iata, "ABC")
+        self.assertEqual(runtime_settings.local_airport.board_provider, "")
 
     def test_landing_announcement_contains_route_model_and_year(self) -> None:
         aircraft = {

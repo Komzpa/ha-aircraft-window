@@ -7,6 +7,7 @@ from datetime import timedelta, timezone, tzinfo
 from typing import Any
 
 from .const import (
+    CONF_AIRPORT_BOARD_PROVIDER,
     CONF_DAY_HUMAN_VISIBLE_RADIUS_KM,
     CONF_LOCAL_AIRPORT_IATA,
     CONF_LOCAL_AIRPORT_NAME,
@@ -262,6 +263,12 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
         options.get(CONF_LOCAL_AIRPORT_NAME, default_airport.name)
         or default_airport.name
     ).strip()
+    board_provider_default = (
+        default_airport.board_provider if local_iata == default_airport.iata.upper() else ""
+    )
+    board_provider = str(
+        options.get(CONF_AIRPORT_BOARD_PROVIDER, board_provider_default) or ""
+    ).strip()
     timezone_offset_hours = _float_option(
         options,
         CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
@@ -363,7 +370,7 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
             iata=local_iata,
             name=local_name,
             timezone=timezone(timedelta(hours=timezone_offset_hours)),
-            board_provider=default_airport.board_provider,
+            board_provider=board_provider,
             terminal_area=terminal_area,
             runway_staging_areas=(runway_staging,),
         ),

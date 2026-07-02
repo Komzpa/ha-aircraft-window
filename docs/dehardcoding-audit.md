@@ -26,8 +26,8 @@ Configuration surface today:
   identity/timezone, window azimuth/radius profile, terminal area, runway
   staging area, and watched route airport codes.
 - `strings.json` and translations mirror that schema.
-- Options still do not expose polygon editing, board provider selection,
-  provider URLs/TTLs, kinematic thresholds, or speech locale.
+- Options still do not expose polygon editing, provider URLs/TTLs, kinematic
+  thresholds, or speech locale.
 
 ## Hardcoded Local Context
 
@@ -42,6 +42,8 @@ Current assumptions and status:
   through `runtime_settings`.
 - Basic local airport IATA/name/timezone are configurable through Home
   Assistant config/options.
+- `airport_board_provider` can be cleared for generic installs. The Batumi
+  board is only used when that provider is `batumi_airport_board`.
 - Schedule sensors and docs say "Batumi departure" rather than "configured
   airport departure".
 - `CALLSIGN_PREFIX_TO_BOARD_AIRLINE` is tuned for the Batumi airport board.
@@ -177,7 +179,8 @@ Target shape:
 2. Done: move window geometry, runway staging, terminal area, watched-airport,
    provider URL, timezone, and local airport IATA reads through those settings
    helpers while keeping current defaults.
-3. Move Batumi airport board behind a provider abstraction and make it optional.
+3. Partly done: Batumi airport board usage is optional through
+   `airport_board_provider`; a full provider abstraction is still pending.
 4. Done: expose configured `watch_airports`, local airport, and basic view
    profile through config/options.
 5. Move speech tables into a Russian speech pack and add override merge points.

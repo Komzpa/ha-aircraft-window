@@ -1067,6 +1067,8 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         deadline: float | None = None,
     ) -> dict[str, Any]:
         """Return the current Batumi Airport live board for arrivals and departures."""
+        if self.runtime_settings.local_airport.board_provider != "batumi_airport_board":
+            return {}
         today = datetime.now(self.runtime_settings.local_airport.timezone).strftime("%d.%m.%Y")
         flights: list[dict[str, Any]] = []
         current_time = ""

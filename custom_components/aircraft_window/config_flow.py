@@ -9,6 +9,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 
 from .const import (
+    CONF_AIRPORT_BOARD_PROVIDER,
     CONF_BACKGROUND_INTERVAL_SECONDS,
     CONF_COLLECT_MAPPING_REVIEW,
     CONF_DAY_HUMAN_VISIBLE_RADIUS_KM,
@@ -91,6 +92,13 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
                 default_timezone_offset_hours,
             ),
         ): vol.All(vol.Coerce(float), vol.Range(min=-12.0, max=14.0)),
+        vol.Required(
+            CONF_AIRPORT_BOARD_PROVIDER,
+            default=defaults.get(
+                CONF_AIRPORT_BOARD_PROVIDER,
+                default_airport.board_provider,
+            ),
+        ): str,
         vol.Required(
             CONF_WINDOW_VIEW_AZIMUTH_DEGREES,
             default=defaults.get(
