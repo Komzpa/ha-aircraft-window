@@ -38,6 +38,7 @@ def _load_component_module(name: str):
 
 settings_module = _load_component_module("settings")
 logic = _load_component_module("logic")
+route_fallbacks_module = sys.modules["aircraft_window.route_fallbacks"]
 
 
 class AircraftWindowLogicTest(unittest.TestCase):
@@ -737,6 +738,18 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "VAA021",
                 route_fallbacks=runtime_settings.route_fallbacks,
             )["route_summary"],
+            "BUS → Natakhtari",
+        )
+
+    def test_default_route_fallbacks_load_from_package_data(self) -> None:
+        route_fallbacks = route_fallbacks_module.load_route_fallbacks_from_data_file()
+
+        self.assertEqual(
+            route_fallbacks.airline_by_callsign_prefix["VAA"],
+            "Van Air Europe",
+        )
+        self.assertEqual(
+            route_fallbacks.route_by_callsign["VAA021"]["route_summary"],
             "BUS → Natakhtari",
         )
 

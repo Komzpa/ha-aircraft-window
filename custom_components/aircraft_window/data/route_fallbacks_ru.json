@@ -1,0 +1,34 @@
+{
+  "airline_by_callsign_prefix": {
+    "4L": "OneClick Airways",
+    "JZR": "Jazeera Airways",
+    "TGZ": "Georgian Airways",
+    "VAA": "Van Air Europe"
+  },
+  "route_by_callsign": {
+    "VAA020": {
+      "airline_name": "Vanilla Sky",
+      "origin_iata": "",
+      "origin_name": "Natakhtari",
+      "origin_speech": "Натахтари",
+      "destination_iata": "BUS",
+      "destination_name": "Batumi (BUS)",
+      "destination_speech": "Батуми",
+      "route_summary": "Natakhtari → BUS",
+      "route_source": "vanilla_sky_schedule",
+      "scheduled_departure_local": "12:30"
+    },
+    "VAA021": {
+      "airline_name": "Vanilla Sky",
+      "origin_iata": "BUS",
+      "origin_name": "Batumi (BUS)",
+      "origin_speech": "Батуми",
+      "destination_iata": "",
+      "destination_name": "Natakhtari",
+      "destination_speech": "Натахтари",
+      "route_summary": "BUS → Natakhtari",
+      "route_source": "vanilla_sky_schedule",
+      "scheduled_departure_local": "14:00"
+    }
+  }
+}

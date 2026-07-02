@@ -61,8 +61,9 @@ Current assumptions and status:
   the configured local airport IATA/name plus provider source.
 - Batumi board callsign-prefix mapping and row matching now live in
   `custom_components/aircraft_window/board_providers.py`.
-- Built-in callsign and known-route fallbacks live in
-  `custom_components/aircraft_window/route_fallbacks.py`; the current default
+- Built-in callsign and known-route fallback data lives in
+  `custom_components/aircraft_window/data/route_fallbacks_ru.json`, loaded by
+  `custom_components/aircraft_window/route_fallbacks.py`. The current default
   data still includes Vanilla Sky `BUS <-> Natakhtari`, but those built-in
   callsign-prefix and route-by-callsign fallbacks are only inherited by the
   default Batumi profile. Other local-airport profiles use explicit route
@@ -250,7 +251,7 @@ Target shape:
    speech/model/route fallback override options. A friendlier editor is still
    pending.
 6. Done: move built-in callsign and known-route fallback tables out of
-   `logic.py` into `route_fallbacks.py`.
+   `logic.py` into packaged route fallback data loaded by `route_fallbacks.py`.
 7. Done for README and entity docstrings: rename Batumi-specific schedule
    wording to configured-airport wording while preserving existing entity IDs.
 
