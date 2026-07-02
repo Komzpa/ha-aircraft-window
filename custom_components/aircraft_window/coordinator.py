@@ -1513,7 +1513,10 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 if attrs["airline_name"] or attrs["route_summary"]:
                     self._add_enrichment_source(attrs, "adsbdb")
 
-        fallback_airline, fallback_prefix = known_airline_for_callsign(flight)
+        fallback_airline, fallback_prefix = known_airline_for_callsign(
+            flight,
+            route_fallbacks=self.runtime_settings.route_fallbacks,
+        )
         if fallback_airline:
             if not attrs["airline_name"]:
                 attrs["airline_name"] = fallback_airline
@@ -1525,7 +1528,10 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                     speech_pack=self.runtime_settings.speech_pack,
                 )
 
-        fallback_route = known_route_for_callsign(flight)
+        fallback_route = known_route_for_callsign(
+            flight,
+            route_fallbacks=self.runtime_settings.route_fallbacks,
+        )
         if fallback_route and not attrs["route_summary"]:
             for key, value in fallback_route.items():
                 if key == "airline_name" and value:

@@ -128,8 +128,9 @@ Current assumptions and status:
   accept a speech pack override.
 - Home Assistant options expose JSON-object overrides for airline names,
   airline aliases, origin/destination/route airport codes, and callsign
-  prefixes. Runtime announcements, enrichment, and mapping review use the
-  merged speech pack.
+  prefixes. Options also expose JSON-object fallbacks for airline names by
+  callsign prefix and route metadata by callsign. Runtime announcements,
+  enrichment, and mapping review use the merged speech and fallback packs.
 - Mapping review can be resolved by options overrides first; repeatable values
   can still be promoted to built-in tables.
 
@@ -139,8 +140,7 @@ Target shape:
   `speech_locale = "ru"` initially, with built-in Russian pack loaded from data
   files rather than scattered constants.
 - Extend optional user override packs beyond the first options surface:
-  airport city names, route fallbacks, model names, and a friendlier editor than
-  raw JSON fields.
+  airport city names, model names, and a friendlier editor than raw JSON fields.
 - Keep text human-readable in integration output; TTS stress marks stay outside
   this integration.
 - Keep bounded-token matching rules for callsign and airline prefixes. Previous
@@ -199,8 +199,8 @@ Target shape:
    profile through config/options.
 5. Partly done: add `RussianSpeechPack`, override merge points, move the
    built-in Russian tables out of `logic.py`, and expose first-pass JSON
-   speech override options. Route/model overrides and a friendlier editor are
-   still pending.
+   speech/route fallback override options. Model overrides and a friendlier
+   editor are still pending.
 6. Done: move built-in callsign and known-route fallback tables out of
    `logic.py` into `route_fallbacks.py`.
 7. Done for README and entity docstrings: rename Batumi-specific schedule

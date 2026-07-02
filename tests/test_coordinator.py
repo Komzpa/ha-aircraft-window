@@ -1134,6 +1134,64 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(attrs["spoken_flight"], "четыре пять восемь эн")
         self.assertNotRegex(attrs["spoken_flight"], r"[A-Za-z]")
 
+    async def test_route_fallback_overrides_fill_missing_public_route(self) -> None:
+        fake = coordinator.AircraftWindowCoordinator.__new__(
+            coordinator.AircraftWindowCoordinator
+        )
+        fake.entry = types.SimpleNamespace(data={}, options={})
+        fake.hass = types.SimpleNamespace()
+        fake._runtime_settings = settings.runtime_settings_from_options(
+            {
+                "route_airline_prefix_overrides_json": '{"ABC": "Example Air"}',
+                "route_callsign_overrides_json": (
+                    '{"ABC123": {"airline_name": "Example Air", '
+                    '"origin_iata": "XYZ", "origin_name": "Example City", '
+                    '"origin_speech": "Экзампл-сити", '
+                    '"destination_iata": "DEF", "destination_name": "Other City", '
+                    '"destination_speech": "Отэр-сити", '
+                    '"route_summary": "XYZ → DEF", "route_source": "user_override"}}'
+                ),
+            }
+        )
+
+        async def board(
+            _session: object,
+            *,
+            cache_only: bool = False,
+            deadline: float | None = None,
+        ) -> dict[str, Any]:
+            return {}
+
+        async def get_json(
+            _session: object,
+            _url: str,
+            **_kwargs: Any,
+        ) -> dict[str, Any]:
+            return {}
+
+        async def built_year(
+            _session: object,
+            _registration: str,
+            _timeout: object,
+            **_kwargs: Any,
+        ) -> None:
+            return None
+
+        fake._async_airport_board = board
+        fake._async_get_json = get_json
+        fake._async_airport_data_year = built_year
+
+        attrs = await fake._async_enrich_aircraft(
+            {"hex": "abc123", "flight": "ABC123"},
+            phase="positioned_landing",
+        )
+
+        self.assertEqual(attrs["airline_name"], "Example Air")
+        self.assertEqual(attrs["route_summary"], "XYZ → DEF")
+        self.assertEqual(attrs["route_source"], "user_override")
+        self.assertEqual(attrs["origin_speech"], "Экзампл-сити")
+        self.assertEqual(attrs["destination_speech"], "Отэр-сити")
+
     def test_batumi_board_match_falls_back_to_single_airline_departure(self) -> None:
         fake = coordinator.AircraftWindowCoordinator.__new__(
             coordinator.AircraftWindowCoordinator

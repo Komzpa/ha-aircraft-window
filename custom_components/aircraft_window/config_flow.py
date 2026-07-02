@@ -34,6 +34,8 @@ from .const import (
     CONF_PREFETCH_LIMIT,
     CONF_RAPID_DESCENT_FPM,
     CONF_RAPID_DESCENT_MIN_ALTITUDE_FT,
+    CONF_ROUTE_AIRLINE_PREFIX_OVERRIDES,
+    CONF_ROUTE_CALLSIGN_OVERRIDES,
     CONF_RUNWAY_STAGING_LATITUDE,
     CONF_RUNWAY_STAGING_LONGITUDE,
     CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
@@ -309,6 +311,14 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
         vol.Optional(
             CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES,
             default=defaults.get(CONF_SPEECH_CALLSIGN_PREFIX_OVERRIDES, "{}"),
+        ): str,
+        vol.Optional(
+            CONF_ROUTE_AIRLINE_PREFIX_OVERRIDES,
+            default=defaults.get(CONF_ROUTE_AIRLINE_PREFIX_OVERRIDES, "{}"),
+        ): str,
+        vol.Optional(
+            CONF_ROUTE_CALLSIGN_OVERRIDES,
+            default=defaults.get(CONF_ROUTE_CALLSIGN_OVERRIDES, "{}"),
         ): str,
         vol.Required(
             CONF_ENRICHMENT_TIMEOUT_SECONDS,

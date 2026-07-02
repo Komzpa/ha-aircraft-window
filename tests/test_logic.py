@@ -200,6 +200,13 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "speech_airport_code_to_overrides_json": '{"XYZ": "в Иксвайзед"}',
                 "speech_airport_code_route_overrides_json": '{"XYZ": "Иксвайзед"}',
                 "speech_callsign_prefix_overrides_json": '{"ABCD": "Абэцэдэ"}',
+                "route_airline_prefix_overrides_json": '{"ABC": "Example Air"}',
+                "route_callsign_overrides_json": (
+                    '{"ABC123": {"airline_name": "Example Air", '
+                    '"origin_iata": "XYZ", "origin_name": "Example City", '
+                    '"destination_iata": "DEF", "destination_name": "Other City", '
+                    '"route_summary": "XYZ → DEF", "route_source": "user_override"}}'
+                ),
             }
         )
 
@@ -267,6 +274,20 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(
             logic.spoken_flight("ABCD89", speech_pack=runtime_settings.speech_pack),
             "Абэцэдэ восемь девять",
+        )
+        self.assertEqual(
+            logic.known_airline_for_callsign(
+                "ABC123",
+                route_fallbacks=runtime_settings.route_fallbacks,
+            ),
+            ("Example Air", "ABC"),
+        )
+        self.assertEqual(
+            logic.known_route_for_callsign(
+                "ABC123",
+                route_fallbacks=runtime_settings.route_fallbacks,
+            )["route_source"],
+            "user_override",
         )
 
     def test_runtime_settings_from_options_allows_empty_watch_airports(self) -> None:

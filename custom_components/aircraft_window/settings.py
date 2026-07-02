@@ -20,6 +20,8 @@ from .const import (
     CONF_ORBIT_TRACK_RATE_DEGREES_PER_SECOND,
     CONF_RAPID_DESCENT_FPM,
     CONF_RAPID_DESCENT_MIN_ALTITUDE_FT,
+    CONF_ROUTE_AIRLINE_PREFIX_OVERRIDES,
+    CONF_ROUTE_CALLSIGN_OVERRIDES,
     CONF_RUNWAY_STAGING_LATITUDE,
     CONF_RUNWAY_STAGING_LONGITUDE,
     CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
@@ -41,6 +43,7 @@ from .const import (
     CONF_WINDOW_VIEW_HALF_ANGLE_DEGREES,
     CONF_WINDOW_VIEW_RADIUS_KM,
 )
+from .route_fallbacks import DEFAULT_ROUTE_FALLBACKS, RouteFallbacks
 from .speech_ru import DEFAULT_RUSSIAN_SPEECH_PACK, RussianSpeechPack
 
 BATUMI_WINDOW_VIEW_POLYGON_LON_LAT = (
@@ -162,6 +165,7 @@ class RuntimeSettings:
     watch_policy: WatchPolicy
     providers: ProviderSettings
     speech_pack: RussianSpeechPack
+    route_fallbacks: RouteFallbacks
 
 
 DEFAULT_BATUMI_RUNWAY_STAGING_AREA = RunwayStagingArea(
@@ -226,6 +230,7 @@ DEFAULT_RUNTIME_SETTINGS = RuntimeSettings(
         },
     ),
     speech_pack=DEFAULT_RUSSIAN_SPEECH_PACK,
+    route_fallbacks=DEFAULT_ROUTE_FALLBACKS,
 )
 
 
@@ -283,6 +288,50 @@ def _json_string_map_option(options: dict[str, Any], key: str) -> dict[str, str]
         if item_key and item_value:
             result[item_key] = item_value
     return result
+
+
+def _json_route_map_option(options: dict[str, Any], key: str) -> dict[str, dict[str, str]]:
+    """Parse a JSON object option into callsign-to-route fallback mappings."""
+    raw = options.get(key, "")
+    if raw in (None, ""):
+        return {}
+    if isinstance(raw, dict):
+        parsed = raw
+    else:
+        try:
+            parsed = json.loads(str(raw))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {}
+    if not isinstance(parsed, dict):
+        return {}
+    result: dict[str, dict[str, str]] = {}
+    for raw_callsign, raw_route in parsed.items():
+        callsign = str(raw_callsign).strip().replace(" ", "").upper()
+        if not callsign or not isinstance(raw_route, dict):
+            continue
+        route = {
+            str(route_key).strip(): str(route_value).strip()
+            for route_key, route_value in raw_route.items()
+            if str(route_key).strip() and str(route_value).strip()
+        }
+        if route:
+            result[callsign] = route
+    return result
+
+
+def _route_fallbacks_from_options(options: dict[str, Any]) -> RouteFallbacks:
+    """Return built-in route fallbacks plus user-maintained overrides."""
+    prefix_overrides = {
+        key.upper(): value
+        for key, value in _json_string_map_option(
+            options,
+            CONF_ROUTE_AIRLINE_PREFIX_OVERRIDES,
+        ).items()
+    }
+    return DEFAULT_ROUTE_FALLBACKS.with_overrides(
+        airline_by_callsign_prefix=prefix_overrides,
+        route_by_callsign=_json_route_map_option(options, CONF_ROUTE_CALLSIGN_OVERRIDES),
+    )
 
 
 def _speech_pack_from_options(options: dict[str, Any]) -> RussianSpeechPack:
@@ -485,4 +534,5 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
         ),
         providers=defaults.providers,
         speech_pack=_speech_pack_from_options(options),
+        route_fallbacks=_route_fallbacks_from_options(options),
     )

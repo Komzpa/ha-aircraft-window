@@ -9,7 +9,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
-from .route_fallbacks import KNOWN_AIRLINE_BY_CALLSIGN_PREFIX, KNOWN_ROUTE_BY_CALLSIGN
+from .route_fallbacks import DEFAULT_ROUTE_FALLBACKS, RouteFallbacks
 from .settings import DEFAULT_RUNTIME_SETTINGS, RuntimeSettings, WatchPolicy, WindowViewProfile
 from .speech_ru import (
     DEFAULT_RUSSIAN_SPEECH_PACK,
@@ -1259,19 +1259,27 @@ def has_callsign_prefix_speech_mapping(
     return not match or match.group(1) in speech_pack.callsign_prefix
 
 
-def known_airline_for_callsign(flight: str) -> tuple[str, str]:
+def known_airline_for_callsign(
+    flight: str,
+    *,
+    route_fallbacks: RouteFallbacks = DEFAULT_ROUTE_FALLBACKS,
+) -> tuple[str, str]:
     """Return known airline name and callsign prefix for route API gaps."""
     token = flight.strip().replace(" ", "").upper()
-    for prefix, airline_name in KNOWN_AIRLINE_BY_CALLSIGN_PREFIX.items():
+    for prefix, airline_name in route_fallbacks.airline_by_callsign_prefix.items():
         if token.startswith(prefix):
             return airline_name, prefix
     return "", ""
 
 
-def known_route_for_callsign(flight: str) -> dict[str, str]:
+def known_route_for_callsign(
+    flight: str,
+    *,
+    route_fallbacks: RouteFallbacks = DEFAULT_ROUTE_FALLBACKS,
+) -> dict[str, str]:
     """Return known local route metadata for callsigns missing from public APIs."""
     token = flight.strip().replace(" ", "").upper()
-    route = KNOWN_ROUTE_BY_CALLSIGN.get(token)
+    route = route_fallbacks.route_by_callsign.get(token)
     return dict(route) if route is not None else {}
 
 

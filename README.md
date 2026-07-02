@@ -187,11 +187,14 @@ recent visible/projected/runway-staging aircraft whose operator, airport/city,
 callsign prefix, or aircraft model used fallback speech. This queue is meant for
 proactively filling speech overrides before the next spoken announcement sounds
 wrong. The options flow accepts JSON-object overrides for airline names, airline
-aliases, origin/destination/route airport codes, and callsign prefixes, for
-example `{"XYZ": "Иксвайзед"}` or `{"ABCD": "Абэцэдэ"}`. Repeatable defaults
-can later be promoted to the built-in speech pack tables in
-`custom_components/aircraft_window/speech_ru.py`, `spoken_model()`, and the
-shared TTS stress lexicon.
+aliases, origin/destination/route airport codes, callsign prefixes, airline
+fallbacks by callsign prefix, and route fallbacks by callsign. Speech examples:
+`{"XYZ": "Иксвайзед"}` or `{"ABCD": "Абэцэдэ"}`. Route fallback example:
+`{"ABC123": {"origin_iata": "XYZ", "destination_iata": "DEF",
+"route_summary": "XYZ → DEF"}}`. Repeatable defaults can later be promoted to
+the built-in speech pack tables in `custom_components/aircraft_window/speech_ru.py`,
+`custom_components/aircraft_window/route_fallbacks.py`, `spoken_model()`, and
+the shared TTS stress lexicon.
 
 ## Development
 
