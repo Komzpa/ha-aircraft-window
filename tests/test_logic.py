@@ -556,6 +556,45 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(staging_area.max_altitude_ft, 600)
         self.assertEqual(staging_area.max_speed_kt, 50)
 
+    def test_runtime_settings_parses_structured_terminal_areas(self) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {
+                "local_airport_iata": "ABC",
+                "terminal_areas_json": (
+                    '[{"lat": 47.1, "lon": 28.9, "radius_km": 40, '
+                    '"max_altitude_ft": 9000}, '
+                    '{"latitude": 47.8, "longitude": 29.5, "radius_km": 20, '
+                    '"max_altitude_ft": 7000}]'
+                ),
+            }
+        )
+
+        terminal_areas = runtime_settings.local_airport.terminal_areas
+        self.assertEqual(len(terminal_areas), 2)
+        self.assertEqual(terminal_areas[0].latitude, 47.1)
+        self.assertEqual(terminal_areas[0].longitude, 28.9)
+        self.assertEqual(terminal_areas[1].latitude, 47.8)
+        self.assertEqual(terminal_areas[1].longitude, 29.5)
+        self.assertEqual(runtime_settings.local_airport.terminal_area, terminal_areas[0])
+
+    def test_runtime_settings_falls_back_on_invalid_terminal_areas_json(self) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {
+                "local_airport_iata": "ABC",
+                "terminal_area_enabled": True,
+                "terminal_area_latitude": 47.1,
+                "terminal_area_longitude": 28.9,
+                "terminal_area_radius_km": 40,
+                "terminal_area_max_altitude_ft": 9000,
+                "terminal_areas_json": '[{"lat": 999}]',
+            }
+        )
+
+        terminal_areas = runtime_settings.local_airport.terminal_areas
+        self.assertEqual(len(terminal_areas), 1)
+        self.assertEqual(terminal_areas[0].latitude, 47.1)
+        self.assertEqual(terminal_areas[0].longitude, 28.9)
+
     def test_runtime_settings_parses_structured_runway_staging_areas(self) -> None:
         runtime_settings = settings_module.runtime_settings_from_options(
             {
@@ -1732,6 +1771,47 @@ class AircraftWindowLogicTest(unittest.TestCase):
             },
             source="test",
             aircraft_count=1,
+            enrichment={"service_type": "unknown"},
+        )
+
+        self.assertIsNone(candidate)
+
+    def test_rapid_descent_in_second_terminal_area_is_not_special_interest(self) -> None:
+        custom_settings = replace(
+            logic.DEFAULT_RUNTIME_SETTINGS,
+            local_airport=replace(
+                logic.DEFAULT_RUNTIME_SETTINGS.local_airport,
+                terminal_areas=(
+                    settings_module.TerminalArea(
+                        latitude=0.0,
+                        longitude=0.0,
+                        radius_km=1.0,
+                        max_altitude_ft=1000.0,
+                    ),
+                    settings_module.TerminalArea(
+                        latitude=47.1,
+                        longitude=28.9,
+                        radius_km=40.0,
+                        max_altitude_ft=9000.0,
+                    ),
+                ),
+            ),
+        )
+        candidate = logic.interest_candidate(
+            {
+                "hex": "abc123",
+                "flight": "TST123",
+                "lat": 47.2,
+                "lon": 29.0,
+                "alt_baro": 4200,
+                "baro_rate": -4200,
+                "seen": 1.0,
+                "seen_pos": 1.0,
+                "messages": 100,
+            },
+            source="test",
+            aircraft_count=1,
+            settings=custom_settings,
             enrichment={"service_type": "unknown"},
         )
 

@@ -73,9 +73,11 @@ azimuth/radius model only.
 The built-in Batumi terminal area and runway staging area are inherited only by
 the default `BUS` local-airport profile; other local airports use no
 terminal/staging geometry unless `terminal_area_enabled` or
-`runway_staging_enabled` is set. `runway_staging_areas_json` can define multiple
-preopen staging areas as objects with `lat`/`lon`, `radius_km`,
-`max_altitude_ft`, and `max_speed_kt`; when it is empty or invalid the older
+`runway_staging_enabled` is set. `terminal_areas_json` can define multiple
+routine terminal/suppression areas as objects with `lat`/`lon`, `radius_km`, and
+`max_altitude_ft`; `runway_staging_areas_json` can define multiple preopen
+staging areas as objects with `lat`/`lon`, `radius_km`, `max_altitude_ft`, and
+`max_speed_kt`. When a structured area list is empty or invalid the older
 single-area fields are used. Legacy non-Batumi entries with already-custom area
 coordinates are treated as enabled.
 Aircraft transmitting emergency transponder codes `7500`, `7600`, or `7700`

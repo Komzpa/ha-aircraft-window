@@ -997,20 +997,22 @@ def _is_local_terminal_area(
     settings: RuntimeSettings = DEFAULT_RUNTIME_SETTINGS,
 ) -> bool:
     """Return true when the aircraft is in the normal local terminal area."""
-    terminal_area = settings.local_airport.terminal_area
-    if terminal_area is None:
+    if not settings.local_airport.terminal_areas:
         return False
     lat = parse_float(aircraft.get("lat"))
     lon = parse_float(aircraft.get("lon"))
     altitude = altitude_ft(aircraft)
     if lat is None or lon is None or altitude is None:
         return False
-    if altitude > terminal_area.max_altitude_ft:
-        return False
-    return (
-        haversine_km(terminal_area.latitude, terminal_area.longitude, lat, lon)
-        <= terminal_area.radius_km
-    )
+    for terminal_area in settings.local_airport.terminal_areas:
+        if altitude > terminal_area.max_altitude_ft:
+            continue
+        if (
+            haversine_km(terminal_area.latitude, terminal_area.longitude, lat, lon)
+            <= terminal_area.radius_km
+        ):
+            return True
+    return False
 
 
 def _has_routine_terminal_context(

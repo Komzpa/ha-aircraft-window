@@ -105,6 +105,10 @@ Current assumptions and status:
 - `runway_staging_areas_json` can define multiple runway staging/preopen areas
   for airports whose ground movement cannot be represented by one circle. The
   scalar runway-staging fields remain the simple single-area fallback.
+- `terminal_areas_json` can define multiple routine terminal/suppression areas
+  for airports where ordinary approach turns and descents happen around more
+  than one local center. The scalar terminal-area fields remain the simple
+  single-area fallback.
 
 Target shape:
 

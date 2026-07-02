@@ -78,6 +78,7 @@ from .const import (
     CONF_TERMINAL_AREA_LONGITUDE,
     CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
     CONF_TERMINAL_AREA_RADIUS_KM,
+    CONF_TERMINAL_AREAS_JSON,
     CONF_TERMINAL_SUPPRESSION_ENABLED,
     CONF_WATCH_AIRPORTS,
     CONF_WATCH_AIRPORTS_JSON,
@@ -179,7 +180,7 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
             (CONF_TERMINAL_AREA_RADIUS_KM, default_terminal.radius_km),
             (CONF_TERMINAL_AREA_MAX_ALTITUDE_FT, default_terminal.max_altitude_ft),
         )
-    )
+    ) or bool(str(defaults.get(CONF_TERMINAL_AREAS_JSON, "") or "").strip())
     runway_staging_values_customized = any(
         _default_value_changed(defaults, key, default)
         for key, default in (
@@ -306,6 +307,10 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
                 default_terminal.max_altitude_ft,
             ),
         ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=60000.0)),
+        vol.Optional(
+            CONF_TERMINAL_AREAS_JSON,
+            default=defaults.get(CONF_TERMINAL_AREAS_JSON, ""),
+        ): str,
         vol.Required(
             CONF_RUNWAY_STAGING_ENABLED,
             default=runway_staging_enabled_default,

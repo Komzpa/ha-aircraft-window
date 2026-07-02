@@ -60,6 +60,7 @@ from .const import (
     CONF_TERMINAL_AREA_LONGITUDE,
     CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
     CONF_TERMINAL_AREA_RADIUS_KM,
+    CONF_TERMINAL_AREAS_JSON,
     CONF_TERMINAL_SUPPRESSION_ENABLED,
     CONF_WATCH_AIRPORTS,
     CONF_WATCH_AIRPORTS_JSON,
@@ -119,8 +120,13 @@ class LocalAirportProfile:
     timezone_name: str
     timezone: tzinfo
     board_provider: str = ""
-    terminal_area: TerminalArea | None = None
+    terminal_areas: tuple[TerminalArea, ...] = ()
     runway_staging_areas: tuple[RunwayStagingArea, ...] = ()
+
+    @property
+    def terminal_area(self) -> TerminalArea | None:
+        """Return the first configured terminal area for compatibility."""
+        return self.terminal_areas[0] if self.terminal_areas else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,7 +237,7 @@ DEFAULT_RUNTIME_SETTINGS = RuntimeSettings(
         timezone_name="Asia/Tbilisi",
         timezone=ZoneInfo("Asia/Tbilisi"),
         board_provider="batumi_airport_board",
-        terminal_area=DEFAULT_BATUMI_TERMINAL_AREA,
+        terminal_areas=(DEFAULT_BATUMI_TERMINAL_AREA,),
         runway_staging_areas=(DEFAULT_BATUMI_RUNWAY_STAGING_AREA,),
     ),
     window_view=WindowViewProfile(
@@ -469,6 +475,56 @@ def _runway_staging_areas_from_json_option(
     areas: list[RunwayStagingArea] = []
     for item in parsed:
         area = _runway_staging_area_from_mapping(item)
+        if area is None:
+            return None
+        areas.append(area)
+    return tuple(areas)
+
+
+def _terminal_area_from_mapping(raw: Any) -> TerminalArea | None:
+    """Return one terminal suppression area from JSON data."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        latitude = float(raw.get("latitude", raw.get("lat")))
+        longitude = float(raw.get("longitude", raw.get("lon")))
+        radius_km = float(raw["radius_km"])
+        max_altitude_ft = float(raw["max_altitude_ft"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if (
+        not math.isfinite(latitude)
+        or not math.isfinite(longitude)
+        or not math.isfinite(radius_km)
+        or not math.isfinite(max_altitude_ft)
+        or not -90.0 <= latitude <= 90.0
+        or not -180.0 <= longitude <= 180.0
+        or not 0.0 <= radius_km <= 500.0
+        or not 0.0 <= max_altitude_ft <= 60000.0
+    ):
+        return None
+    return TerminalArea(
+        latitude=latitude,
+        longitude=longitude,
+        radius_km=radius_km,
+        max_altitude_ft=max_altitude_ft,
+    )
+
+
+def _terminal_areas_from_json_option(value: Any) -> tuple[TerminalArea, ...] | None:
+    """Parse a structured JSON list of terminal suppression areas."""
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if not isinstance(parsed, list):
+        return None
+    areas: list[TerminalArea] = []
+    for item in parsed:
+        area = _terminal_area_from_mapping(item)
         if area is None:
             return None
         areas.append(area)
@@ -879,36 +935,45 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
             (CONF_TERMINAL_AREA_RADIUS_KM, default_terminal.radius_km),
             (CONF_TERMINAL_AREA_MAX_ALTITUDE_FT, default_terminal.max_altitude_ft),
         )
-    )
+    ) or bool(str(options.get(CONF_TERMINAL_AREAS_JSON, "") or "").strip())
     terminal_area_enabled_default = default_local_airport or terminal_area_values_customized
     terminal_area_enabled = bool(
         options.get(CONF_TERMINAL_AREA_ENABLED, terminal_area_enabled_default)
     )
-    terminal_area = (
-        TerminalArea(
-            latitude=_float_option(
-                options,
-                CONF_TERMINAL_AREA_LATITUDE,
-                default_terminal.latitude,
-            ),
-            longitude=_float_option(
-                options,
-                CONF_TERMINAL_AREA_LONGITUDE,
-                default_terminal.longitude,
-            ),
-            radius_km=_float_option(
-                options,
-                CONF_TERMINAL_AREA_RADIUS_KM,
-                default_terminal.radius_km,
-            ),
-            max_altitude_ft=_float_option(
-                options,
-                CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
-                default_terminal.max_altitude_ft,
-            ),
+    structured_terminal_areas = _terminal_areas_from_json_option(
+        options.get(CONF_TERMINAL_AREAS_JSON, "")
+    )
+    terminal_areas = (
+        structured_terminal_areas
+        if structured_terminal_areas is not None
+        else (
+            (
+                TerminalArea(
+                    latitude=_float_option(
+                        options,
+                        CONF_TERMINAL_AREA_LATITUDE,
+                        default_terminal.latitude,
+                    ),
+                    longitude=_float_option(
+                        options,
+                        CONF_TERMINAL_AREA_LONGITUDE,
+                        default_terminal.longitude,
+                    ),
+                    radius_km=_float_option(
+                        options,
+                        CONF_TERMINAL_AREA_RADIUS_KM,
+                        default_terminal.radius_km,
+                    ),
+                    max_altitude_ft=_float_option(
+                        options,
+                        CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
+                        default_terminal.max_altitude_ft,
+                    ),
+                ),
+            )
         )
         if terminal_area_enabled
-        else None
+        else ()
     )
     window_view = WindowViewProfile(
         lead_seconds=_float_option(
@@ -989,7 +1054,7 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
             timezone_name=timezone_name,
             timezone=local_timezone,
             board_provider=board_provider,
-            terminal_area=terminal_area,
+            terminal_areas=terminal_areas,
             runway_staging_areas=runway_staging_areas,
         ),
         window_view=window_view,
