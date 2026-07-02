@@ -742,6 +742,18 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "BUS → Natakhtari",
         )
 
+    def test_default_runtime_settings_load_from_package_data(self) -> None:
+        runtime_settings = settings_module.load_default_runtime_settings_from_data_file()
+
+        self.assertEqual(runtime_settings.local_airport.iata, "BUS")
+        self.assertEqual(runtime_settings.local_airport.name, "Batumi")
+        self.assertEqual(runtime_settings.window_view.azimuth_degrees, 290.0)
+        self.assertEqual(runtime_settings.watch_policy.watch_airports[0].iata, "KUT")
+        self.assertEqual(
+            runtime_settings.providers.batumi_airport_board_legs["ARRIVAL"],
+            "/en-EN/flights/arrival-flights",
+        )
+
     def test_default_route_fallbacks_load_from_package_data(self) -> None:
         route_fallbacks = route_fallbacks_module.load_route_fallbacks_from_data_file()
 

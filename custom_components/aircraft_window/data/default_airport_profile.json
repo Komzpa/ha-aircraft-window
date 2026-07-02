@@ -1,0 +1,78 @@
+{
+  "local_airport": {
+    "iata": "BUS",
+    "name": "Batumi",
+    "timezone_name": "Asia/Tbilisi",
+    "board_provider": "batumi_airport_board",
+    "terminal_areas": [
+      {
+        "latitude": 41.6103,
+        "longitude": 41.6004,
+        "radius_km": 55.0,
+        "max_altitude_ft": 10000.0
+      }
+    ],
+    "runway_staging_areas": [
+      {
+        "latitude": 41.6103,
+        "longitude": 41.6004,
+        "radius_km": 3.0,
+        "max_altitude_ft": 500.0,
+        "max_speed_kt": 45.0
+      }
+    ]
+  },
+  "window_view": {
+    "lead_seconds": 240.0,
+    "projection_step_seconds": 15.0,
+    "default_radius_km": 80.0,
+    "day_radius_km": 12.0,
+    "low_light_radius_km": 35.0,
+    "night_radius_km": 45.0,
+    "azimuth_degrees": 290.0,
+    "half_angle_degrees": 90.0,
+    "polygon_lon_lat": [
+      [41.5906258, 41.6211806],
+      [41.5759385, 41.6106128],
+      [40.5297019, 40.8787998],
+      [37.6439069, 39.8782721],
+      [30.1070473, 40.9740093],
+      [30.5487884, 46.1944223],
+      [41.4123703, 45.3912115],
+      [42.0420538, 42.0792269]
+    ]
+  },
+  "watch_policy": {
+    "rapid_descent_fpm": -3500.0,
+    "rapid_descent_min_altitude_ft": 1000.0,
+    "orbit_track_rate_degrees_per_second": 2.5,
+    "orbit_min_ground_speed_kt": 60.0,
+    "orbit_max_ground_speed_kt": 260.0,
+    "terminal_suppression_enabled": true,
+    "watch_airports": [
+      {
+        "iata": "KUT",
+        "phase": "kutaisi_route",
+        "reason_label": "route includes KUT"
+      }
+    ]
+  },
+  "providers": {
+    "adsbdb_base_url": "https://api.adsbdb.com/v0",
+    "hexdb_base_url": "https://hexdb.io/api/v1",
+    "airplanes_live_base_url": "https://api.airplanes.live/v2",
+    "airport_data_base_url": "https://airport-data.com",
+    "route_cache_seconds": 21600,
+    "aircraft_cache_seconds": 86400,
+    "built_year_cache_seconds": 2592000,
+    "airport_board_cache_seconds": 300,
+    "enrichment_timeout_seconds": 4.0,
+    "airport_board_timeout_seconds": 4.0,
+    "batumi_airport_board_base_url": "https://batumiairport.com/Home/searchFlights",
+    "json_airport_board_url": "",
+    "batumi_airport_board_legs": {
+      "DEPARTURE": "/en-EN/flights/departure-flights",
+      "ARRIVAL": "/en-EN/flights/arrival-flights"
+    }
+  }
+}

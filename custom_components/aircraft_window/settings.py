@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone, tzinfo
+from datetime import UTC, datetime, timedelta, timezone, tzinfo
+from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -78,16 +79,7 @@ from .const import (
 from .route_fallbacks import DEFAULT_ROUTE_FALLBACKS, RouteFallbacks
 from .speech_ru import DEFAULT_RUSSIAN_SPEECH_PACK, RussianSpeechPack
 
-BATUMI_WINDOW_VIEW_POLYGON_LON_LAT = (
-    (41.5906258, 41.6211806),
-    (41.5759385, 41.6106128),
-    (40.5297019, 40.8787998),
-    (37.6439069, 39.8782721),
-    (30.1070473, 40.9740093),
-    (30.5487884, 46.1944223),
-    (41.4123703, 45.3912115),
-    (42.0420538, 42.0792269),
-)
+DEFAULT_AIRPORT_PROFILE_DATA_FILE = "data/default_airport_profile.json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,80 +207,250 @@ class RuntimeSettings:
     route_fallbacks: RouteFallbacks
 
 
-DEFAULT_BATUMI_RUNWAY_STAGING_AREA = RunwayStagingArea(
-    latitude=41.6103,
-    longitude=41.6004,
-    radius_km=3.0,
-    max_altitude_ft=500.0,
-    max_speed_kt=45.0,
-)
+def _load_settings_data_file(filename: str) -> Any:
+    """Load one packaged settings JSON file."""
+    raw_text = (Path(__file__).resolve().parent / filename).read_text(encoding="utf-8")
+    return json.loads(raw_text)
 
-DEFAULT_BATUMI_TERMINAL_AREA = TerminalArea(
-    latitude=DEFAULT_BATUMI_RUNWAY_STAGING_AREA.latitude,
-    longitude=DEFAULT_BATUMI_RUNWAY_STAGING_AREA.longitude,
-    radius_km=55.0,
-    max_altitude_ft=10000.0,
-)
 
-DEFAULT_RUNTIME_SETTINGS = RuntimeSettings(
-    local_airport=LocalAirportProfile(
-        iata="BUS",
-        name="Batumi",
-        timezone_name="Asia/Tbilisi",
-        timezone=ZoneInfo("Asia/Tbilisi"),
-        board_provider="batumi_airport_board",
-        terminal_areas=(DEFAULT_BATUMI_TERMINAL_AREA,),
-        runway_staging_areas=(DEFAULT_BATUMI_RUNWAY_STAGING_AREA,),
-    ),
-    window_view=WindowViewProfile(
-        lead_seconds=240.0,
-        projection_step_seconds=15.0,
-        default_radius_km=80.0,
-        day_radius_km=12.0,
-        low_light_radius_km=35.0,
-        night_radius_km=45.0,
-        azimuth_degrees=290.0,
-        half_angle_degrees=90.0,
-        polygon_lon_lat=BATUMI_WINDOW_VIEW_POLYGON_LON_LAT,
-    ),
-    watch_policy=WatchPolicy(
-        rapid_descent_fpm=-3500.0,
-        rapid_descent_min_altitude_ft=1000.0,
-        orbit_track_rate_degrees_per_second=2.5,
-        orbit_min_ground_speed_kt=60.0,
-        orbit_max_ground_speed_kt=260.0,
-        terminal_suppression_enabled=True,
-        watch_airports=(
-            WatchAirport(
-                iata="KUT",
-                phase="kutaisi_route",
-                reason_label="route includes KUT",
-            ),
+def _profile_float(raw: dict[str, Any], key: str, default: float) -> float:
+    """Return a finite float from bundled profile data."""
+    try:
+        value = float(raw.get(key, default))
+    except (TypeError, ValueError):
+        return default
+    return value if math.isfinite(value) else default
+
+
+def _profile_int(raw: dict[str, Any], key: str, default: int) -> int:
+    """Return an integer from bundled profile data."""
+    try:
+        return int(raw.get(key, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _profile_lon_lat_points(raw: Any) -> tuple[tuple[float, float], ...]:
+    """Return lon/lat points from bundled profile data."""
+    if not isinstance(raw, list):
+        return ()
+    points: list[tuple[float, float]] = []
+    for item in raw:
+        if isinstance(item, dict):
+            raw_lon = item.get("lon", item.get("longitude"))
+            raw_lat = item.get("lat", item.get("latitude"))
+        elif isinstance(item, list) and len(item) == 2:
+            raw_lon, raw_lat = item
+        else:
+            continue
+        try:
+            lon = float(raw_lon)
+            lat = float(raw_lat)
+        except (TypeError, ValueError):
+            continue
+        if -180.0 <= lon <= 180.0 and -90.0 <= lat <= 90.0:
+            points.append((lon, lat))
+    return tuple(points)
+
+
+def _profile_terminal_area(raw: Any) -> TerminalArea | None:
+    """Return one terminal area from bundled profile data."""
+    if not isinstance(raw, dict):
+        return None
+    return TerminalArea(
+        latitude=_profile_float(raw, "latitude", _profile_float(raw, "lat", 0.0)),
+        longitude=_profile_float(raw, "longitude", _profile_float(raw, "lon", 0.0)),
+        radius_km=_profile_float(raw, "radius_km", 0.0),
+        max_altitude_ft=_profile_float(raw, "max_altitude_ft", 0.0),
+    )
+
+
+def _profile_runway_staging_area(raw: Any) -> RunwayStagingArea | None:
+    """Return one runway staging area from bundled profile data."""
+    if not isinstance(raw, dict):
+        return None
+    return RunwayStagingArea(
+        latitude=_profile_float(raw, "latitude", _profile_float(raw, "lat", 0.0)),
+        longitude=_profile_float(raw, "longitude", _profile_float(raw, "lon", 0.0)),
+        radius_km=_profile_float(raw, "radius_km", 0.0),
+        max_altitude_ft=_profile_float(raw, "max_altitude_ft", 0.0),
+        max_speed_kt=_profile_float(raw, "max_speed_kt", 0.0),
+    )
+
+
+def _profile_watch_airport(raw: Any) -> WatchAirport | None:
+    """Return one watched route airport from bundled profile data."""
+    if not isinstance(raw, dict):
+        return None
+    iata = str(raw.get("iata") or "").strip().upper()
+    phase = str(raw.get("phase") or f"{iata.lower()}_route").strip()
+    reason_label = str(raw.get("reason_label") or f"route includes {iata}").strip()
+    if not iata or not phase or not reason_label:
+        return None
+    return WatchAirport(iata=iata, phase=phase, reason_label=reason_label)
+
+
+def load_default_runtime_settings_from_data_file(
+    filename: str = DEFAULT_AIRPORT_PROFILE_DATA_FILE,
+) -> RuntimeSettings:
+    """Load the bundled default runtime profile from packaged data."""
+    raw_data = _load_settings_data_file(filename)
+    if not isinstance(raw_data, dict):
+        raise ValueError(f"default airport profile must be an object: {filename}")
+    raw_airport = raw_data.get("local_airport")
+    raw_window = raw_data.get("window_view")
+    raw_watch = raw_data.get("watch_policy")
+    raw_providers = raw_data.get("providers")
+    raw_airport = raw_airport if isinstance(raw_airport, dict) else {}
+    raw_window = raw_window if isinstance(raw_window, dict) else {}
+    raw_watch = raw_watch if isinstance(raw_watch, dict) else {}
+    raw_providers = raw_providers if isinstance(raw_providers, dict) else {}
+
+    timezone_name = str(raw_airport.get("timezone_name") or "UTC").strip()
+    try:
+        local_timezone = ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        local_timezone = UTC
+        timezone_name = ""
+    terminal_areas = tuple(
+        area
+        for area in (
+            _profile_terminal_area(item) for item in raw_airport.get("terminal_areas", [])
+        )
+        if area is not None
+    )
+    runway_staging_areas = tuple(
+        area
+        for area in (
+            _profile_runway_staging_area(item)
+            for item in raw_airport.get("runway_staging_areas", [])
+        )
+        if area is not None
+    )
+    watch_airports = tuple(
+        airport
+        for airport in (
+            _profile_watch_airport(item) for item in raw_watch.get("watch_airports", [])
+        )
+        if airport is not None
+    )
+    raw_legs = raw_providers.get("batumi_airport_board_legs")
+    batumi_airport_board_legs = {
+        str(key).strip().upper(): str(value).strip()
+        for key, value in (raw_legs.items() if isinstance(raw_legs, dict) else ())
+        if str(key).strip() and str(value).strip()
+    }
+
+    return RuntimeSettings(
+        local_airport=LocalAirportProfile(
+            iata=str(raw_airport.get("iata") or "").strip().upper(),
+            name=str(raw_airport.get("name") or "").strip(),
+            timezone_name=timezone_name,
+            timezone=local_timezone,
+            board_provider=str(raw_airport.get("board_provider") or "").strip(),
+            terminal_areas=terminal_areas,
+            runway_staging_areas=runway_staging_areas,
         ),
-    ),
-    providers=ProviderSettings(
-        adsbdb_base_url="https://api.adsbdb.com/v0",
-        hexdb_base_url="https://hexdb.io/api/v1",
-        airplanes_live_base_url="https://api.airplanes.live/v2",
-        airport_data_base_url="https://airport-data.com",
-        route_cache_seconds=6 * 60 * 60,
-        aircraft_cache_seconds=24 * 60 * 60,
-        built_year_cache_seconds=30 * 24 * 60 * 60,
-        airport_board_cache_seconds=5 * 60,
-        enrichment_timeout_seconds=DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
-        airport_board_timeout_seconds=DEFAULT_AIRPORT_BOARD_TIMEOUT_SECONDS,
-        batumi_airport_board_base_url="https://batumiairport.com/Home/searchFlights",
-        json_airport_board_url="",
-        batumi_airport_board_legs={
-            "DEPARTURE": "/en-EN/flights/departure-flights",
-            "ARRIVAL": "/en-EN/flights/arrival-flights",
-        },
-    ),
-    speech_locale=DEFAULT_SPEECH_LOCALE,
-    speech_pack=DEFAULT_RUSSIAN_SPEECH_PACK,
-    model_speech_overrides={},
-    route_fallbacks=DEFAULT_ROUTE_FALLBACKS,
-)
+        window_view=WindowViewProfile(
+            lead_seconds=_profile_float(raw_window, "lead_seconds", 240.0),
+            projection_step_seconds=_profile_float(
+                raw_window,
+                "projection_step_seconds",
+                15.0,
+            ),
+            default_radius_km=_profile_float(raw_window, "default_radius_km", 80.0),
+            day_radius_km=_profile_float(raw_window, "day_radius_km", 12.0),
+            low_light_radius_km=_profile_float(raw_window, "low_light_radius_km", 35.0),
+            night_radius_km=_profile_float(raw_window, "night_radius_km", 45.0),
+            azimuth_degrees=_profile_float(raw_window, "azimuth_degrees", 290.0),
+            half_angle_degrees=_profile_float(raw_window, "half_angle_degrees", 90.0),
+            polygon_lon_lat=_profile_lon_lat_points(raw_window.get("polygon_lon_lat")),
+        ),
+        watch_policy=WatchPolicy(
+            rapid_descent_fpm=_profile_float(raw_watch, "rapid_descent_fpm", -3500.0),
+            rapid_descent_min_altitude_ft=_profile_float(
+                raw_watch,
+                "rapid_descent_min_altitude_ft",
+                1000.0,
+            ),
+            orbit_track_rate_degrees_per_second=_profile_float(
+                raw_watch,
+                "orbit_track_rate_degrees_per_second",
+                2.5,
+            ),
+            orbit_min_ground_speed_kt=_profile_float(
+                raw_watch,
+                "orbit_min_ground_speed_kt",
+                60.0,
+            ),
+            orbit_max_ground_speed_kt=_profile_float(
+                raw_watch,
+                "orbit_max_ground_speed_kt",
+                260.0,
+            ),
+            terminal_suppression_enabled=bool(
+                raw_watch.get("terminal_suppression_enabled", True)
+            ),
+            watch_airports=watch_airports,
+        ),
+        providers=ProviderSettings(
+            adsbdb_base_url=str(
+                raw_providers.get("adsbdb_base_url") or "https://api.adsbdb.com/v0"
+            ).strip(),
+            hexdb_base_url=str(
+                raw_providers.get("hexdb_base_url") or "https://hexdb.io/api/v1"
+            ).strip(),
+            airplanes_live_base_url=str(
+                raw_providers.get("airplanes_live_base_url")
+                or "https://api.airplanes.live/v2"
+            ).strip(),
+            airport_data_base_url=str(
+                raw_providers.get("airport_data_base_url") or "https://airport-data.com"
+            ).strip(),
+            route_cache_seconds=_profile_int(raw_providers, "route_cache_seconds", 21600),
+            aircraft_cache_seconds=_profile_int(
+                raw_providers,
+                "aircraft_cache_seconds",
+                86400,
+            ),
+            built_year_cache_seconds=_profile_int(
+                raw_providers,
+                "built_year_cache_seconds",
+                2592000,
+            ),
+            airport_board_cache_seconds=_profile_int(
+                raw_providers,
+                "airport_board_cache_seconds",
+                300,
+            ),
+            enrichment_timeout_seconds=_profile_float(
+                raw_providers,
+                "enrichment_timeout_seconds",
+                DEFAULT_ENRICHMENT_TIMEOUT_SECONDS,
+            ),
+            airport_board_timeout_seconds=_profile_float(
+                raw_providers,
+                "airport_board_timeout_seconds",
+                DEFAULT_AIRPORT_BOARD_TIMEOUT_SECONDS,
+            ),
+            batumi_airport_board_base_url=str(
+                raw_providers.get("batumi_airport_board_base_url")
+                or "https://batumiairport.com/Home/searchFlights"
+            ).strip(),
+            json_airport_board_url=str(
+                raw_providers.get("json_airport_board_url") or ""
+            ).strip(),
+            batumi_airport_board_legs=batumi_airport_board_legs,
+        ),
+        speech_locale=DEFAULT_SPEECH_LOCALE,
+        speech_pack=DEFAULT_RUSSIAN_SPEECH_PACK,
+        model_speech_overrides={},
+        route_fallbacks=DEFAULT_ROUTE_FALLBACKS,
+    )
+
+
+DEFAULT_RUNTIME_SETTINGS = load_default_runtime_settings_from_data_file()
+BATUMI_WINDOW_VIEW_POLYGON_LON_LAT = DEFAULT_RUNTIME_SETTINGS.window_view.polygon_lon_lat
 
 
 def _float_option(options: dict[str, Any], key: str, default: float) -> float:
