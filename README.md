@@ -53,6 +53,9 @@ public owner or operator metadata can produce route-watch and
 The default Batumi profile keeps `KUT` as a watched airport for compatibility;
 other local airports start with no watched route airport unless `watch_airports`
 is set to a non-default value.
+Built-in route-by-callsign fallbacks for local Batumi shuttle routes are also
+loaded only for the default Batumi profile; other local airports use only their
+explicit `route_callsign_overrides_json` route fallbacks.
 Window geometry is configurable with azimuth, half-angle, radius, projection
 lead/step, and an optional raw lon/lat polygon JSON override. Leaving the
 polygon blank keeps the profile default; `[]` explicitly clears it and uses the

@@ -423,7 +423,11 @@ def _json_route_map_option(options: dict[str, Any], key: str) -> dict[str, dict[
     return result
 
 
-def _route_fallbacks_from_options(options: dict[str, Any]) -> RouteFallbacks:
+def _route_fallbacks_from_options(
+    options: dict[str, Any],
+    *,
+    include_builtin_routes: bool = True,
+) -> RouteFallbacks:
     """Return built-in route fallbacks plus user-maintained overrides."""
     prefix_overrides = {
         key.upper(): value
@@ -432,7 +436,15 @@ def _route_fallbacks_from_options(options: dict[str, Any]) -> RouteFallbacks:
             CONF_ROUTE_AIRLINE_PREFIX_OVERRIDES,
         ).items()
     }
-    return DEFAULT_ROUTE_FALLBACKS.with_overrides(
+    base_fallbacks = (
+        DEFAULT_ROUTE_FALLBACKS
+        if include_builtin_routes
+        else RouteFallbacks(
+            airline_by_callsign_prefix=DEFAULT_ROUTE_FALLBACKS.airline_by_callsign_prefix,
+            route_by_callsign={},
+        )
+    )
+    return base_fallbacks.with_overrides(
         airline_by_callsign_prefix=prefix_overrides,
         route_by_callsign=_json_route_map_option(options, CONF_ROUTE_CALLSIGN_OVERRIDES),
     )
@@ -801,5 +813,8 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
         providers=_provider_settings_from_options(options),
         speech_pack=_speech_pack_from_options(options),
         model_speech_overrides=_model_speech_overrides_from_options(options),
-        route_fallbacks=_route_fallbacks_from_options(options),
+        route_fallbacks=_route_fallbacks_from_options(
+            options,
+            include_builtin_routes=default_local_airport,
+        ),
     )

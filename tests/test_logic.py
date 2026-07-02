@@ -398,6 +398,13 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(runtime_settings.local_airport.runway_staging_areas, ())
         self.assertEqual(runtime_settings.window_view.polygon_lon_lat, ())
         self.assertEqual(runtime_settings.watch_policy.watch_airports, ())
+        self.assertEqual(
+            logic.known_route_for_callsign(
+                "VAA021",
+                route_fallbacks=runtime_settings.route_fallbacks,
+            ),
+            {},
+        )
 
     def test_runtime_settings_ignores_stored_default_airport_areas(
         self,
@@ -474,12 +481,41 @@ class AircraftWindowLogicTest(unittest.TestCase):
             ["DEF"],
         )
 
+    def test_runtime_settings_keeps_explicit_route_fallback_for_other_airport(
+        self,
+    ) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {
+                "local_airport_iata": "ABC",
+                "route_callsign_overrides_json": (
+                    '{"VAA021": {"airline_name": "Example Air", '
+                    '"origin_iata": "ABC", "destination_iata": "DEF", '
+                    '"route_summary": "ABC → DEF", "route_source": "user_override"}}'
+                ),
+            }
+        )
+
+        self.assertEqual(
+            logic.known_route_for_callsign(
+                "VAA021",
+                route_fallbacks=runtime_settings.route_fallbacks,
+            )["route_summary"],
+            "ABC → DEF",
+        )
+
     def test_runtime_settings_keeps_default_polygon_for_default_airport(self) -> None:
         runtime_settings = settings_module.runtime_settings_from_options({})
 
         self.assertEqual(
             runtime_settings.window_view.polygon_lon_lat,
             settings_module.BATUMI_WINDOW_VIEW_POLYGON_LON_LAT,
+        )
+        self.assertEqual(
+            logic.known_route_for_callsign(
+                "VAA021",
+                route_fallbacks=runtime_settings.route_fallbacks,
+            )["route_summary"],
+            "BUS → Natakhtari",
         )
 
     def test_runtime_settings_can_clear_default_polygon(self) -> None:
