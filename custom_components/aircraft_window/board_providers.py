@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from .logic import normalized_airport_city
 
@@ -130,6 +131,12 @@ def batumi_airport_board_leg_request(
     request_raw_url: str,
 ) -> AirportBoardLegRequest:
     """Return the built-in airport board request shape for one leg."""
+    parsed_base_url = urlsplit(base_url)
+    referer_origin = (
+        f"{parsed_base_url.scheme}://{parsed_base_url.netloc}"
+        if parsed_base_url.scheme and parsed_base_url.netloc
+        else ""
+    )
     return AirportBoardLegRequest(
         url=base_url,
         params={
@@ -141,7 +148,7 @@ def batumi_airport_board_leg_request(
         },
         headers={
             "Accept": "application/json, text/javascript, */*; q=0.01",
-            "Referer": f"https://batumiairport.com{request_raw_url}",
+            "Referer": f"{referer_origin}{request_raw_url}",
             "User-Agent": "HomeAssistantAircraftWindow/1.0",
             "X-Requested-With": "XMLHttpRequest",
         },

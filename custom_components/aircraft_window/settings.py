@@ -434,8 +434,7 @@ def load_default_runtime_settings_from_data_file(
                 DEFAULT_AIRPORT_BOARD_TIMEOUT_SECONDS,
             ),
             batumi_airport_board_base_url=str(
-                raw_providers.get("batumi_airport_board_base_url")
-                or "https://batumiairport.com/Home/searchFlights"
+                raw_providers.get("batumi_airport_board_base_url") or ""
             ).strip(),
             json_airport_board_url=str(
                 raw_providers.get("json_airport_board_url") or ""

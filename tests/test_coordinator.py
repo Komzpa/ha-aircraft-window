@@ -1230,6 +1230,16 @@ class BatumiAirportBoardTest(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(provider_by_id["json_airport_board"].cache_prefix, "airport-board:")
 
+    def test_builtin_board_request_referer_uses_configured_base_url(self) -> None:
+        request = coordinator.batumi_airport_board_leg_request(
+            base_url="https://example.invalid/custom/searchFlights",
+            today="20.05.2026",
+            flight_leg="DEPARTURE",
+            request_raw_url="/custom/departures",
+        )
+
+        self.assertEqual(request.headers["Referer"], "https://example.invalid/custom/departures")
+
     def test_batumi_board_match_maps_flyone_callsign_prefix_to_board_code(self) -> None:
         board = {
             "data": {
