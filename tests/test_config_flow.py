@@ -157,6 +157,31 @@ class AircraftWindowConfigFlowTest(unittest.TestCase):
             ("", "batumi_airport_board", "json_airport_board"),
         )
 
+    def test_schema_defaults_area_flags_by_profile(self) -> None:
+        default_schema = config_flow._schema({}, include_home_coordinates=False)
+        other_schema = config_flow._schema(
+            {const.CONF_LOCAL_AIRPORT_IATA: "ABC"},
+            include_home_coordinates=False,
+        )
+
+        self.assertTrue(_field_default(default_schema, const.CONF_TERMINAL_AREA_ENABLED))
+        self.assertTrue(_field_default(default_schema, const.CONF_RUNWAY_STAGING_ENABLED))
+        self.assertFalse(_field_default(other_schema, const.CONF_TERMINAL_AREA_ENABLED))
+        self.assertFalse(_field_default(other_schema, const.CONF_RUNWAY_STAGING_ENABLED))
+
+    def test_schema_enables_area_flags_for_legacy_custom_values(self) -> None:
+        schema = config_flow._schema(
+            {
+                const.CONF_LOCAL_AIRPORT_IATA: "ABC",
+                const.CONF_TERMINAL_AREA_LATITUDE: 47.1,
+                const.CONF_RUNWAY_STAGING_LATITUDE: 47.2,
+            },
+            include_home_coordinates=False,
+        )
+
+        self.assertTrue(_field_default(schema, const.CONF_TERMINAL_AREA_ENABLED))
+        self.assertTrue(_field_default(schema, const.CONF_RUNWAY_STAGING_ENABLED))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -440,6 +440,31 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(runtime_settings.local_airport.runway_staging_areas, ())
         self.assertEqual(runtime_settings.watch_policy.watch_airports, ())
 
+    def test_runtime_settings_respects_disabled_airport_area_flags(self) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {
+                "terminal_area_enabled": False,
+                "runway_staging_enabled": False,
+            }
+        )
+
+        self.assertIsNone(runtime_settings.local_airport.terminal_area)
+        self.assertEqual(runtime_settings.local_airport.runway_staging_areas, ())
+
+    def test_runtime_settings_uses_enabled_airport_area_flags_for_other_airport(
+        self,
+    ) -> None:
+        runtime_settings = settings_module.runtime_settings_from_options(
+            {
+                "local_airport_iata": "ABC",
+                "terminal_area_enabled": True,
+                "runway_staging_enabled": True,
+            }
+        )
+
+        self.assertIsNotNone(runtime_settings.local_airport.terminal_area)
+        self.assertEqual(len(runtime_settings.local_airport.runway_staging_areas), 1)
+
     def test_runtime_settings_keeps_custom_terminal_for_other_airport(self) -> None:
         runtime_settings = settings_module.runtime_settings_from_options(
             {

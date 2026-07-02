@@ -62,8 +62,9 @@ polygon blank keeps the profile default; `[]` explicitly clears it and uses the
 azimuth/radius model only.
 The built-in Batumi terminal area and runway staging area are inherited only by
 the default `BUS` local-airport profile; other local airports use no
-terminal/staging geometry unless those stored values differ from the Batumi
-defaults.
+terminal/staging geometry unless `terminal_area_enabled` or
+`runway_staging_enabled` is set. Legacy non-Batumi entries with already-custom
+area coordinates are treated as enabled.
 Aircraft transmitting emergency transponder codes `7500`, `7600`, or `7700`
 produce an `emergency_squawk` event with cautious wording for unlawful
 interference, radio failure, or a general emergency. Speech names the situation

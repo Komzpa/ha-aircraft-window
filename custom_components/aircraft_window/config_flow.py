@@ -47,6 +47,7 @@ from .const import (
     CONF_ROUTE_AIRLINE_PREFIX_OVERRIDES,
     CONF_ROUTE_CACHE_SECONDS,
     CONF_ROUTE_CALLSIGN_OVERRIDES,
+    CONF_RUNWAY_STAGING_ENABLED,
     CONF_RUNWAY_STAGING_LATITUDE,
     CONF_RUNWAY_STAGING_LONGITUDE,
     CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
@@ -63,6 +64,7 @@ from .const import (
     CONF_SPEECH_CITY_ROUTE_OVERRIDES,
     CONF_SPEECH_CITY_TO_OVERRIDES,
     CONF_SPEECH_MODEL_OVERRIDES,
+    CONF_TERMINAL_AREA_ENABLED,
     CONF_TERMINAL_AREA_LATITUDE,
     CONF_TERMINAL_AREA_LONGITUDE,
     CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
@@ -93,6 +95,16 @@ from .settings import DEFAULT_RUNTIME_SETTINGS
 DEFAULT_WATCH_AIRPORTS = ",".join(
     airport.iata for airport in DEFAULT_RUNTIME_SETTINGS.watch_policy.watch_airports
 )
+
+
+def _default_value_changed(defaults: dict[str, Any], key: str, default: float) -> bool:
+    """Return true when a stored numeric default differs from a profile default."""
+    if key not in defaults:
+        return False
+    try:
+        return float(defaults[key]) != default
+    except (TypeError, ValueError):
+        return False
 
 
 def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.Schema:
@@ -128,6 +140,33 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
         and str(watch_airports_default).strip().upper() == DEFAULT_WATCH_AIRPORTS
     ):
         watch_airports_default = ""
+    terminal_area_values_customized = any(
+        _default_value_changed(defaults, key, default)
+        for key, default in (
+            (CONF_TERMINAL_AREA_LATITUDE, default_terminal.latitude),
+            (CONF_TERMINAL_AREA_LONGITUDE, default_terminal.longitude),
+            (CONF_TERMINAL_AREA_RADIUS_KM, default_terminal.radius_km),
+            (CONF_TERMINAL_AREA_MAX_ALTITUDE_FT, default_terminal.max_altitude_ft),
+        )
+    )
+    runway_staging_values_customized = any(
+        _default_value_changed(defaults, key, default)
+        for key, default in (
+            (CONF_RUNWAY_STAGING_LATITUDE, default_staging.latitude),
+            (CONF_RUNWAY_STAGING_LONGITUDE, default_staging.longitude),
+            (CONF_RUNWAY_STAGING_RADIUS_KM, default_staging.radius_km),
+            (CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT, default_staging.max_altitude_ft),
+            (CONF_RUNWAY_STAGING_MAX_SPEED_KT, default_staging.max_speed_kt),
+        )
+    )
+    terminal_area_enabled_default = defaults.get(
+        CONF_TERMINAL_AREA_ENABLED,
+        default_local_airport or terminal_area_values_customized,
+    )
+    runway_staging_enabled_default = defaults.get(
+        CONF_RUNWAY_STAGING_ENABLED,
+        default_local_airport or runway_staging_values_customized,
+    )
     fields: dict[vol.Marker, Any] = {
         vol.Required(
             CONF_DUMP1090_URL,
@@ -210,6 +249,10 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
             ),
         ): vol.All(vol.Coerce(float), vol.Range(min=1.0, max=500.0)),
         vol.Required(
+            CONF_TERMINAL_AREA_ENABLED,
+            default=terminal_area_enabled_default,
+        ): bool,
+        vol.Required(
             CONF_TERMINAL_AREA_LATITUDE,
             default=defaults.get(CONF_TERMINAL_AREA_LATITUDE, default_terminal.latitude),
         ): vol.Coerce(float),
@@ -228,6 +271,10 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
                 default_terminal.max_altitude_ft,
             ),
         ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=60000.0)),
+        vol.Required(
+            CONF_RUNWAY_STAGING_ENABLED,
+            default=runway_staging_enabled_default,
+        ): bool,
         vol.Required(
             CONF_RUNWAY_STAGING_LATITUDE,
             default=defaults.get(CONF_RUNWAY_STAGING_LATITUDE, default_staging.latitude),

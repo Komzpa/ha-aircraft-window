@@ -33,6 +33,7 @@ from .const import (
     CONF_ROUTE_AIRLINE_PREFIX_OVERRIDES,
     CONF_ROUTE_CACHE_SECONDS,
     CONF_ROUTE_CALLSIGN_OVERRIDES,
+    CONF_RUNWAY_STAGING_ENABLED,
     CONF_RUNWAY_STAGING_LATITUDE,
     CONF_RUNWAY_STAGING_LONGITUDE,
     CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT,
@@ -48,6 +49,7 @@ from .const import (
     CONF_SPEECH_CITY_ROUTE_OVERRIDES,
     CONF_SPEECH_CITY_TO_OVERRIDES,
     CONF_SPEECH_MODEL_OVERRIDES,
+    CONF_TERMINAL_AREA_ENABLED,
     CONF_TERMINAL_AREA_LATITUDE,
     CONF_TERMINAL_AREA_LONGITUDE,
     CONF_TERMINAL_AREA_MAX_ALTITUDE_FT,
@@ -627,7 +629,7 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
         default_view.polygon_lon_lat if default_local_airport else ()
     )
 
-    custom_runway_staging = default_local_airport or any(
+    runway_staging_values_customized = any(
         _option_differs_from_default(options, key, default)
         for key, default in (
             (CONF_RUNWAY_STAGING_LATITUDE, default_staging.latitude),
@@ -636,6 +638,10 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
             (CONF_RUNWAY_STAGING_MAX_ALTITUDE_FT, default_staging.max_altitude_ft),
             (CONF_RUNWAY_STAGING_MAX_SPEED_KT, default_staging.max_speed_kt),
         )
+    )
+    runway_staging_enabled_default = default_local_airport or runway_staging_values_customized
+    runway_staging_enabled = bool(
+        options.get(CONF_RUNWAY_STAGING_ENABLED, runway_staging_enabled_default)
     )
     runway_staging_areas = (
         (
@@ -667,10 +673,10 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
                 ),
             ),
         )
-        if custom_runway_staging
+        if runway_staging_enabled
         else ()
     )
-    custom_terminal_area = default_local_airport or any(
+    terminal_area_values_customized = any(
         _option_differs_from_default(options, key, default)
         for key, default in (
             (CONF_TERMINAL_AREA_LATITUDE, default_terminal.latitude),
@@ -678,6 +684,10 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
             (CONF_TERMINAL_AREA_RADIUS_KM, default_terminal.radius_km),
             (CONF_TERMINAL_AREA_MAX_ALTITUDE_FT, default_terminal.max_altitude_ft),
         )
+    )
+    terminal_area_enabled_default = default_local_airport or terminal_area_values_customized
+    terminal_area_enabled = bool(
+        options.get(CONF_TERMINAL_AREA_ENABLED, terminal_area_enabled_default)
     )
     terminal_area = (
         TerminalArea(
@@ -702,7 +712,7 @@ def runtime_settings_from_options(options: dict[str, Any]) -> RuntimeSettings:
                 default_terminal.max_altitude_ft,
             ),
         )
-        if custom_terminal_area
+        if terminal_area_enabled
         else None
     )
     window_view = WindowViewProfile(

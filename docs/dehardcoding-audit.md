@@ -91,7 +91,9 @@ Current assumptions and status:
   fall back to the azimuth/radius model unless a polygon is configured.
 - Batumi terminal-area and runway-staging defaults are also inherited only by
   the default Batumi profile. Other local-airport profiles get no terminal or
-  staging geometry unless the stored values differ from the Batumi defaults.
+  staging geometry unless `terminal_area_enabled` or `runway_staging_enabled`
+  is set. Legacy non-Batumi entries with custom stored area coordinates are
+  treated as enabled during migration.
 
 Target shape:
 
