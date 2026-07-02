@@ -208,6 +208,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "built_year_cache_seconds": 99,
                 "airport_board_cache_seconds": 42,
                 "batumi_airport_board_base_url": "https://example.invalid/board/",
+                "json_airport_board_url": "https://example.invalid/canonical-board/",
                 "speech_airline_overrides_json": '{"New Visible Air": "Нью Визибл"}',
                 "speech_airline_alias_overrides_json": '{"Visible Airways": "Визибл"}',
                 "speech_airport_code_from_overrides_json": '{"XYZ": "Иксвайзеда"}',
@@ -297,6 +298,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(
             runtime_settings.providers.batumi_airport_board_base_url,
             "https://example.invalid/board",
+        )
+        self.assertEqual(
+            runtime_settings.providers.json_airport_board_url,
+            "https://example.invalid/canonical-board",
         )
         self.assertEqual(
             logic.airline_speech(

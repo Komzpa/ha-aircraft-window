@@ -27,8 +27,8 @@ Configuration surface today:
   window polygon JSON, terminal area, runway staging area, watched route airport
   codes, and provider base URL/cache options.
 - `strings.json` and translations mirror that schema.
-- Options still do not expose a friendly polygon editor, a generic
-  airport-board provider registry, or speech locale.
+- Options still do not expose a friendly polygon editor, a multi-provider
+  airport-board registry, or speech locale.
 
 ## Hardcoded Local Context
 
@@ -45,6 +45,9 @@ Current assumptions and status:
   Assistant config/options.
 - `airport_board_provider` can be cleared for generic installs. The Batumi
   board is only used when that provider is `batumi_airport_board`.
+- A `json_airport_board` provider can fetch a user-supplied canonical board JSON
+  endpoint, so non-Batumi installs can integrate their own adapter/proxy without
+  patching Python.
 - Schedule sensor/binary-sensor docstrings and README now say configured-airport
   departure while keeping the existing entity IDs.
 - Batumi board callsign-prefix mapping and row matching now live in
@@ -52,8 +55,9 @@ Current assumptions and status:
 - Built-in callsign and known-route fallbacks live in
   `custom_components/aircraft_window/route_fallbacks.py`; the current default
   data still includes Vanilla Sky `BUS <-> Natakhtari`.
-- Tests describe this as `BatumiAirportBoardTest`, which is accurate today but
-  means the provider contract is not yet generic.
+- Tests still group much of this under `BatumiAirportBoardTest`; canonical JSON
+  provider coverage is present, but a richer provider registry/test split is
+  still pending.
 
 Target shape:
 
@@ -61,8 +65,8 @@ Target shape:
   `iata`, `name`, `timezone`, optional `airport_board_provider`, optional
   `terminal_area`, and optional `runway_staging_areas`.
 - Move provider-specific Batumi board logic behind a provider interface:
-  disabled by default for new generic installs, `batumi_airport_board` as one
-  built-in provider.
+  disabled by default for new generic installs, `batumi_airport_board` and
+  canonical `json_airport_board` as built-in providers.
 - Rename user-facing schedule entities/docs to "configured airport" while
   keeping stable entity IDs for backward compatibility.
 - Keep a Batumi default profile for existing entries so current behavior does
@@ -172,7 +176,8 @@ Target shape:
 - Keep public provider defaults, but represent them as provider config:
   enabled flag, base URL, timeout, TTL.
 - Board providers should be optional because most airports will not have the
-  same JSON endpoint shape as Batumi.
+  same JSON endpoint shape as Batumi. Canonical JSON endpoints are supported as
+  an adapter boundary; native provider plugins/registry remain future work.
 - Provider errors should degrade to "no enrichment/board match" rather than
   changing the aircraft classification core.
 
@@ -198,9 +203,10 @@ Target shape:
    provider URL, timezone, and local airport IATA reads through those settings
    helpers while keeping current defaults.
 3. Partly done: Batumi airport board usage is optional through
-   `airport_board_provider`, and provider-specific row matching/fetch helpers
-   are split into `board_providers.py`. A fully generic multi-provider
-   registry/config surface is still pending.
+   `airport_board_provider`, provider-specific row matching/fetch helpers are
+   split into `board_providers.py`, and a canonical `json_airport_board`
+   endpoint can be configured. A richer multi-provider registry/config surface
+   is still pending.
 4. Done: expose configured `watch_airports`, local airport, and basic/raw-JSON
    view profile through config/options.
 5. Partly done: add `RussianSpeechPack`, override merge points, move the

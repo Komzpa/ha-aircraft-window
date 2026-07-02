@@ -9,8 +9,13 @@ from typing import Any
 from .logic import normalized_airport_city
 
 BATUMI_AIRPORT_BOARD_PROVIDER = "batumi_airport_board"
+JSON_AIRPORT_BOARD_PROVIDER = "json_airport_board"
 BATUMI_AIRPORT_BOARD_CACHE_PREFIX = "batumi-airport-board:"
-AIRPORT_BOARD_CACHE_PREFIXES = (BATUMI_AIRPORT_BOARD_CACHE_PREFIX,)
+GENERIC_AIRPORT_BOARD_CACHE_PREFIX = "airport-board:"
+AIRPORT_BOARD_CACHE_PREFIXES = (
+    BATUMI_AIRPORT_BOARD_CACHE_PREFIX,
+    GENERIC_AIRPORT_BOARD_CACHE_PREFIX,
+)
 
 BATUMI_CALLSIGN_PREFIX_TO_BOARD_AIRLINE = {
     "AIZ": "IZ",
@@ -44,7 +49,7 @@ def airport_board_cache_key(provider_id: str, today: str, flight_leg: str) -> st
     if provider_id == BATUMI_AIRPORT_BOARD_PROVIDER:
         return f"{BATUMI_AIRPORT_BOARD_CACHE_PREFIX}{today}:{flight_leg.lower()}"
     normalized_provider = provider_id.strip().replace("_", "-") or "airport-board"
-    return f"{normalized_provider}:{today}:{flight_leg.lower()}"
+    return f"{GENERIC_AIRPORT_BOARD_CACHE_PREFIX}{normalized_provider}:{today}:{flight_leg.lower()}"
 
 
 def batumi_airport_board_leg_request(
@@ -73,6 +78,18 @@ def batumi_airport_board_leg_request(
     )
 
 
+def json_airport_board_request(*, url: str) -> AirportBoardLegRequest:
+    """Return the canonical JSON airport board request shape."""
+    return AirportBoardLegRequest(
+        url=url,
+        params={},
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "HomeAssistantAircraftWindow/1.0",
+        },
+    )
+
+
 def airport_board_leg_for_phase(phase: str) -> str:
     """Return the board leg that matches a candidate movement phase."""
     if phase in {"positioned_landing", "positioned_approach"}:
@@ -90,14 +107,18 @@ def match_airport_board_row(
     preferred_leg: str = "",
 ) -> dict[str, Any]:
     """Match a callsign to an airport board row."""
-    if provider_id != BATUMI_AIRPORT_BOARD_PROVIDER:
+    if provider_id not in {BATUMI_AIRPORT_BOARD_PROVIDER, JSON_AIRPORT_BOARD_PROVIDER}:
         return {}
     token = flight.strip().replace(" ", "").upper()
     match = re.fullmatch(r"([A-Z]{2,3})([A-Z0-9]+)", token)
     if not match:
         return {}
     prefix, number = match.groups()
-    board_airline = BATUMI_CALLSIGN_PREFIX_TO_BOARD_AIRLINE.get(prefix, prefix)
+    board_airline = (
+        BATUMI_CALLSIGN_PREFIX_TO_BOARD_AIRLINE.get(prefix, prefix)
+        if provider_id == BATUMI_AIRPORT_BOARD_PROVIDER
+        else prefix
+    )
     rows = (((payload.get("data") or {}).get("flights")) or [])
     if not isinstance(rows, list):
         return {}

@@ -19,6 +19,7 @@ from .const import (
     CONF_BUILT_YEAR_CACHE_SECONDS,
     CONF_DAY_HUMAN_VISIBLE_RADIUS_KM,
     CONF_HEXDB_BASE_URL,
+    CONF_JSON_AIRPORT_BOARD_URL,
     CONF_LOCAL_AIRPORT_IATA,
     CONF_LOCAL_AIRPORT_NAME,
     CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
@@ -174,6 +175,7 @@ class ProviderSettings:
     built_year_cache_seconds: int
     airport_board_cache_seconds: int
     batumi_airport_board_base_url: str
+    json_airport_board_url: str
     batumi_airport_board_legs: dict[str, str]
 
 
@@ -250,6 +252,7 @@ DEFAULT_RUNTIME_SETTINGS = RuntimeSettings(
         built_year_cache_seconds=30 * 24 * 60 * 60,
         airport_board_cache_seconds=5 * 60,
         batumi_airport_board_base_url="https://batumiairport.com/Home/searchFlights",
+        json_airport_board_url="",
         batumi_airport_board_legs={
             "DEPARTURE": "/en-EN/flights/departure-flights",
             "ARRIVAL": "/en-EN/flights/arrival-flights",
@@ -484,6 +487,11 @@ def _provider_settings_from_options(options: dict[str, Any]) -> ProviderSettings
             options,
             CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
             defaults.batumi_airport_board_base_url,
+        ),
+        json_airport_board_url=_base_url_option(
+            options,
+            CONF_JSON_AIRPORT_BOARD_URL,
+            defaults.json_airport_board_url,
         ),
         batumi_airport_board_legs=defaults.batumi_airport_board_legs,
     )

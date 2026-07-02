@@ -26,6 +26,7 @@ from .const import (
     CONF_HEXDB_BASE_URL,
     CONF_HOME_LATITUDE,
     CONF_HOME_LONGITUDE,
+    CONF_JSON_AIRPORT_BOARD_URL,
     CONF_LOCAL_AIRPORT_IATA,
     CONF_LOCAL_AIRPORT_NAME,
     CONF_LOCAL_TIMEZONE_OFFSET_HOURS,
@@ -383,6 +384,13 @@ def _schema(defaults: dict[str, Any], *, include_home_coordinates: bool) -> vol.
             default=defaults.get(
                 CONF_BATUMI_AIRPORT_BOARD_BASE_URL,
                 DEFAULT_RUNTIME_SETTINGS.providers.batumi_airport_board_base_url,
+            ),
+        ): str,
+        vol.Optional(
+            CONF_JSON_AIRPORT_BOARD_URL,
+            default=defaults.get(
+                CONF_JSON_AIRPORT_BOARD_URL,
+                DEFAULT_RUNTIME_SETTINGS.providers.json_airport_board_url,
             ),
         ): str,
         vol.Optional(

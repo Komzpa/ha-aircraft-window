@@ -182,6 +182,11 @@ Provider base URLs for ADSBDB, HexDB, Airplanes.live, Airport-data.com, and the
 built-in Batumi airport board, plus the built-year and airport-board cache TTLs,
 and route/aircraft lookup cache TTLs, can be changed in the options flow while
 keeping the public defaults for normal installs.
+For airport boards beyond the built-in Batumi provider, set
+`airport_board_provider` to `json_airport_board` and point
+`json_airport_board_url` at a canonical JSON endpoint shaped like
+`{"data": {"flights": [...]}}` or `{"flights": [...]}` using the same row fields
+as the built-in board path.
 
 The same enrichment is used for special-interest matching and service
 classification. Military detection is best-effort and conservative: it uses

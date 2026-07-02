@@ -22,10 +22,12 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from .board_providers import (
     AIRPORT_BOARD_CACHE_PREFIXES,
     BATUMI_AIRPORT_BOARD_PROVIDER,
+    JSON_AIRPORT_BOARD_PROVIDER,
     airport_board_cache_key,
     airport_board_city,
     airport_board_leg_for_phase,
     batumi_airport_board_leg_request,
+    json_airport_board_request,
     match_airport_board_row,
 )
 from .const import (
@@ -1048,7 +1050,7 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         deadline: float | None = None,
     ) -> dict[str, Any]:
         """Return one live-board leg for the configured provider."""
-        if provider_id != BATUMI_AIRPORT_BOARD_PROVIDER:
+        if provider_id not in {BATUMI_AIRPORT_BOARD_PROVIDER, JSON_AIRPORT_BOARD_PROVIDER}:
             return {}
         cache_key = airport_board_cache_key(provider_id, today, flight_leg)
         cache = await self._async_cache()
@@ -1071,12 +1073,17 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
                 return {}
             request_timeout = min(request_timeout, remaining)
         providers = self.runtime_settings.providers
-        request = batumi_airport_board_leg_request(
-            base_url=providers.batumi_airport_board_base_url,
-            today=today,
-            flight_leg=flight_leg,
-            request_raw_url=request_raw_url,
-        )
+        if provider_id == BATUMI_AIRPORT_BOARD_PROVIDER:
+            request = batumi_airport_board_leg_request(
+                base_url=providers.batumi_airport_board_base_url,
+                today=today,
+                flight_leg=flight_leg,
+                request_raw_url=request_raw_url,
+            )
+        else:
+            if not providers.json_airport_board_url:
+                return {}
+            request = json_airport_board_request(url=providers.json_airport_board_url)
         try:
             async with session.get(
                 request.url,
@@ -1101,9 +1108,29 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
     ) -> dict[str, Any]:
         """Return the current configured airport live board."""
         provider_id = self.runtime_settings.local_airport.board_provider
-        if provider_id != BATUMI_AIRPORT_BOARD_PROVIDER:
+        if provider_id not in {BATUMI_AIRPORT_BOARD_PROVIDER, JSON_AIRPORT_BOARD_PROVIDER}:
             return {}
         today = datetime.now(self.runtime_settings.local_airport.timezone).strftime("%d.%m.%Y")
+        if provider_id == JSON_AIRPORT_BOARD_PROVIDER:
+            payload = await self._async_airport_board_leg(
+                session,
+                provider_id=provider_id,
+                today=today,
+                flight_leg="BOARD",
+                request_raw_url="",
+                cache_only=cache_only,
+                deadline=deadline,
+            )
+            if isinstance(payload.get("data"), dict):
+                return payload
+            if isinstance(payload.get("flights"), list):
+                return {
+                    "data": {
+                        "currentTime": str(payload.get("currentTime") or ""),
+                        "flights": payload["flights"],
+                    }
+                }
+            return {}
         flights: list[dict[str, Any]] = []
         current_time = ""
         for flight_leg, request_raw_url in (
