@@ -709,16 +709,17 @@ def candidate_airframe_key(candidate: AircraftCandidate) -> str:
     return candidate.event_key
 
 
-def _is_hex_token(value: str) -> bool:
-    """Return true when a flight label is just the transponder hex fallback."""
-    token = value.strip().lower()
-    return bool(token) and bool(re.fullmatch(r"[0-9a-f]{6}", token))
+def _matches_aircraft_hex(value: str, aircraft_hex: str) -> bool:
+    """Return true when a label is the actual transponder address for this aircraft."""
+    token = value.strip().replace(" ", "").replace("-", "").casefold()
+    hex_token = aircraft_hex.strip().replace(" ", "").replace("-", "").casefold()
+    return bool(token and hex_token and token == hex_token)
 
 
 def candidate_has_real_flight(candidate: AircraftCandidate) -> bool:
     """Return true when the candidate has a real callsign, not a hex fallback."""
     flight = candidate.flight.strip()
-    return bool(flight) and not _is_hex_token(flight)
+    return bool(flight) and not _matches_aircraft_hex(flight, candidate.hex)
 
 
 def _metadata_text(aircraft: dict[str, Any], enrichment: dict[str, Any]) -> str:
@@ -778,10 +779,11 @@ def is_helicopter(aircraft: dict[str, Any], enrichment: dict[str, Any]) -> bool:
 def is_military_aircraft(enrichment: dict[str, Any]) -> bool:
     """Return true when public owner/operator metadata identifies military traffic."""
     pack = DEFAULT_RUSSIAN_SPEECH_PACK
-    owner = str(
-        enrichment.get("registered_owner") or enrichment.get("airline_name") or ""
+    owner = " ".join(
+        str(enrichment.get(key) or "")
+        for key in ("registered_owner", "airline_name")
     ).lower()
-    operator = str(enrichment.get("operator_flag_code") or "").upper()
+    operator = str(enrichment.get("operator_flag_code") or "").strip().upper()
     if operator in pack.military_operator:
         return True
     return _has_standalone_token(owner, MILITARY_OWNER_TOKENS)
@@ -1052,16 +1054,21 @@ def military_operator_speech(enrichment: dict[str, Any]) -> str:
     operator = str(enrichment.get("operator_flag_code") or "").strip().upper()
     if operator in pack.military_operator:
         return pack.military_operator[operator]
-    owner = str(
-        enrichment.get("registered_owner") or enrichment.get("airline_name") or ""
-    ).strip()
-    folded_owner = " ".join(owner.casefold().split())
-    normalized_owner = " ".join(re.sub(r"[-_/]+", " ", folded_owner).split())
-    for key in (folded_owner, normalized_owner):
-        if owner_speech := pack.military_owner.get(key):
-            return owner_speech
-    if owner and has_airline_speech_mapping(owner, speech_pack=pack):
-        return airline_speech(owner, speech_pack=pack)
+    owners: list[tuple[str, str, str]] = []
+    for owner_field in ("airline_name", "registered_owner"):
+        owner = str(enrichment.get(owner_field) or "").strip()
+        folded_owner = " ".join(owner.casefold().split())
+        if not owner or folded_owner in GENERIC_REGISTERED_OWNERS:
+            continue
+        normalized_owner = " ".join(re.sub(r"[-_/]+", " ", folded_owner).split())
+        owners.append((owner, folded_owner, normalized_owner))
+    for _owner, folded_owner, normalized_owner in owners:
+        for key in (folded_owner, normalized_owner):
+            if owner_speech := pack.military_owner.get(key):
+                return owner_speech
+    for owner, folded_owner, _normalized_owner in owners:
+        if _has_standalone_token(folded_owner, MILITARY_OWNER_TOKENS):
+            return airline_speech(owner, speech_pack=pack)
     return ""
 
 
@@ -1496,21 +1503,19 @@ def has_routine_speech_context(enrichment: dict[str, Any]) -> bool:
     """Return true when a routine aircraft announcement has useful context."""
     if has_route_details(enrichment):
         return True
-    context_fields = (
-        "airline_name",
-        "registered_owner",
-    )
-    return any(str(enrichment.get(field) or "").strip() for field in context_fields)
+    if service_object_word(enrichment) != "самолёт":
+        return True
+    return bool(operator_name_for_speech(enrichment))
 
 
 def operator_name_for_speech(enrichment: dict[str, Any]) -> str:
     """Return a useful airline/owner name, excluding generic registry placeholders."""
-    airline_name = str(enrichment.get("airline_name") or "").strip()
-    if airline_name:
-        return airline_name
-    registered_owner = str(enrichment.get("registered_owner") or "").strip()
-    normalized_owner = " ".join(registered_owner.casefold().split())
-    return "" if normalized_owner in GENERIC_REGISTERED_OWNERS else registered_owner
+    for owner_field in ("airline_name", "registered_owner"):
+        name = str(enrichment.get(owner_field) or "").strip()
+        normalized_name = " ".join(name.casefold().split())
+        if name and normalized_name not in GENERIC_REGISTERED_OWNERS:
+            return name
+    return ""
 
 
 def suppress_unhelpful_flight_label(
@@ -1518,12 +1523,16 @@ def suppress_unhelpful_flight_label(
     *,
     airline: str,
     enrichment: dict[str, Any],
+    aircraft_hex: str = "",
 ) -> bool:
     """Return true when the flight label is likely just receiver noise or a tail."""
     token = flight.strip().replace(" ", "").replace("-", "").upper()
     if not token:
         return False
-    if _is_hex_token(token):
+    if _matches_aircraft_hex(
+        flight,
+        aircraft_hex or str(enrichment.get("hex") or ""),
+    ):
         return True
     registration = (
         str(enrichment.get("registration") or "")
@@ -1544,7 +1553,8 @@ def suppress_unhelpful_flight_label(
     prefix_match = re.fullmatch(r"([A-Z]{2,})(\d[0-9A-Z]*)", token)
     if not military or prefix_match is None:
         return False
-    trusted_prefixes = set(DEFAULT_RUSSIAN_SPEECH_PACK.callsign_prefix)
+    pack = DEFAULT_RUSSIAN_SPEECH_PACK
+    trusted_prefixes = set(pack.callsign_prefix) | set(pack.military_operator)
     operator = str(enrichment.get("operator_flag_code") or "").strip().upper()
     if operator:
         trusted_prefixes.add(operator)
@@ -1557,12 +1567,14 @@ def include_flight_number_in_speech(
     airline: str,
     enrichment: dict[str, Any],
     flight: str = "",
+    aircraft_hex: str = "",
 ) -> bool:
     """Return true when the flight number adds useful spoken identity."""
     if suppress_unhelpful_flight_label(
         flight,
         airline=airline,
         enrichment=enrichment,
+        aircraft_hex=aircraft_hex,
     ):
         return False
     if not airline:
@@ -1623,7 +1635,9 @@ def build_announcement(
         return ""
 
     label = flight_label(aircraft)
-    fallback_label = "" if _is_hex_token(label) or label == "unknown" else label
+    aircraft_hex = str(aircraft.get("hex") or "").strip()
+    label_is_hex = _matches_aircraft_hex(label, aircraft_hex)
+    fallback_label = "" if label_is_hex or label == "unknown" else label
     speech_pack = settings.speech_pack
     military_identity = is_military_aircraft(enrichment) or str(
         enrichment.get("service_type") or ""
@@ -1638,6 +1652,7 @@ def build_announcement(
         label,
         airline=airline,
         enrichment=enrichment,
+        aircraft_hex=aircraft_hex,
     ):
         fallback_label = ""
     model = str(
@@ -1653,7 +1668,7 @@ def build_announcement(
     ).strip()
     route_pair = route_pair_speech(enrichment, speech_pack=speech_pack)
     flight_number = str(enrichment.get("spoken_flight") or label).strip()
-    if _is_hex_token(label) or _is_hex_token(flight_number):
+    if label_is_hex or _matches_aircraft_hex(flight_number, aircraft_hex):
         flight_number = ""
     interest_type = str(enrichment.get("interest_type") or "").strip()
     has_position = (
@@ -1705,6 +1720,7 @@ def build_announcement(
             label,
             airline=operator,
             enrichment=enrichment,
+            aircraft_hex=aircraft_hex,
         ):
             flight_number = ""
         subject = " ".join(part for part in [operator, flight_number] if part)
@@ -1715,6 +1731,7 @@ def build_announcement(
             airline=airline,
             enrichment=enrichment,
             flight=label,
+            aircraft_hex=aircraft_hex,
         ):
             subject_parts.append(flight_number)
         subject = " ".join(part for part in subject_parts if part)
@@ -1821,7 +1838,7 @@ def build_followup_announcement(
     ):
         airline = airline_speech(current.airline_name)
         flight = current.spoken_flight or current.flight
-        if _is_hex_token(flight):
+        if _matches_aircraft_hex(flight, current.hex):
             flight = ""
         identity_parts = [airline]
         if include_flight_number_in_speech(
@@ -1829,6 +1846,7 @@ def build_followup_announcement(
             airline=airline,
             enrichment=current.as_dict(),
             flight=current.flight,
+            aircraft_hex=current.hex,
         ):
             identity_parts.append(flight)
         identity = " ".join(part for part in identity_parts if part)

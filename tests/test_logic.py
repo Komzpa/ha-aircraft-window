@@ -1259,6 +1259,26 @@ class AircraftWindowLogicTest(unittest.TestCase):
             "",
         )
 
+    def test_routine_aircraft_with_only_generic_owner_is_silent(self) -> None:
+        aircraft = {"hex": "abc123", "flight": "ABC123"}
+        for enrichment in (
+            {"registered_owner": "Private Owner"},
+            {"airline_name": "Unknown"},
+        ):
+            with self.subTest(enrichment=enrichment):
+                self.assertEqual(
+                    logic.build_announcement(
+                        aircraft,
+                        "positioned_approach",
+                        0.7,
+                        {
+                            **enrichment,
+                            "spoken_flight": logic.spoken_flight("ABC123"),
+                        },
+                    ),
+                    "",
+                )
+
     def test_routine_aircraft_with_only_model_is_silent(self) -> None:
         self.assertEqual(
             logic.build_announcement(
@@ -1760,6 +1780,43 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertNotIn("Форке", text)
         self.assertNotIn("ю кей", text)
         self.assert_tts_has_no_latin(text)
+
+    def test_military_placeholder_uses_airline_and_known_callsign_prefix(self) -> None:
+        placeholder = {
+            "registered_owner": "Private Owner",
+            "airline_name": "Polish Air Force",
+            "aircraft_model_speech": logic.spoken_model("C-295 M", "C295"),
+            "spoken_flight": logic.spoken_flight("PLF123", airline_icao="PLF"),
+        }
+        conflicting_owner = {**placeholder, "registered_owner": "Fly One"}
+        polish = logic.build_announcement(
+            {"hex": "48d841", "flight": "PLF123"},
+            "military_visible",
+            0.9,
+            conflicting_owner,
+        )
+        reach = logic.build_announcement(
+            {"hex": "ae1234", "flight": "RCH123"},
+            "military_visible",
+            0.9,
+            {
+                "registered_owner": "United States Air Force",
+                "spoken_flight": logic.spoken_flight("RCH123"),
+            },
+        )
+
+        self.assertTrue(logic.is_military_aircraft(placeholder))
+        self.assertEqual(logic.military_operator_speech(placeholder), "Польские ВВС")
+        self.assertEqual(logic.military_operator_speech(conflicting_owner), "Польские ВВС")
+        self.assertEqual(
+            logic.military_operator_speech({"registered_owner": "Royal Air Force"}),
+            "Королевские ВВС",
+        )
+        self.assertTrue(
+            logic.military_operator_speech({"registered_owner": "Example Air Force"})
+        )
+        self.assertIn("Польские ВВС один два три", polish)
+        self.assertIn("ВВС США один два три", reach)
 
     def test_civil_silk_way_il76_is_cargo_not_military(self) -> None:
         enrichment = {
@@ -2538,6 +2595,23 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertNotIn("ю ти", mixed)
         self.assertIn("один два три", numeric)
 
+    def test_hex_like_commercial_callsign_uses_actual_aircraft_hex(self) -> None:
+        text = logic.build_announcement(
+            {"hex": "4bce01", "flight": "FDB123"},
+            "special_interest",
+            0.7,
+            {
+                "airline_name": "Flydubai",
+                "spoken_flight": logic.spoken_flight("FDB123", airline_icao="FDB"),
+                "interest_type": "orbiting",
+                "interest_label": "похоже на круговой манёвр",
+            },
+        )
+
+        self.assertIn("Флай Дубай один два три", text)
+        self.assertNotIn("4bce01", text.casefold())
+
+
     def test_speech_helpers(self) -> None:
         self.assertEqual(logic.spoken_flight("RWZ553", airline_icao="RWZ"), "пять пять три")
         self.assertEqual(
@@ -2784,13 +2858,13 @@ class AircraftWindowLogicTest(unittest.TestCase):
             },
         )
         hex_like = logic.build_announcement(
-            {"hex": "4caebb", "flight": "4CAEBB"},
+            {"hex": "4caebb", "flight": "4C-AEBB"},
             "positioned_takeoff",
             0.92,
             {
                 "airline_name": "FlyArystan",
                 "aircraft_model_speech": "Аэробус триста двадцать",
-                "spoken_flight": logic.spoken_flight("4CAEBB"),
+                "spoken_flight": logic.spoken_flight("4C-AEBB"),
             },
         )
         military = logic.build_announcement(
