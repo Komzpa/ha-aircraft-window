@@ -1467,7 +1467,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertNotIn("125 850XP", text)
         self.assert_tts_has_no_latin(text)
 
-    def test_positioned_pegasus_mixed_callsign_has_no_latin_for_tts(self) -> None:
+    def test_positioned_pegasus_mixed_callsign_is_not_spoken(self) -> None:
         text = logic.build_announcement(
             {"hex": "4bb862", "flight": "PGT48DK"},
             "positioned_takeoff",
@@ -1482,7 +1482,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
             },
         )
 
-        self.assertIn("Вылетает самолёт Пегасус четыре восемь ди кей.", text)
+        self.assertIn("Вылетает самолёт Пегасус.", text)
+        self.assertNotIn("четыре восемь ди кей", text)
         self.assertIn("Аэробус триста двадцать", text)
         self.assertNotIn("PGT48DK", text)
         self.assert_tts_has_no_latin(text)
@@ -1620,7 +1621,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
             enrichment={
                 "aircraft_model": "C-295 M",
                 "aircraft_type": "C295",
-                "aircraft_model_speech": "C-295 M",
+                "aircraft_model_speech": logic.spoken_model("C-295 M", "C295"),
                 "registration": "012",
                 "registered_owner": "Polish Air Force",
                 "operator_flag_code": "PLF",
@@ -1633,7 +1634,7 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertEqual(candidate.phase, "military_visible")
         self.assertIn("Военный самолёт", candidate.announcement)
         self.assertIn("Польские ВВС", candidate.announcement)
-        self.assertIn("си два девять пять эм", candidate.announcement)
+        self.assertIn("Си-двести девяносто пять", candidate.announcement)
         self.assert_tts_has_no_latin(candidate.announcement)
 
     def test_usaf_spar_huron_military_announcement_is_readable(self) -> None:
@@ -1701,6 +1702,64 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertNotIn("Френч", candidate.announcement)
         self.assertNotIn("Форке", candidate.announcement)
         self.assert_tts_has_no_latin(candidate.announcement)
+
+    def test_military_owner_mapping_applies_outside_military_phase(self) -> None:
+        enrichment = {
+            "registered_owner": "Turkish Air Force",
+            "operator_flag_code": "HVK",
+            "service_type": "military",
+            "service_type_confidence": 0.9,
+            "aircraft_model": "A400M",
+            "aircraft_model_speech": logic.spoken_model("A400M", "A400"),
+            "registration": "15-0051",
+            "spoken_flight": logic.spoken_flight("ESEN17", airline_icao="HVK"),
+        }
+        aircraft = {"hex": "4b820f", "flight": "ESEN17"}
+
+        approach = logic.build_announcement(
+            aircraft,
+            "positioned_approach",
+            0.9,
+            enrichment,
+        )
+        special = logic.build_announcement(
+            aircraft,
+            "special_interest",
+            0.9,
+            {
+                **enrichment,
+                "interest_type": "orbiting",
+                "interest_label": "похоже на круговой манёвр",
+            },
+        )
+
+        self.assertIn("военный самолёт ВВС Турции", approach)
+        self.assertIn("ВВС Турции", special)
+        self.assertNotIn("Форке", approach + special)
+        self.assertNotIn("и эс и эн", approach + special)
+
+    def test_uzbek_air_force_and_c295_announcement_is_readable(self) -> None:
+        text = logic.build_announcement(
+            {"hex": "507f83", "flight": "UK29503"},
+            "military_visible",
+            0.9,
+            {
+                "registered_owner": "Uzbekistan Air Force",
+                "operator_flag_code": "C295",
+                "service_type": "military",
+                "service_type_confidence": 0.9,
+                "aircraft_model": "C-295 W",
+                "aircraft_model_speech": logic.spoken_model("C-295 W", "C295"),
+                "registration": "03 White",
+                "spoken_flight": logic.spoken_flight("UK29503"),
+            },
+        )
+
+        self.assertIn("ВВС Узбекистана", text)
+        self.assertIn("Си-двести девяносто пять", text)
+        self.assertNotIn("Форке", text)
+        self.assertNotIn("ю кей", text)
+        self.assert_tts_has_no_latin(text)
 
     def test_civil_silk_way_il76_is_cargo_not_military(self) -> None:
         enrichment = {
@@ -2445,6 +2504,40 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertNotIn("Ларнаки - Кутаиси", candidate.announcement)
         self.assertFalse(candidate.unusual_aircraft)
 
+    def test_mixed_callsign_is_suppressed_but_numeric_flight_is_kept(self) -> None:
+        common = {
+            "airline_name": "Wizz Air",
+            "origin_iata": "KUT",
+            "origin_name": "Kopitnari (KUT)",
+            "origin_speech": "Кутаиси",
+            "destination_iata": "KTW",
+            "destination_name": "Katowice (KTW)",
+            "destination_speech": "Катовице",
+        }
+        mixed = logic.build_announcement(
+            {"hex": "4d2455", "flight": "WZZ27UT"},
+            "kutaisi_route",
+            0.68,
+            {
+                **common,
+                "spoken_flight": logic.spoken_flight("WZZ27UT"),
+            },
+        )
+        numeric = logic.build_announcement(
+            {"hex": "abc123", "flight": "WZZ123"},
+            "kutaisi_route",
+            0.68,
+            {
+                **common,
+                "spoken_flight": logic.spoken_flight("WZZ123"),
+            },
+        )
+
+        self.assertIn("Визз Эйр", mixed)
+        self.assertNotIn("дабл-ю зет зет", mixed)
+        self.assertNotIn("ю ти", mixed)
+        self.assertIn("один два три", numeric)
+
     def test_speech_helpers(self) -> None:
         self.assertEqual(logic.spoken_flight("RWZ553", airline_icao="RWZ"), "пять пять три")
         self.assertEqual(
@@ -2587,6 +2680,10 @@ class AircraftWindowLogicTest(unittest.TestCase):
             logic.military_operator_speech({"registered_owner": "Turkish Air Force"}),
             "ВВС Турции",
         )
+        self.assertEqual(
+            logic.military_operator_speech({"registered_owner": "Polish Air Force"}),
+            "Польские ВВС",
+        )
 
     def test_georgian_airways_followup_does_not_spell_airline_letters(self) -> None:
         previous = logic.AircraftCandidate(
@@ -2707,6 +2804,29 @@ class AircraftWindowLogicTest(unittest.TestCase):
                 "spoken_flight": logic.spoken_flight("PAID16"),
             },
         )
+        numeric_hex = logic.build_announcement(
+            {"hex": "896585"},
+            "special_interest",
+            0.62,
+            {
+                "spoken_flight": logic.spoken_flight("896585"),
+                "interest_type": "orbiting",
+                "interest_label": "похоже на круговой манёвр",
+            },
+        )
+        corporate = logic.build_announcement(
+            {"hex": "4bd12d", "flight": "TCTIM"},
+            "positioned_approach",
+            0.58,
+            {
+                "registered_owner": "Corporate",
+                "service_type": "business_jet",
+                "service_type_confidence": 0.72,
+                "aircraft_model_speech": "Хокер восемьсот пятьдесят икс пи",
+                "registration": "TC-TIM",
+                "spoken_flight": logic.spoken_flight("TCTIM"),
+            },
+        )
 
         self.assertIn("Генел Хаваджылык", business)
         self.assertNotIn("ти си эн уай кей", business)
@@ -2715,9 +2835,16 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("ВВС США", military)
         self.assertNotIn("пи эй ай ди", military)
         self.assertIn("Си-сто сорок шесть", military)
+        self.assertNotIn("восемь девять шесть пять восемь пять", numeric_hex)
+        self.assertIn("похоже на круговой манёвр", numeric_hex)
+        self.assertIn("Заходит на посадку бизнес-джет.", corporate)
+        self.assertNotIn("Корпорате", corporate)
+        self.assertNotIn("ти си ти", corporate)
         self.assert_tts_has_no_latin(business)
         self.assert_tts_has_no_latin(hex_like)
         self.assert_tts_has_no_latin(military)
+        self.assert_tts_has_no_latin(numeric_hex)
+        self.assert_tts_has_no_latin(corporate)
         self.assertEqual(
             logic.airport_speech(
                 {

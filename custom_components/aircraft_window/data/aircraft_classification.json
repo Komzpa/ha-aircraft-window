@@ -120,6 +120,13 @@
     "HAWKER",
     "LEARJET"
   ],
+  "generic_registered_owners": [
+    "Corporate",
+    "Individual",
+    "Private",
+    "Private Owner",
+    "Unknown"
+  ],
   "military_owner_tokens": [
     "air force",
     "airforce",
