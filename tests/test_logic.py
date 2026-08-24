@@ -2560,6 +2560,8 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertIn("Ларнака - Кутаиси", candidate.announcement)
         self.assertNotIn("Ларнаки - Кутаиси", candidate.announcement)
         self.assertFalse(candidate.unusual_aircraft)
+        self.assertFalse(candidate.window_visible)
+        self.assertFalse(candidate.window_preopen_needed)
 
     def test_mixed_callsign_is_suppressed_but_numeric_flight_is_kept(self) -> None:
         common = {

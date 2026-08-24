@@ -2190,11 +2190,12 @@ def candidate_from_aircraft(
         )
     window_visible = bool(classifier.get("window_visible"))
     window_preopen_needed = bool(classifier.get("window_preopen_needed"))
-    if phase in {"military_visible", "special_interest"} or settings.watch_policy.airport_phase(
-        phase
-    ):
+    if phase in {"military_visible", "special_interest"}:
         window_visible = bool(classifier.get("window_visible", True))
         window_preopen_needed = bool(classifier.get("window_preopen_needed", window_visible))
+    elif settings.watch_policy.airport_phase(phase):
+        window_visible = bool(classifier.get("window_visible", False))
+        window_preopen_needed = bool(classifier.get("window_preopen_needed", False))
 
     return AircraftCandidate(
         state=make_key(aircraft, phase),
