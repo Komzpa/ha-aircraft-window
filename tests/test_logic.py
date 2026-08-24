@@ -2563,6 +2563,103 @@ class AircraftWindowLogicTest(unittest.TestCase):
         self.assertFalse(candidate.window_visible)
         self.assertFalse(candidate.window_preopen_needed)
 
+    def test_short_idle_gap_keeps_previous_candidate_stable(self) -> None:
+        previous = logic.AircraftCandidate(
+            state="positioned_takeoff:abc123:WZZ123",
+            phase="positioned_takeoff",
+            confidence=0.82,
+            confidence_reason="position 2.0 km from home",
+            event_key="positioned_takeoff:abc123:WZZ123",
+            hex="abc123",
+            flight="WZZ123",
+            window_visible=True,
+            updated_at=1000,
+            source="test-live",
+            aircraft_count=12,
+        )
+        current = logic.idle_candidate(
+            "no nearby landing/takeoff candidate",
+            source="test-live",
+            aircraft_count=11,
+        )
+
+        held = logic.hold_candidate_through_short_idle_gap(
+            previous,
+            current,
+            now=1045,
+        )
+
+        self.assertEqual(held.state, previous.state)
+        self.assertTrue(held.window_visible)
+        self.assertTrue(held.announcement_suppressed)
+        self.assertEqual(
+            held.announcement_suppression_reason,
+            "held through short receiver idle gap",
+        )
+        self.assertIn("last active candidate 45s ago", held.confidence_reason)
+        self.assertEqual(held.aircraft_count, 11)
+
+    def test_short_idle_gap_hold_expires(self) -> None:
+        previous = logic.AircraftCandidate(
+            state="positioned_takeoff:abc123:WZZ123",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:abc123:WZZ123",
+            hex="abc123",
+            updated_at=1000,
+        )
+        current = logic.idle_candidate("no nearby landing/takeoff candidate")
+
+        result = logic.hold_candidate_through_short_idle_gap(
+            previous,
+            current,
+            now=1121,
+            max_gap_seconds=120,
+        )
+
+        self.assertEqual(result.state, "idle")
+
+    def test_short_idle_gap_hold_does_not_replace_active_candidate(self) -> None:
+        previous = logic.AircraftCandidate(
+            state="positioned_takeoff:abc123:WZZ123",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:abc123:WZZ123",
+            hex="abc123",
+            updated_at=1000,
+        )
+        current = logic.AircraftCandidate(
+            state="positioned_landing:def456:ABC456",
+            phase="positioned_landing",
+            event_key="positioned_landing:def456:ABC456",
+            hex="def456",
+            updated_at=1040,
+        )
+
+        result = logic.hold_candidate_through_short_idle_gap(
+            previous,
+            current,
+            now=1045,
+        )
+
+        self.assertIs(result, current)
+
+    def test_short_idle_gap_hold_does_not_mask_source_errors(self) -> None:
+        previous = logic.AircraftCandidate(
+            state="positioned_takeoff:abc123:WZZ123",
+            phase="positioned_takeoff",
+            event_key="positioned_takeoff:abc123:WZZ123",
+            hex="abc123",
+            updated_at=1000,
+        )
+        current = logic.idle_candidate("dump1090 unavailable: timeout")
+
+        result = logic.hold_candidate_through_short_idle_gap(
+            previous,
+            current,
+            now=1045,
+        )
+
+        self.assertEqual(result.state, "idle")
+
     def test_mixed_callsign_is_suppressed_but_numeric_flight_is_kept(self) -> None:
         common = {
             "airline_name": "Wizz Air",

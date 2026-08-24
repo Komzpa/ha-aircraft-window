@@ -7,7 +7,7 @@ import math
 import re
 import time
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -1890,6 +1890,36 @@ def idle_candidate(reason: str, *, source: str = "", aircraft_count: int = 0) ->
         confidence_reason=reason,
         source=source,
         aircraft_count=aircraft_count,
+    )
+
+
+def hold_candidate_through_short_idle_gap(
+    previous: AircraftCandidate | None,
+    current: AircraftCandidate,
+    *,
+    now: float | None = None,
+    max_gap_seconds: float = 120.0,
+) -> AircraftCandidate:
+    """Keep one aircraft pass stable through a short no-candidate receiver gap."""
+    if current.active or previous is None or not previous.active:
+        return current
+    if current.confidence_reason != "no nearby landing/takeoff candidate":
+        return current
+    now = time.time() if now is None else now
+    gap_seconds = now - previous.updated_at
+    if gap_seconds < 0 or gap_seconds > max_gap_seconds:
+        return current
+    return replace(
+        previous,
+        confidence_reason=(
+            "held through short receiver idle gap; "
+            f"last active candidate {gap_seconds:.0f}s ago; "
+            f"idle reason: {current.confidence_reason}"
+        ),
+        source=current.source or previous.source,
+        aircraft_count=current.aircraft_count,
+        announcement_suppressed=True,
+        announcement_suppression_reason="held through short receiver idle gap",
     )
 
 

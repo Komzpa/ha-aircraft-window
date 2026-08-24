@@ -87,6 +87,7 @@ from .logic import (
     has_airport_speech_mapping,
     has_callsign_prefix_speech_mapping,
     has_route_details,
+    hold_candidate_through_short_idle_gap,
     idle_candidate,
     interest_candidate,
     known_airline_for_callsign,
@@ -453,6 +454,10 @@ class AircraftWindowCoordinator(DataUpdateCoordinator[AircraftCandidate]):
         ):
             base_candidate = special_candidate
 
+        base_candidate = hold_candidate_through_short_idle_gap(
+            self.data,
+            base_candidate,
+        )
         if base_candidate.active:
             base_candidate = self._apply_routine_hex_announcement_hold(base_candidate)
             self._handle_candidate_event(base_candidate, apply_hold=False)
